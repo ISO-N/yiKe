@@ -1362,6 +1362,17 @@ class $ReviewTasksTable extends ReviewTasks
         type: DriftSqlType.dateTime,
         requiredDuringInsert: true,
       );
+  static const VerificationMeta _occurredAtMeta = const VerificationMeta(
+    'occurredAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> occurredAt = GeneratedColumn<DateTime>(
+    'occurred_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _statusMeta = const VerificationMeta('status');
   @override
   late final GeneratedColumn<String> status = GeneratedColumn<String>(
@@ -1439,6 +1450,7 @@ class $ReviewTasksTable extends ReviewTasks
     learningItemId,
     reviewRound,
     scheduledDate,
+    occurredAt,
     status,
     completedAt,
     skippedAt,
@@ -1499,6 +1511,12 @@ class $ReviewTasksTable extends ReviewTasks
       );
     } else if (isInserting) {
       context.missing(_scheduledDateMeta);
+    }
+    if (data.containsKey('occurred_at')) {
+      context.handle(
+        _occurredAtMeta,
+        occurredAt.isAcceptableOrUnknown(data['occurred_at']!, _occurredAtMeta),
+      );
     }
     if (data.containsKey('status')) {
       context.handle(
@@ -1571,6 +1589,10 @@ class $ReviewTasksTable extends ReviewTasks
         DriftSqlType.dateTime,
         data['${effectivePrefix}scheduled_date'],
       )!,
+      occurredAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}occurred_at'],
+      ),
       status: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}status'],
@@ -1626,6 +1648,18 @@ class ReviewTask extends DataClass implements Insertable<ReviewTask> {
   /// 计划复习日期。
   final DateTime scheduledDate;
 
+  /// 任务发生时间（用于任务中心时间线排序与游标分页）。
+  ///
+  /// 口径（与 spec-performance-optimization.md 一致）：
+  /// - pending：occurredAt = scheduledDate
+  /// - done：occurredAt = completedAt ?? scheduledDate
+  /// - skipped：occurredAt = skippedAt ?? scheduledDate
+  ///
+  /// 说明：
+  /// - 该列为性能优化新增列（v10），用于避免分页查询中反复计算 CASE/COALESCE 导致索引失效
+  /// - 迁移会回填历史数据；应用层在所有写入口维护该列，尽量保证非空
+  final DateTime? occurredAt;
+
   /// 任务状态：pending(待复习)/done(已完成)/skipped(已跳过)。
   final String status;
 
@@ -1649,6 +1683,7 @@ class ReviewTask extends DataClass implements Insertable<ReviewTask> {
     required this.learningItemId,
     required this.reviewRound,
     required this.scheduledDate,
+    this.occurredAt,
     required this.status,
     this.completedAt,
     this.skippedAt,
@@ -1664,6 +1699,9 @@ class ReviewTask extends DataClass implements Insertable<ReviewTask> {
     map['learning_item_id'] = Variable<int>(learningItemId);
     map['review_round'] = Variable<int>(reviewRound);
     map['scheduled_date'] = Variable<DateTime>(scheduledDate);
+    if (!nullToAbsent || occurredAt != null) {
+      map['occurred_at'] = Variable<DateTime>(occurredAt);
+    }
     map['status'] = Variable<String>(status);
     if (!nullToAbsent || completedAt != null) {
       map['completed_at'] = Variable<DateTime>(completedAt);
@@ -1686,6 +1724,9 @@ class ReviewTask extends DataClass implements Insertable<ReviewTask> {
       learningItemId: Value(learningItemId),
       reviewRound: Value(reviewRound),
       scheduledDate: Value(scheduledDate),
+      occurredAt: occurredAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(occurredAt),
       status: Value(status),
       completedAt: completedAt == null && nullToAbsent
           ? const Value.absent()
@@ -1712,6 +1753,7 @@ class ReviewTask extends DataClass implements Insertable<ReviewTask> {
       learningItemId: serializer.fromJson<int>(json['learningItemId']),
       reviewRound: serializer.fromJson<int>(json['reviewRound']),
       scheduledDate: serializer.fromJson<DateTime>(json['scheduledDate']),
+      occurredAt: serializer.fromJson<DateTime?>(json['occurredAt']),
       status: serializer.fromJson<String>(json['status']),
       completedAt: serializer.fromJson<DateTime?>(json['completedAt']),
       skippedAt: serializer.fromJson<DateTime?>(json['skippedAt']),
@@ -1729,6 +1771,7 @@ class ReviewTask extends DataClass implements Insertable<ReviewTask> {
       'learningItemId': serializer.toJson<int>(learningItemId),
       'reviewRound': serializer.toJson<int>(reviewRound),
       'scheduledDate': serializer.toJson<DateTime>(scheduledDate),
+      'occurredAt': serializer.toJson<DateTime?>(occurredAt),
       'status': serializer.toJson<String>(status),
       'completedAt': serializer.toJson<DateTime?>(completedAt),
       'skippedAt': serializer.toJson<DateTime?>(skippedAt),
@@ -1744,6 +1787,7 @@ class ReviewTask extends DataClass implements Insertable<ReviewTask> {
     int? learningItemId,
     int? reviewRound,
     DateTime? scheduledDate,
+    Value<DateTime?> occurredAt = const Value.absent(),
     String? status,
     Value<DateTime?> completedAt = const Value.absent(),
     Value<DateTime?> skippedAt = const Value.absent(),
@@ -1756,6 +1800,7 @@ class ReviewTask extends DataClass implements Insertable<ReviewTask> {
     learningItemId: learningItemId ?? this.learningItemId,
     reviewRound: reviewRound ?? this.reviewRound,
     scheduledDate: scheduledDate ?? this.scheduledDate,
+    occurredAt: occurredAt.present ? occurredAt.value : this.occurredAt,
     status: status ?? this.status,
     completedAt: completedAt.present ? completedAt.value : this.completedAt,
     skippedAt: skippedAt.present ? skippedAt.value : this.skippedAt,
@@ -1776,6 +1821,9 @@ class ReviewTask extends DataClass implements Insertable<ReviewTask> {
       scheduledDate: data.scheduledDate.present
           ? data.scheduledDate.value
           : this.scheduledDate,
+      occurredAt: data.occurredAt.present
+          ? data.occurredAt.value
+          : this.occurredAt,
       status: data.status.present ? data.status.value : this.status,
       completedAt: data.completedAt.present
           ? data.completedAt.value
@@ -1797,6 +1845,7 @@ class ReviewTask extends DataClass implements Insertable<ReviewTask> {
           ..write('learningItemId: $learningItemId, ')
           ..write('reviewRound: $reviewRound, ')
           ..write('scheduledDate: $scheduledDate, ')
+          ..write('occurredAt: $occurredAt, ')
           ..write('status: $status, ')
           ..write('completedAt: $completedAt, ')
           ..write('skippedAt: $skippedAt, ')
@@ -1814,6 +1863,7 @@ class ReviewTask extends DataClass implements Insertable<ReviewTask> {
     learningItemId,
     reviewRound,
     scheduledDate,
+    occurredAt,
     status,
     completedAt,
     skippedAt,
@@ -1830,6 +1880,7 @@ class ReviewTask extends DataClass implements Insertable<ReviewTask> {
           other.learningItemId == this.learningItemId &&
           other.reviewRound == this.reviewRound &&
           other.scheduledDate == this.scheduledDate &&
+          other.occurredAt == this.occurredAt &&
           other.status == this.status &&
           other.completedAt == this.completedAt &&
           other.skippedAt == this.skippedAt &&
@@ -1844,6 +1895,7 @@ class ReviewTasksCompanion extends UpdateCompanion<ReviewTask> {
   final Value<int> learningItemId;
   final Value<int> reviewRound;
   final Value<DateTime> scheduledDate;
+  final Value<DateTime?> occurredAt;
   final Value<String> status;
   final Value<DateTime?> completedAt;
   final Value<DateTime?> skippedAt;
@@ -1856,6 +1908,7 @@ class ReviewTasksCompanion extends UpdateCompanion<ReviewTask> {
     this.learningItemId = const Value.absent(),
     this.reviewRound = const Value.absent(),
     this.scheduledDate = const Value.absent(),
+    this.occurredAt = const Value.absent(),
     this.status = const Value.absent(),
     this.completedAt = const Value.absent(),
     this.skippedAt = const Value.absent(),
@@ -1869,6 +1922,7 @@ class ReviewTasksCompanion extends UpdateCompanion<ReviewTask> {
     required int learningItemId,
     required int reviewRound,
     required DateTime scheduledDate,
+    this.occurredAt = const Value.absent(),
     this.status = const Value.absent(),
     this.completedAt = const Value.absent(),
     this.skippedAt = const Value.absent(),
@@ -1884,6 +1938,7 @@ class ReviewTasksCompanion extends UpdateCompanion<ReviewTask> {
     Expression<int>? learningItemId,
     Expression<int>? reviewRound,
     Expression<DateTime>? scheduledDate,
+    Expression<DateTime>? occurredAt,
     Expression<String>? status,
     Expression<DateTime>? completedAt,
     Expression<DateTime>? skippedAt,
@@ -1897,6 +1952,7 @@ class ReviewTasksCompanion extends UpdateCompanion<ReviewTask> {
       if (learningItemId != null) 'learning_item_id': learningItemId,
       if (reviewRound != null) 'review_round': reviewRound,
       if (scheduledDate != null) 'scheduled_date': scheduledDate,
+      if (occurredAt != null) 'occurred_at': occurredAt,
       if (status != null) 'status': status,
       if (completedAt != null) 'completed_at': completedAt,
       if (skippedAt != null) 'skipped_at': skippedAt,
@@ -1912,6 +1968,7 @@ class ReviewTasksCompanion extends UpdateCompanion<ReviewTask> {
     Value<int>? learningItemId,
     Value<int>? reviewRound,
     Value<DateTime>? scheduledDate,
+    Value<DateTime?>? occurredAt,
     Value<String>? status,
     Value<DateTime?>? completedAt,
     Value<DateTime?>? skippedAt,
@@ -1925,6 +1982,7 @@ class ReviewTasksCompanion extends UpdateCompanion<ReviewTask> {
       learningItemId: learningItemId ?? this.learningItemId,
       reviewRound: reviewRound ?? this.reviewRound,
       scheduledDate: scheduledDate ?? this.scheduledDate,
+      occurredAt: occurredAt ?? this.occurredAt,
       status: status ?? this.status,
       completedAt: completedAt ?? this.completedAt,
       skippedAt: skippedAt ?? this.skippedAt,
@@ -1951,6 +2009,9 @@ class ReviewTasksCompanion extends UpdateCompanion<ReviewTask> {
     }
     if (scheduledDate.present) {
       map['scheduled_date'] = Variable<DateTime>(scheduledDate.value);
+    }
+    if (occurredAt.present) {
+      map['occurred_at'] = Variable<DateTime>(occurredAt.value);
     }
     if (status.present) {
       map['status'] = Variable<String>(status.value);
@@ -1981,6 +2042,7 @@ class ReviewTasksCompanion extends UpdateCompanion<ReviewTask> {
           ..write('learningItemId: $learningItemId, ')
           ..write('reviewRound: $reviewRound, ')
           ..write('scheduledDate: $scheduledDate, ')
+          ..write('occurredAt: $occurredAt, ')
           ..write('status: $status, ')
           ..write('completedAt: $completedAt, ')
           ..write('skippedAt: $skippedAt, ')
@@ -5871,6 +5933,14 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     'idx_skipped_at_status',
     'CREATE INDEX idx_skipped_at_status ON review_tasks (skipped_at, status)',
   );
+  late final Index idxOccurredAtId = Index(
+    'idx_occurred_at_id',
+    'CREATE INDEX idx_occurred_at_id ON review_tasks (occurred_at, id)',
+  );
+  late final Index idxStatusOccurredAtId = Index(
+    'idx_status_occurred_at_id',
+    'CREATE INDEX idx_status_occurred_at_id ON review_tasks (status, occurred_at, id)',
+  );
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -5894,6 +5964,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     idxLearningItemId,
     idxCompletedAtStatus,
     idxSkippedAtStatus,
+    idxOccurredAtId,
+    idxStatusOccurredAtId,
   ];
   @override
   StreamQueryUpdateRules get streamUpdateRules => const StreamQueryUpdateRules([
@@ -6976,6 +7048,7 @@ typedef $$ReviewTasksTableCreateCompanionBuilder =
       required int learningItemId,
       required int reviewRound,
       required DateTime scheduledDate,
+      Value<DateTime?> occurredAt,
       Value<String> status,
       Value<DateTime?> completedAt,
       Value<DateTime?> skippedAt,
@@ -6990,6 +7063,7 @@ typedef $$ReviewTasksTableUpdateCompanionBuilder =
       Value<int> learningItemId,
       Value<int> reviewRound,
       Value<DateTime> scheduledDate,
+      Value<DateTime?> occurredAt,
       Value<String> status,
       Value<DateTime?> completedAt,
       Value<DateTime?> skippedAt,
@@ -7072,6 +7146,11 @@ class $$ReviewTasksTableFilterComposer
 
   ColumnFilters<DateTime> get scheduledDate => $composableBuilder(
     column: $table.scheduledDate,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get occurredAt => $composableBuilder(
+    column: $table.occurredAt,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -7183,6 +7262,11 @@ class $$ReviewTasksTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<DateTime> get occurredAt => $composableBuilder(
+    column: $table.occurredAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get status => $composableBuilder(
     column: $table.status,
     builder: (column) => ColumnOrderings(column),
@@ -7259,6 +7343,11 @@ class $$ReviewTasksTableAnnotationComposer
 
   GeneratedColumn<DateTime> get scheduledDate => $composableBuilder(
     column: $table.scheduledDate,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get occurredAt => $composableBuilder(
+    column: $table.occurredAt,
     builder: (column) => column,
   );
 
@@ -7366,6 +7455,7 @@ class $$ReviewTasksTableTableManager
                 Value<int> learningItemId = const Value.absent(),
                 Value<int> reviewRound = const Value.absent(),
                 Value<DateTime> scheduledDate = const Value.absent(),
+                Value<DateTime?> occurredAt = const Value.absent(),
                 Value<String> status = const Value.absent(),
                 Value<DateTime?> completedAt = const Value.absent(),
                 Value<DateTime?> skippedAt = const Value.absent(),
@@ -7378,6 +7468,7 @@ class $$ReviewTasksTableTableManager
                 learningItemId: learningItemId,
                 reviewRound: reviewRound,
                 scheduledDate: scheduledDate,
+                occurredAt: occurredAt,
                 status: status,
                 completedAt: completedAt,
                 skippedAt: skippedAt,
@@ -7392,6 +7483,7 @@ class $$ReviewTasksTableTableManager
                 required int learningItemId,
                 required int reviewRound,
                 required DateTime scheduledDate,
+                Value<DateTime?> occurredAt = const Value.absent(),
                 Value<String> status = const Value.absent(),
                 Value<DateTime?> completedAt = const Value.absent(),
                 Value<DateTime?> skippedAt = const Value.absent(),
@@ -7404,6 +7496,7 @@ class $$ReviewTasksTableTableManager
                 learningItemId: learningItemId,
                 reviewRound: reviewRound,
                 scheduledDate: scheduledDate,
+                occurredAt: occurredAt,
                 status: status,
                 completedAt: completedAt,
                 skippedAt: skippedAt,

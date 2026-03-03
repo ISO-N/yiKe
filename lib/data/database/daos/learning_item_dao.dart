@@ -137,7 +137,8 @@ class LearningItemDao {
   /// 说明：
   /// - 搜索字段：title/description/note/subtasks.content（不包含 tags）
   /// - 默认最多返回 50 条
-  /// - 使用 LIKE 做模糊匹配（SQLite 对 ASCII 默认大小写不敏感，非 ASCII 行为与系统 collation 相关）
+  /// - v11：优先使用 FTS5（全文检索）提升大数据量场景下的检索性能；失败时回退 LIKE
+  /// - LIKE 为模糊匹配（SQLite 对 ASCII 默认大小写不敏感，非 ASCII 行为与系统 collation 相关）
   ///
   /// 参数：
   /// - [keyword] 关键词（会 trim；空字符串返回空列表）
@@ -152,6 +153,39 @@ class LearningItemDao {
     if (q.isEmpty) return const <LearningItem>[];
 
     final capped = limit.clamp(1, 200);
+
+    // Phase 4：全文检索（FTS5）。
+    //
+    // 说明：
+    // - 使用 rowid = learning_items.id 的索引表（learning_items_fts）
+    // - 结果仍按 created_at DESC 排序，保持与旧版本 LIKE 口径一致（避免 UI 大幅变更）
+    final ftsQuery = _buildFtsQuery(q);
+    if (ftsQuery != null) {
+      try {
+        const ftsSql = '''
+SELECT li.*
+FROM learning_items li
+WHERE li.is_deleted = 0
+  AND li.id IN (
+    SELECT rowid FROM learning_items_fts
+    WHERE learning_items_fts MATCH ?
+  )
+ORDER BY li.created_at DESC
+LIMIT ?
+''';
+        final rows = await db
+            .customSelect(
+              ftsSql,
+              variables: [Variable<String>(ftsQuery), Variable<int>(capped)],
+              readsFrom: {db.learningItems, db.learningSubtasks},
+            )
+            .get();
+        return rows.map((r) => db.learningItems.map(r.data)).toList();
+      } catch (_) {
+        // FTS 表缺失/扩展不可用等情况：自动回退到 LIKE，保证功能正确性。
+      }
+    }
+
     final pattern = '%$q%';
 
     // 关键逻辑：使用 EXISTS 查询 subtasks，避免 join 导致的重复行与分页错乱。
@@ -186,6 +220,29 @@ LIMIT ?
         )
         .get();
     return rows.map((r) => db.learningItems.map(r.data)).toList();
+  }
+
+  /// 构建 FTS5 MATCH 查询字符串（按空白拆分并做最小清洗）。
+  ///
+  /// 说明：
+  /// - 对每个 token 追加 `*` 做前缀匹配，尽量接近 LIKE 的“包含”体验
+  /// - 若清洗后为空，返回 null 表示放弃 FTS（回退 LIKE）
+  String? _buildFtsQuery(String keyword) {
+    final raw = keyword.trim();
+    if (raw.isEmpty) return null;
+
+    final parts = raw.split(RegExp(r'\s+')).map((e) => e.trim()).toList();
+    final tokens = <String>[];
+    for (final p in parts) {
+      if (p.isEmpty) continue;
+      // 关键逻辑：移除可能破坏 MATCH 语法的字符，避免异常导致搜索不可用。
+      // 说明：这里不用 raw string，避免引号与反斜杠的转义陷阱。
+      final cleaned = p.replaceAll(RegExp("[\"'`\\\\]"), '').trim();
+      if (cleaned.isEmpty) continue;
+      tokens.add('${cleaned}*');
+    }
+    if (tokens.isEmpty) return null;
+    return tokens.join(' AND ');
   }
 
   /// 删除所有模拟学习内容（v3.1 Debug）。

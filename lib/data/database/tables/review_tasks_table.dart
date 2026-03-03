@@ -16,6 +16,13 @@ import 'learning_items_table.dart';
 @TableIndex(name: 'idx_learning_item_id', columns: {#learningItemId})
 @TableIndex(name: 'idx_completed_at_status', columns: {#completedAt, #status})
 @TableIndex(name: 'idx_skipped_at_status', columns: {#skippedAt, #status})
+// 性能优化（v10）：任务中心时间线按 occurredAt + id 做稳定排序与游标分页，
+// 这里增加复合索引提升大数据量下的分页查询性能。
+@TableIndex(name: 'idx_occurred_at_id', columns: {#occurredAt, #id})
+@TableIndex(
+  name: 'idx_status_occurred_at_id',
+  columns: {#status, #occurredAt, #id},
+)
 class ReviewTasks extends Table {
   /// 主键 ID。
   IntColumn get id => integer().autoIncrement()();
@@ -43,6 +50,18 @@ class ReviewTasks extends Table {
 
   /// 计划复习日期。
   DateTimeColumn get scheduledDate => dateTime()();
+
+  /// 任务发生时间（用于任务中心时间线排序与游标分页）。
+  ///
+  /// 口径（与 spec-performance-optimization.md 一致）：
+  /// - pending：occurredAt = scheduledDate
+  /// - done：occurredAt = completedAt ?? scheduledDate
+  /// - skipped：occurredAt = skippedAt ?? scheduledDate
+  ///
+  /// 说明：
+  /// - 该列为性能优化新增列（v10），用于避免分页查询中反复计算 CASE/COALESCE 导致索引失效
+  /// - 迁移会回填历史数据；应用层在所有写入口维护该列，尽量保证非空
+  DateTimeColumn get occurredAt => dateTime().nullable()();
 
   /// 任务状态：pending(待复习)/done(已完成)/skipped(已跳过)。
   TextColumn get status => text().withDefault(const Constant('pending'))();

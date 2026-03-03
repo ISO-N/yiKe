@@ -249,6 +249,13 @@ class MockDataService {
           status: status,
           scheduledAt: scheduledAt,
         );
+        // 性能优化（v10）：维护 occurredAt 口径，供任务中心时间线排序与游标分页使用。
+        final occurredAt = switch (status) {
+          'pending' => scheduledAt,
+          'done' => completedAt ?? scheduledAt,
+          'skipped' => skippedAt ?? scheduledAt,
+          _ => scheduledAt,
+        };
 
         companions.add(
           ReviewTasksCompanion.insert(
@@ -256,6 +263,7 @@ class MockDataService {
             learningItemId: c.itemId,
             reviewRound: c.round,
             scheduledDate: scheduledAt,
+            occurredAt: Value(occurredAt),
             status: Value(status),
             completedAt: Value(completedAt),
             skippedAt: Value(skippedAt),

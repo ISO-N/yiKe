@@ -463,6 +463,8 @@ class SyncService {
     final reviewRound = event.data['review_round'] as int? ?? 1;
     final scheduledDate =
         _parseDateTime(event.data['scheduled_date']) ?? DateTime.now();
+    // 性能优化（v10）：occurred_at 为落地列，优先使用事件携带的值；缺失时按口径回推。
+    final occurredAtFromEvent = _parseDateTime(event.data['occurred_at']);
     final status = (event.data['status'] as String?) ?? 'pending';
     final isMockData = (event.data['is_mock_data'] as bool?) ?? false;
     final completedAt = _parseDateTime(event.data['completed_at']);
@@ -470,6 +472,15 @@ class SyncService {
     final createdAt =
         _parseDateTime(event.data['created_at']) ?? DateTime.now();
     final updatedAt = _parseDateTime(event.data['updated_at']);
+
+    final occurredAt =
+        occurredAtFromEvent ??
+        switch (status) {
+          'pending' => scheduledDate,
+          'done' => completedAt ?? scheduledDate,
+          'skipped' => skippedAt ?? scheduledDate,
+          _ => scheduledDate,
+        };
 
     final existingLocalId = mapping?.localEntityId;
     if (existingLocalId == null || mapping?.isDeleted == true) {
@@ -481,6 +492,7 @@ class SyncService {
               learningItemId: learningLocalId,
               reviewRound: reviewRound,
               scheduledDate: scheduledDate,
+              occurredAt: Value(occurredAt),
               status: Value(status),
               completedAt: Value(completedAt),
               skippedAt: Value(skippedAt),
@@ -506,6 +518,7 @@ class SyncService {
         learningItemId: Value(learningLocalId),
         reviewRound: Value(reviewRound),
         scheduledDate: Value(scheduledDate),
+        occurredAt: Value(occurredAt),
         status: Value(status),
         completedAt: Value(completedAt),
         skippedAt: Value(skippedAt),
@@ -1057,11 +1070,21 @@ class SyncService {
         appliedAtMs: ts,
       );
 
+      final occurredAt =
+          row.occurredAt ??
+          switch (row.status) {
+            'pending' => row.scheduledDate,
+            'done' => row.completedAt ?? row.scheduledDate,
+            'skipped' => row.skippedAt ?? row.scheduledDate,
+            _ => row.scheduledDate,
+          };
+
       final data = <String, dynamic>{
         'learning_origin_device_id': learningOrigin.deviceId,
         'learning_origin_entity_id': learningOrigin.entityId,
         'review_round': row.reviewRound,
         'scheduled_date': row.scheduledDate.toIso8601String(),
+        'occurred_at': occurredAt.toIso8601String(),
         'status': row.status,
         'completed_at': row.completedAt?.toIso8601String(),
         'skipped_at': row.skippedAt?.toIso8601String(),

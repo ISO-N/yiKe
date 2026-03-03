@@ -50,12 +50,20 @@ class ReviewTaskRepositoryImpl implements ReviewTaskRepository {
   Future<ReviewTaskEntity> create(ReviewTaskEntity task) async {
     final now = DateTime.now();
     final ensuredUuid = task.uuid.trim().isEmpty ? _uuid.v4() : task.uuid.trim();
+    // 性能优化（v10）：occurredAt 落地列用于任务中心时间线排序与游标分页。
+    // 这里在写入口统一维护口径，避免查询阶段计算导致索引失效。
+    final occurredAt = switch (task.status) {
+      ReviewTaskStatus.pending => task.scheduledDate,
+      ReviewTaskStatus.done => task.completedAt ?? task.scheduledDate,
+      ReviewTaskStatus.skipped => task.skippedAt ?? task.scheduledDate,
+    };
     final id = await dao.insertReviewTask(
       ReviewTasksCompanion.insert(
         uuid: Value(ensuredUuid),
         learningItemId: task.learningItemId,
         reviewRound: task.reviewRound,
         scheduledDate: task.scheduledDate,
+        occurredAt: Value(occurredAt),
         status: Value(task.status.toDbValue()),
         completedAt: Value(task.completedAt),
         skippedAt: Value(task.skippedAt),
@@ -88,6 +96,7 @@ class ReviewTaskRepositoryImpl implements ReviewTaskRepository {
           'learning_origin_entity_id': learningOrigin.entityId,
           'review_round': task.reviewRound,
           'scheduled_date': task.scheduledDate.toIso8601String(),
+          'occurred_at': occurredAt.toIso8601String(),
           'status': task.status.toDbValue(),
           'completed_at': task.completedAt?.toIso8601String(),
           'skipped_at': task.skippedAt?.toIso8601String(),
@@ -521,6 +530,16 @@ class ReviewTaskRepositoryImpl implements ReviewTaskRepository {
         'learning_origin_entity_id': learningOrigin.entityId,
         'review_round': row.reviewRound,
         'scheduled_date': row.scheduledDate.toIso8601String(),
+        // 性能优化（v10）：occurred_at 为落地列，优先读列值；缺失时按口径回推，避免同步后丢失排序依据。
+        'occurred_at':
+            (row.occurredAt ??
+                    switch (row.status) {
+                      'pending' => row.scheduledDate,
+                      'done' => row.completedAt ?? row.scheduledDate,
+                      'skipped' => row.skippedAt ?? row.scheduledDate,
+                      _ => row.scheduledDate,
+                    })
+                .toIso8601String(),
         'status': row.status,
         'completed_at': row.completedAt?.toIso8601String(),
         'skipped_at': row.skippedAt?.toIso8601String(),

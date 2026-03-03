@@ -63,13 +63,15 @@ class AppDatabase extends _$AppDatabase {
     final executor = LazyDatabase(() async {
       final dir = await getApplicationDocumentsDirectory();
       final file = File(p.join(dir.path, 'yike.db'));
-      return NativeDatabase(file);
+      // 性能优化（spec-performance-optimization.md / Phase 2）：
+      // 使用 Drift 的后台 isolate 打开数据库，避免大查询在 UI isolate 上执行造成卡顿尖峰。
+      return NativeDatabase.createInBackground(file);
     });
     return AppDatabase(executor);
   }
 
   @override
-  int get schemaVersion => 9;
+  int get schemaVersion => 11;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -96,6 +98,17 @@ class AppDatabase extends _$AppDatabase {
       await customStatement(
         'CREATE UNIQUE INDEX IF NOT EXISTS idx_review_records_uuid ON review_records (uuid)',
       );
+
+      // v10：为时间线 occurred_at 建索引（部分平台 createAll 对复合索引创建时机存在差异，兜底一次）。
+      await customStatement(
+        'CREATE INDEX IF NOT EXISTS idx_occurred_at_id ON review_tasks (occurred_at, id)',
+      );
+      await customStatement(
+        'CREATE INDEX IF NOT EXISTS idx_status_occurred_at_id ON review_tasks (status, occurred_at, id)',
+      );
+
+      // v11：创建学习内容全文检索（FTS5）表与触发器，并对存量数据做一次性回填。
+      await _createOrRebuildLearningItemsFts();
     },
     onUpgrade: (migrator, from, to) async {
       // v2.1：新增学习模板、学习主题与关联表。
@@ -309,12 +322,220 @@ class AppDatabase extends _$AppDatabase {
           'CREATE INDEX IF NOT EXISTS idx_learning_subtasks_item_order ON learning_subtasks (learning_item_id, sort_order)',
         );
       }
+
+      // v10：任务中心时间线性能优化 - occurred_at 落地列 + 复合索引。
+      if (from < 10) {
+        Future<bool> hasTable(String table) async {
+          final rows = await customSelect(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name = ?",
+            variables: [Variable<String>(table)],
+          ).get();
+          return rows.isNotEmpty;
+        }
+
+        Future<bool> hasColumn(String table, String column) async {
+          final rows = await customSelect('PRAGMA table_info($table)').get();
+          return rows.any((r) => r.read<String>('name') == column);
+        }
+
+        if (await hasTable('review_tasks') &&
+            !await hasColumn('review_tasks', 'occurred_at')) {
+          await migrator.addColumn(reviewTasks, reviewTasks.occurredAt);
+        }
+
+        // 回填历史 occurred_at（尽量保证非空，便于后续走索引）。
+        await customStatement(
+          '''
+UPDATE review_tasks
+SET occurred_at = CASE status
+  WHEN 'pending' THEN scheduled_date
+  WHEN 'done' THEN COALESCE(completed_at, scheduled_date)
+  WHEN 'skipped' THEN COALESCE(skipped_at, scheduled_date)
+  ELSE scheduled_date
+END
+WHERE occurred_at IS NULL
+''',
+        );
+
+        // 复合索引：occurred_at + id（稳定排序/游标分页），以及 status 组合索引（筛选场景）。
+        await customStatement(
+          'CREATE INDEX IF NOT EXISTS idx_occurred_at_id ON review_tasks (occurred_at, id)',
+        );
+        await customStatement(
+          'CREATE INDEX IF NOT EXISTS idx_status_occurred_at_id ON review_tasks (status, occurred_at, id)',
+        );
+      }
+
+      // v11：全文检索（FTS5）- 建表 + 触发器 + 回填。
+      if (from < 11) {
+        await _createOrRebuildLearningItemsFts();
+      }
     },
     beforeOpen: (details) async {
       // 开启外键约束，确保级联删除生效。
       await customStatement('PRAGMA foreign_keys = ON');
     },
   );
+
+  /// 创建/重建 learning_items 的 FTS5 表（含 subtasks 聚合），并回填存量数据。
+  ///
+  /// 说明：
+  /// - 使用 contentless FTS5 表（rowid = learning_items.id），避免外部内容表限制
+  /// - 通过触发器在 learning_items / learning_subtasks 变更时维护索引一致性
+  /// - 对于 is_deleted=1 的学习内容，不写入 FTS，避免搜索命中已停用数据
+  Future<void> _createOrRebuildLearningItemsFts() async {
+    // 1) 创建 FTS 表（若已存在则跳过）。
+    //
+    // 兼容：部分平台/测试环境可能缺少 FTS5 扩展能力。此时应保持应用可用并回退到 LIKE 搜索。
+    try {
+      await customStatement(
+        '''
+CREATE VIRTUAL TABLE IF NOT EXISTS learning_items_fts
+USING fts5(
+  title,
+  description,
+  note,
+  subtasks,
+  tokenize = 'unicode61'
+)
+''',
+      );
+    } catch (_) {
+      return;
+    }
+
+    // 2) 触发器：learning_items 变更维护。
+    await customStatement(
+      '''
+CREATE TRIGGER IF NOT EXISTS trg_learning_items_fts_ai
+AFTER INSERT ON learning_items
+BEGIN
+  INSERT INTO learning_items_fts(rowid, title, description, note, subtasks)
+  SELECT
+    NEW.id,
+    NEW.title,
+    NEW.description,
+    NEW.note,
+    COALESCE((SELECT group_concat(content, '\n') FROM learning_subtasks WHERE learning_item_id = NEW.id), '')
+  WHERE NEW.is_deleted = 0;
+END
+''',
+    );
+    await customStatement(
+      '''
+CREATE TRIGGER IF NOT EXISTS trg_learning_items_fts_au
+AFTER UPDATE ON learning_items
+BEGIN
+  DELETE FROM learning_items_fts WHERE rowid = OLD.id;
+  INSERT INTO learning_items_fts(rowid, title, description, note, subtasks)
+  SELECT
+    NEW.id,
+    NEW.title,
+    NEW.description,
+    NEW.note,
+    COALESCE((SELECT group_concat(content, '\n') FROM learning_subtasks WHERE learning_item_id = NEW.id), '')
+  WHERE NEW.is_deleted = 0;
+END
+''',
+    );
+    await customStatement(
+      '''
+CREATE TRIGGER IF NOT EXISTS trg_learning_items_fts_ad
+AFTER DELETE ON learning_items
+BEGIN
+  DELETE FROM learning_items_fts WHERE rowid = OLD.id;
+END
+''',
+    );
+
+    // 3) 触发器：learning_subtasks 变更维护（聚合字段 subtasks）。
+    await customStatement(
+      '''
+CREATE TRIGGER IF NOT EXISTS trg_learning_subtasks_fts_ai
+AFTER INSERT ON learning_subtasks
+BEGIN
+  DELETE FROM learning_items_fts WHERE rowid = NEW.learning_item_id;
+  INSERT INTO learning_items_fts(rowid, title, description, note, subtasks)
+  SELECT
+    li.id,
+    li.title,
+    li.description,
+    li.note,
+    COALESCE((SELECT group_concat(content, '\n') FROM learning_subtasks WHERE learning_item_id = li.id), '')
+  FROM learning_items li
+  WHERE li.id = NEW.learning_item_id AND li.is_deleted = 0;
+END
+''',
+    );
+    await customStatement(
+      '''
+CREATE TRIGGER IF NOT EXISTS trg_learning_subtasks_fts_au
+AFTER UPDATE ON learning_subtasks
+BEGIN
+  DELETE FROM learning_items_fts WHERE rowid = OLD.learning_item_id;
+  INSERT INTO learning_items_fts(rowid, title, description, note, subtasks)
+  SELECT
+    li.id,
+    li.title,
+    li.description,
+    li.note,
+    COALESCE((SELECT group_concat(content, '\n') FROM learning_subtasks WHERE learning_item_id = li.id), '')
+  FROM learning_items li
+  WHERE li.id = OLD.learning_item_id AND li.is_deleted = 0;
+
+  -- 若子任务被移动到其他学习内容，同步更新新旧两侧的索引。
+  DELETE FROM learning_items_fts WHERE rowid = NEW.learning_item_id;
+  INSERT INTO learning_items_fts(rowid, title, description, note, subtasks)
+  SELECT
+    li.id,
+    li.title,
+    li.description,
+    li.note,
+    COALESCE((SELECT group_concat(content, '\n') FROM learning_subtasks WHERE learning_item_id = li.id), '')
+  FROM learning_items li
+  WHERE li.id = NEW.learning_item_id AND li.is_deleted = 0;
+END
+''',
+    );
+    await customStatement(
+      '''
+CREATE TRIGGER IF NOT EXISTS trg_learning_subtasks_fts_ad
+AFTER DELETE ON learning_subtasks
+BEGIN
+  DELETE FROM learning_items_fts WHERE rowid = OLD.learning_item_id;
+  INSERT INTO learning_items_fts(rowid, title, description, note, subtasks)
+  SELECT
+    li.id,
+    li.title,
+    li.description,
+    li.note,
+    COALESCE((SELECT group_concat(content, '\n') FROM learning_subtasks WHERE learning_item_id = li.id), '')
+  FROM learning_items li
+  WHERE li.id = OLD.learning_item_id AND li.is_deleted = 0;
+END
+''',
+    );
+
+    // 4) 回填：用当前 learning_items + learning_subtasks 生成全量索引（幂等）。
+    //
+    // 说明：
+    // - 这里采用“清空后重建”策略，保证触发器缺失/历史脏数据场景也能被修复
+    // - FTS 表本身不参与同步与备份一致性（可由源数据重建）
+    await customStatement('DELETE FROM learning_items_fts');
+    await customStatement(
+      '''
+INSERT INTO learning_items_fts(rowid, title, description, note, subtasks)
+SELECT
+  li.id,
+  li.title,
+  li.description,
+  li.note,
+  COALESCE((SELECT group_concat(ls.content, '\n') FROM learning_subtasks ls WHERE ls.learning_item_id = li.id), '')
+FROM learning_items li
+WHERE li.is_deleted = 0
+''',
+    );
+  }
 
   /// 为指定表回填 uuid（仅处理 uuid 为空字符串的记录）。
   ///

@@ -32,7 +32,9 @@ class ReviewTaskDao {
   /// 返回值：新记录 ID。
   /// 异常：数据库写入失败时可能抛出异常。
   Future<int> insertReviewTask(ReviewTasksCompanion companion) {
-    return db.into(db.reviewTasks).insert(companion);
+    // 性能优化（v10）：为 occurredAt 落地列兜底赋值，避免调用方漏传导致时间线排序异常。
+    final ensured = _ensureOccurredAtForInsert(companion);
+    return db.into(db.reviewTasks).insert(ensured);
   }
 
   /// 批量插入复习任务。
@@ -40,8 +42,10 @@ class ReviewTaskDao {
   /// 返回值：Future（无返回值）。
   /// 异常：数据库写入失败时可能抛出异常。
   Future<void> insertReviewTasks(List<ReviewTasksCompanion> companions) async {
+    // 性能优化（v10）：批量插入同样需要兜底 occurredAt，避免时间线查询出现 NULL 排序问题。
+    final ensured = companions.map(_ensureOccurredAtForInsert).toList();
     await db.batch((batch) {
-      batch.insertAll(db.reviewTasks, companions);
+      batch.insertAll(db.reviewTasks, ensured);
     });
   }
 
@@ -90,11 +94,28 @@ class ReviewTaskDao {
     // 规格增强：已停用学习内容禁止任何任务状态变更。
     await _assertLearningItemActiveByTaskIds([id]);
     final now = DateTime.now();
+
+    // 性能优化（v10）：维护 occurredAt 落地列，避免时间线分页查询中反复计算 CASE/COALESCE。
+    //
+    // 说明：
+    // - done/skipped：优先使用传入的时间戳（通常为 now），保证“发生时间”与记录一致
+    // - pending：occurredAt 应回到 scheduledDate（需读取一次当前任务行）
+    DateTime? occurredAt;
+    if (status == 'done') {
+      occurredAt = completedAt ?? now;
+    } else if (status == 'skipped') {
+      occurredAt = skippedAt ?? now;
+    } else if (status == 'pending') {
+      final row = await getReviewTaskById(id);
+      occurredAt = row?.scheduledDate;
+    }
+
     return (db.update(db.reviewTasks)..where((t) => t.id.equals(id))).write(
       ReviewTasksCompanion(
         status: Value(status),
         completedAt: Value(completedAt),
         skippedAt: Value(skippedAt),
+        occurredAt: Value(occurredAt),
         updatedAt: Value(now),
       ),
     );
@@ -162,10 +183,14 @@ class ReviewTaskDao {
     await _assertLearningItemActiveByTaskIds(ids);
 
     final now = DateTime.now();
+    // 性能优化（v10）：批量完成/跳过时直接写入 occurredAt，避免时间线查询回退到计算逻辑。
+    final occurredAt =
+        (status == 'done' || status == 'skipped') ? (timestamp ?? now) : null;
     final companion = ReviewTasksCompanion(
       status: Value(status),
       completedAt: Value(status == 'done' ? timestamp : null),
       skippedAt: Value(status == 'skipped' ? timestamp : null),
+      occurredAt: Value(occurredAt),
       updatedAt: Value(now),
     );
 
@@ -337,13 +362,20 @@ class ReviewTaskDao {
     // 规格增强：已停用学习内容禁止任何任务状态变更。
     await _assertLearningItemActiveByTaskIds([id]);
     final now = DateTime.now();
-    return (db.update(db.reviewTasks)..where((t) => t.id.equals(id))).write(
-      ReviewTasksCompanion(
-        status: const Value('pending'),
-        completedAt: const Value(null),
-        skippedAt: const Value(null),
-        updatedAt: Value(now),
-      ),
+    // 关键逻辑：撤销后 occurredAt 需要回到 scheduledDate，确保时间线排序口径与 pending 一致。
+    const sql = '''
+UPDATE review_tasks
+SET status = 'pending',
+    completed_at = NULL,
+    skipped_at = NULL,
+    occurred_at = scheduled_date,
+    updated_at = ?
+WHERE id = ?
+''';
+    return db.customUpdate(
+      sql,
+      variables: [Variable<DateTime>(now), Variable<int>(id)],
+      updates: {db.reviewTasks},
     );
   }
 
@@ -429,9 +461,7 @@ WHERE li.is_deleted = 0
   /// 按“发生时间”倒序获取任务时间线分页数据（用于任务中心）。
   ///
   /// 说明：
-  /// - pending：occurredAt = scheduled_date
-  /// - done：occurredAt = COALESCE(completed_at, scheduled_date)
-  /// - skipped：occurredAt = COALESCE(skipped_at, scheduled_date)
+  /// - occurredAt 使用落地列 occurred_at（v10 性能优化），由应用层在写入口维护
   /// - 排序：occurredAt ASC, taskId ASC（稳定排序）
   /// - 游标：下一页取“当前页最后一条”，查询条件为 (occurredAt > cursor) OR (occurredAt = cursor AND taskId > cursorId)
   Future<List<ReviewTaskTimelineModel>> getTaskTimelinePageWithItem({
@@ -448,15 +478,6 @@ WHERE li.is_deleted = 0
       where.write(' AND rt.status = ?');
       variables.add(Variable<String>(status));
     }
-
-    const occurredSql = '''
-CASE rt.status
-  WHEN 'pending' THEN rt.scheduled_date
-  WHEN 'done' THEN COALESCE(rt.completed_at, rt.scheduled_date)
-  WHEN 'skipped' THEN COALESCE(rt.skipped_at, rt.scheduled_date)
-  ELSE rt.scheduled_date
-END
-''';
 
     final cursorWhere = StringBuffer();
     final cursorVars = <Variable>[];
@@ -478,6 +499,7 @@ END
     rt.learning_item_id AS "rt.learning_item_id",
     rt.review_round AS "rt.review_round",
     rt.scheduled_date AS "rt.scheduled_date",
+    rt.occurred_at AS "rt.occurred_at",
     rt.status AS "rt.status",
     rt.completed_at AS "rt.completed_at",
     rt.skipped_at AS "rt.skipped_at",
@@ -497,7 +519,7 @@ END
      li.deleted_at AS "li.deleted_at",
      li.is_mock_data AS "li.is_mock_data",
 
-     $occurredSql AS occurred_at
+     rt.occurred_at AS occurred_at
    FROM review_tasks rt
    INNER JOIN learning_items li ON li.id = rt.learning_item_id
    WHERE li.is_deleted = 0 AND ${where.toString()}
@@ -518,7 +540,8 @@ END
     return rows.map((row) {
       final task = db.reviewTasks.map(row.data, tablePrefix: 'rt');
       final item = db.learningItems.map(row.data, tablePrefix: 'li');
-      final occurredAt = row.read<DateTime>('occurred_at');
+      // 保护：极端历史脏数据（occurred_at 未回填）时回退 scheduledDate，避免时间线崩溃。
+      final occurredAt = row.read<DateTime?>('occurred_at') ?? task.scheduledDate;
       return ReviewTaskTimelineModel(
         model: ReviewTaskWithItemModel(task: task, item: item),
         occurredAt: occurredAt,
@@ -617,15 +640,34 @@ END
     required DateTime scheduledDate,
   }) {
     final now = DateTime.now();
-    return (db.update(db.reviewTasks)
-          ..where((t) => t.learningItemId.equals(learningItemId))
-          ..where((t) => t.reviewRound.equals(reviewRound)))
-        .write(
-          ReviewTasksCompanion(
-            scheduledDate: Value(scheduledDate),
-            updatedAt: Value(now),
-          ),
-        );
+    // 性能优化（v10）：scheduledDate 变更可能影响 pending 任务的 occurredAt，
+    // 同时也需要兼容历史脏数据（done/skipped 但 completedAt/skippedAt 为空）时的回退口径。
+    const sql = '''
+UPDATE review_tasks
+SET scheduled_date = ?,
+    occurred_at = CASE status
+      WHEN 'pending' THEN ?
+      WHEN 'done' THEN COALESCE(completed_at, ?)
+      WHEN 'skipped' THEN COALESCE(skipped_at, ?)
+      ELSE ?
+    END,
+    updated_at = ?
+WHERE learning_item_id = ? AND review_round = ?
+''';
+    return db.customUpdate(
+      sql,
+      variables: [
+        Variable<DateTime>(scheduledDate),
+        Variable<DateTime>(scheduledDate),
+        Variable<DateTime>(scheduledDate),
+        Variable<DateTime>(scheduledDate),
+        Variable<DateTime>(scheduledDate),
+        Variable<DateTime>(now),
+        Variable<int>(learningItemId),
+        Variable<int>(reviewRound),
+      ],
+      updates: {db.reviewTasks},
+    );
   }
 
   /// 获取指定学习内容当前最大复习轮次（不存在则返回 0）。
@@ -953,6 +995,29 @@ WHERE li.is_deleted = 0
     if (hit != null) {
       throw StateError('学习内容已停用，无法操作');
     }
+  }
+
+  /// 为插入任务的 Companion 兜底补齐 occurredAt。
+  ///
+  /// 说明：
+  /// - occurredAt 为性能优化新增列（用于时间线排序与游标分页）
+  /// - 为兼容测试/历史调用方，DAO 层兜底一次，避免遗漏导致 NULL 排序与口径错误
+  ReviewTasksCompanion _ensureOccurredAtForInsert(ReviewTasksCompanion c) {
+    if (c.occurredAt.present) return c;
+
+    final scheduled = c.scheduledDate.value;
+    final status = c.status.present ? (c.status.value ?? 'pending') : 'pending';
+    final completed = c.completedAt.present ? c.completedAt.value : null;
+    final skipped = c.skippedAt.present ? c.skippedAt.value : null;
+
+    final occurredAt = switch (status) {
+      'pending' => scheduled,
+      'done' => completed ?? scheduled,
+      'skipped' => skipped ?? scheduled,
+      _ => scheduled,
+    };
+
+    return c.copyWith(occurredAt: Value<DateTime?>(occurredAt));
   }
 }
 

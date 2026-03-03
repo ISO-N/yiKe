@@ -989,6 +989,14 @@ WHERE rt.is_mock_data = 0
       final scheduled = _parseDateTime(task.scheduledDate) ?? DateTime.now();
       final completedAt = _parseDateTime(task.completedAt);
       final skippedAt = _parseDateTime(task.skippedAt);
+      // 性能优化（v10）：occurredAt 落地列用于任务中心时间线排序与游标分页。
+      // 备份文件不强制携带该字段，这里基于当前状态与时间戳回推口径。
+      final occurredAt = switch (task.status) {
+        'pending' => scheduled,
+        'done' => completedAt ?? scheduled,
+        'skipped' => skippedAt ?? scheduled,
+        _ => scheduled,
+      };
 
       final row = existing[task.uuid];
       if (row != null) {
@@ -1004,6 +1012,7 @@ WHERE rt.is_mock_data = 0
           ReviewTasksCompanion(
             reviewRound: Value(task.reviewRound),
             scheduledDate: Value(scheduled),
+            occurredAt: Value(occurredAt),
             status: Value(task.status),
             completedAt: completedAt != null
                 ? Value(completedAt)
@@ -1032,6 +1041,7 @@ WHERE rt.is_mock_data = 0
                 learningItemId: itemId,
                 reviewRound: task.reviewRound,
                 scheduledDate: scheduled,
+                occurredAt: Value(occurredAt),
                 status: Value(task.status),
                 completedAt: completedAt != null
                     ? Value(completedAt)
