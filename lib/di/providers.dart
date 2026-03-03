@@ -25,6 +25,7 @@ import '../data/repositories/review_task_repository_impl.dart';
 import '../data/repositories/settings_repository_impl.dart';
 import '../data/repositories/task_structure_migration_repository_impl.dart';
 import '../data/repositories/theme_settings_repository_impl.dart';
+import '../data/repositories/ui_preferences_repository_impl.dart';
 import '../data/sync/sync_log_writer.dart';
 import '../domain/repositories/backup_repository.dart';
 import '../domain/repositories/learning_item_repository.dart';
@@ -35,6 +36,7 @@ import '../domain/repositories/review_task_repository.dart';
 import '../domain/repositories/settings_repository.dart';
 import '../domain/repositories/task_structure_migration_repository.dart';
 import '../domain/repositories/theme_settings_repository.dart';
+import '../domain/repositories/ui_preferences_repository.dart';
 import '../domain/services/ocr_service.dart';
 import '../domain/usecases/export_backup_usecase.dart';
 import '../domain/usecases/get_backup_list_usecase.dart';
@@ -220,6 +222,16 @@ final themeSettingsRepositoryProvider = Provider<ThemeSettingsRepository>((
     dao: ref.read(settingsDaoProvider),
     secureStorageService: ref.read(secureStorageServiceProvider),
     syncLogWriter: ref.read(syncLogWriterProvider),
+  );
+});
+
+/// UI 本地偏好仓储 Provider（仅本机，不参与同步）。
+final uiPreferencesRepositoryProvider = Provider<UiPreferencesRepository>((
+  ref,
+) {
+  return UiPreferencesRepositoryImpl(
+    dao: ref.read(settingsDaoProvider),
+    secureStorageService: ref.read(secureStorageServiceProvider),
   );
 });
 

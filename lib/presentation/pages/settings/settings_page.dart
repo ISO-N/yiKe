@@ -19,6 +19,7 @@ import '../../providers/notification_permission_provider.dart';
 import '../../providers/settings_provider.dart';
 import '../../providers/sync_provider.dart';
 import '../../providers/theme_provider.dart';
+import '../../providers/ui_preferences_provider.dart';
 import '../../widgets/glass_card.dart';
 import 'widgets/data_management_section.dart';
 import 'widgets/theme_mode_sheet.dart';
@@ -37,6 +38,8 @@ class SettingsPage extends ConsumerWidget {
     final permissionAsync = ref.watch(notificationPermissionProvider);
     final currentThemeMode = ref.watch(themeModeProvider);
     final syncUi = ref.watch(syncControllerProvider);
+    final taskListBlurEnabled = ref.watch(taskListBlurEnabledProvider);
+    final taskListBlurNotifier = ref.read(taskListBlurEnabledProvider.notifier);
 
     Future<void> save(AppSettingsEntity next) async {
       await notifier.save(next);
@@ -52,6 +55,23 @@ class SettingsPage extends ConsumerWidget {
       await AppSettings.openAppSettings(type: AppSettingsType.notification);
       // 打开系统设置返回后，刷新一次设置页的权限状态。
       ref.invalidate(notificationPermissionProvider);
+    }
+
+    Future<void> saveTaskListBlurEnabled(bool enabled) async {
+      try {
+        await taskListBlurNotifier.setEnabled(enabled);
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('已更新任务列表外观设置')),
+          );
+        }
+      } catch (_) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('保存失败，请重试')),
+          );
+        }
+      }
     }
 
     Future<void> pickTime({
@@ -308,6 +328,14 @@ class SettingsPage extends ConsumerWidget {
                         subtitle: Text(currentThemeMode.label),
                         trailing: const Icon(Icons.chevron_right),
                         onTap: showThemeModeSheet,
+                      ),
+                      const Divider(height: 1),
+                      SwitchListTile(
+                        contentPadding: EdgeInsets.zero,
+                        title: const Text('任务列表毛玻璃效果'),
+                        subtitle: const Text('关闭可提升滚动流畅度（仅本机设置，不参与同步）'),
+                        value: taskListBlurEnabled,
+                        onChanged: saveTaskListBlurEnabled,
                       ),
                     ],
                   ),
