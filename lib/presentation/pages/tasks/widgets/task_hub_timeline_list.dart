@@ -19,23 +19,26 @@ import '../../../widgets/glass_card.dart';
 /// 设计说明：
 /// - 该组件只负责“列表内容”渲染与卡片交互（展开/完成/跳过/撤销/详情）。
 /// - 滚动、下拉刷新、游标分页触发（loadMore）由上层页面负责。
-class TaskHubTimelineList extends StatelessWidget {
+class TaskHubTimelineSliver extends StatelessWidget {
   /// 构造函数。
   ///
   /// 参数：
   /// - [state] 任务中心状态。
   /// - [notifier] 任务中心 Notifier（用于执行操作与更新展开状态）。
+  /// - [blurEnabled] 是否启用任务列表毛玻璃（性能开关，默认由设置项控制）。
   /// 返回值：Widget。
   /// 异常：无。
-  const TaskHubTimelineList({
+  const TaskHubTimelineSliver({
     super.key,
     required this.state,
     required this.notifier,
+    required this.blurEnabled,
     this.emptyState,
   });
 
   final TaskHubState state;
   final TaskHubNotifier notifier;
+  final bool blurEnabled;
 
   /// 列表为空时的替换 UI（仅用于首页 tab=all 的空状态引导增强）。
   ///
@@ -84,37 +87,21 @@ class TaskHubTimelineList extends StatelessWidget {
       await runAction(() => notifier.undoTaskStatus(taskId), ok: '已撤销');
     }
 
-    final grouped = <DateTime, List<_TaskTimelineItem>>{};
-    for (final item in state.items) {
-      final day = YikeDateUtils.atStartOfDay(item.occurredAt);
-      grouped
-          .putIfAbsent(day, () => [])
-          .add(
-            _TaskTimelineItem(
-              taskId: item.task.taskId,
-              learningItemId: item.task.learningItemId,
-              title: item.task.title,
-              description: item.task.description,
-              legacyNote: item.task.note,
-              subtaskCount: item.task.subtaskCount,
-              tags: item.task.tags,
-              reviewRound: item.task.reviewRound,
-              scheduledDate: item.task.scheduledDate,
-              status: item.task.status,
-              completedAt: item.task.completedAt,
-              skippedAt: item.task.skippedAt,
-              occurredAt: item.occurredAt,
-            ),
-          );
-    }
+    // 性能优化（spec-performance-optimization.md / Phase 1）：
+    // 使用 SliverList 实现虚拟化渲染，并且避免在 build 中遍历全量 timelineRows（O(n)），
+    // 仅对“当前可见 index”做 O(1) 映射，从而在展开态切换时保持稳定帧时间。
+    final hasError = state.errorMessage != null;
+    final hasItems = state.items.isNotEmpty;
+    final isInitialLoading = state.isLoading && !hasItems;
 
-    // 发生时间正序：日期分组按从早到晚展示。
-    final sortedDays = grouped.keys.toList()..sort((a, b) => a.compareTo(b));
+    final errorCount = hasError ? 1 : 0;
+    final baseCount = hasItems ? (state.timelineRows.length + 2) : 1;
+    final childCount = errorCount + baseCount;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        if (state.errorMessage != null) ...[
+    Widget buildErrorRow() {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
           GlassCard(
             child: Padding(
               padding: const EdgeInsets.all(AppSpacing.lg),
@@ -126,79 +113,139 @@ class TaskHubTimelineList extends StatelessWidget {
           ),
           const SizedBox(height: AppSpacing.lg),
         ],
-        if (state.isLoading && state.items.isEmpty) ...[
-          const Center(
+      );
+    }
+
+    Widget buildLoadingRow() {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(24),
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
+
+    Widget buildEmptyRow() {
+      return emptyState ??
+          GlassCard(
             child: Padding(
-              padding: EdgeInsets.all(24),
-              child: CircularProgressIndicator(),
-            ),
-          ),
-        ] else if (state.items.isEmpty) ...[
-          emptyState ??
-              GlassCard(
-                child: Padding(
-                  padding: const EdgeInsets.all(AppSpacing.xl),
-                  child: Text(
-                    '暂无任务',
-                    style: AppTypography.bodySecondary(context),
-                    textAlign: TextAlign.center,
-                  ),
-                ),
-              ),
-        ] else ...[
-          for (final day in sortedDays) ...[
-            _GroupHeader(label: _groupLabel(day)),
-            const SizedBox(height: AppSpacing.sm),
-            for (final item in grouped[day]!) ...[
-              _TaskTimelineCard(
-                item: item,
-                expanded: state.expandedTaskIds.contains(item.taskId),
-                onToggleExpanded: () => notifier.toggleExpanded(item.taskId),
-                onComplete: item.status == ReviewTaskStatus.pending
-                    ? () async {
-                        await runAction(
-                          () => notifier.completeTask(item.taskId),
-                          ok: '已完成',
-                        );
-                      }
-                    : null,
-                onSkip: item.status == ReviewTaskStatus.pending
-                    ? () async {
-                        await runAction(
-                          () => notifier.skipTask(item.taskId),
-                          ok: '已跳过',
-                        );
-                      }
-                    : null,
-                onUndo: item.status == ReviewTaskStatus.pending
-                    ? null
-                    : () => confirmUndo(item.taskId),
-                onOpenDetail: () =>
-                    context.push('/tasks/detail/${item.learningItemId}'),
-              ),
-              const SizedBox(height: AppSpacing.md),
-            ],
-            const SizedBox(height: AppSpacing.lg),
-          ],
-          if (state.isLoadingMore)
-            const Center(
-              child: Padding(
-                padding: EdgeInsets.all(16),
-                child: CircularProgressIndicator(),
-              ),
-            )
-          else if (state.nextCursor == null)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 12),
+              padding: const EdgeInsets.all(AppSpacing.xl),
               child: Text(
-                '已加载全部任务',
+                '暂无任务',
                 style: AppTypography.bodySecondary(context),
                 textAlign: TextAlign.center,
               ),
             ),
-          const SizedBox(height: 48),
-        ],
-      ],
+          );
+    }
+
+    Widget buildHeaderRow(TaskHubTimelineHeaderRow row) {
+      return KeyedSubtree(
+        key: ValueKey<String>('day_${row.day.toIso8601String()}'),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _GroupHeader(label: _groupLabel(row.day)),
+            const SizedBox(height: AppSpacing.sm),
+          ],
+        ),
+      );
+    }
+
+    Widget buildTaskRow(TaskHubTimelineTaskRow row) {
+      final onComplete = row.status == ReviewTaskStatus.pending
+          ? () async {
+              await runAction(() => notifier.completeTask(row.taskId), ok: '已完成');
+            }
+          : null;
+      final onSkip = row.status == ReviewTaskStatus.pending
+          ? () async {
+              await runAction(() => notifier.skipTask(row.taskId), ok: '已跳过');
+            }
+          : null;
+
+      return KeyedSubtree(
+        key: ValueKey<int>(row.taskId),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // 性能优化（Phase 1）：卡片级 RepaintBoundary，减少滚动时重绘传播。
+            RepaintBoundary(
+              child: _TaskTimelineCard(
+                item: row,
+                blurEnabled: blurEnabled,
+                expanded: state.expandedTaskIds.contains(row.taskId),
+                onToggleExpanded: () => notifier.toggleExpanded(row.taskId),
+                onComplete: onComplete,
+                onSkip: onSkip,
+                onUndo: row.status == ReviewTaskStatus.pending
+                    ? null
+                    : () => confirmUndo(row.taskId),
+                onOpenDetail: () => context.push('/tasks/detail/${row.learningItemId}'),
+              ),
+            ),
+            SizedBox(
+              height: row.isLastInGroup ? AppSpacing.lg : AppSpacing.md,
+            ),
+          ],
+        ),
+      );
+    }
+
+    Widget buildFooterRow() {
+      if (state.isLoadingMore) {
+        return const Center(
+          child: Padding(
+            padding: EdgeInsets.all(16),
+            child: CircularProgressIndicator(),
+          ),
+        );
+      }
+      if (state.nextCursor == null) {
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: Text(
+            '已加载全部任务',
+            style: AppTypography.bodySecondary(context),
+            textAlign: TextAlign.center,
+          ),
+        );
+      }
+      return const SizedBox.shrink();
+    }
+
+    Widget buildBottomSpacerRow() => const SizedBox(height: 48);
+
+    return SliverList(
+      delegate: SliverChildBuilderDelegate(
+        (context, index) {
+          var i = index;
+          if (hasError) {
+            if (i == 0) return buildErrorRow();
+            i -= 1;
+          }
+
+          if (!hasItems) {
+            return isInitialLoading ? buildLoadingRow() : buildEmptyRow();
+          }
+
+          // items 非空：按 index 映射到 timelineRows / footer / spacer。
+          final rowsLen = state.timelineRows.length;
+          if (i < rowsLen) {
+            final row = state.timelineRows[i];
+            return switch (row) {
+              TaskHubTimelineHeaderRow() =>
+                buildHeaderRow(row as TaskHubTimelineHeaderRow),
+              TaskHubTimelineTaskRow() => buildTaskRow(row as TaskHubTimelineTaskRow),
+            };
+          }
+
+          i -= rowsLen;
+          if (i == 0) return buildFooterRow();
+          return buildBottomSpacerRow();
+        },
+        childCount: childCount,
+      ),
     );
   }
 
@@ -224,39 +271,6 @@ class _GroupHeader extends StatelessWidget {
   }
 }
 
-/// 时间线条目（UI 侧使用的轻量结构，避免在构建阶段频繁拆解实体）。
-class _TaskTimelineItem {
-  const _TaskTimelineItem({
-    required this.taskId,
-    required this.learningItemId,
-    required this.title,
-    required this.description,
-    required this.legacyNote,
-    required this.subtaskCount,
-    required this.tags,
-    required this.reviewRound,
-    required this.scheduledDate,
-    required this.status,
-    required this.completedAt,
-    required this.skippedAt,
-    required this.occurredAt,
-  });
-
-  final int taskId;
-  final int learningItemId;
-  final String title;
-  final String? description;
-  final String? legacyNote;
-  final int subtaskCount;
-  final List<String> tags;
-  final int reviewRound;
-  final DateTime scheduledDate;
-  final ReviewTaskStatus status;
-  final DateTime? completedAt;
-  final DateTime? skippedAt;
-  final DateTime occurredAt;
-}
-
 /// 时间线任务卡片：点击展开操作区（完成/跳过/撤销）。
 class _TaskTimelineCard extends StatelessWidget {
   const _TaskTimelineCard({
@@ -267,15 +281,17 @@ class _TaskTimelineCard extends StatelessWidget {
     required this.onSkip,
     required this.onUndo,
     required this.onOpenDetail,
+    required this.blurEnabled,
   });
 
-  final _TaskTimelineItem item;
+  final TaskHubTimelineTaskRow item;
   final bool expanded;
   final VoidCallback onToggleExpanded;
   final VoidCallback? onComplete;
   final VoidCallback? onSkip;
   final VoidCallback? onUndo;
   final VoidCallback onOpenDetail;
+  final bool blurEnabled;
 
   @override
   Widget build(BuildContext context) {
@@ -305,6 +321,7 @@ class _TaskTimelineCard extends StatelessWidget {
       onTap: onToggleExpanded,
       borderRadius: BorderRadius.circular(16),
       child: GlassCard(
+        blurSigma: blurEnabled ? 14 : 0,
         child: Padding(
           padding: const EdgeInsets.all(AppSpacing.lg),
           child: Column(

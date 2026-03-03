@@ -6,12 +6,109 @@ library;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../di/providers.dart';
+import '../../core/utils/date_utils.dart';
 import '../../domain/entities/review_task.dart';
 import '../../domain/entities/task_timeline.dart';
 import 'calendar_provider.dart';
 import 'home_tasks_provider.dart';
 import 'statistics_provider.dart';
 import 'task_filter_provider.dart';
+
+/// 任务中心时间线行模型（Provider 侧预处理结果）。
+///
+/// 说明：
+/// - 用于将“分组/排序”从 UI build 热路径移出（spec-performance-optimization.md / Phase 1）
+/// - 该模型仅服务 Presentation 层，避免引入 Domain 层依赖
+sealed class TaskHubTimelineRow {
+  const TaskHubTimelineRow();
+}
+
+/// 日期分组标题行。
+class TaskHubTimelineHeaderRow extends TaskHubTimelineRow {
+  const TaskHubTimelineHeaderRow({required this.day});
+
+  /// 分组日期（当天 00:00）。
+  final DateTime day;
+}
+
+/// 任务卡片行（轻量结构，避免在 Widget build 阶段频繁拆解实体）。
+class TaskHubTimelineTaskRow extends TaskHubTimelineRow {
+  const TaskHubTimelineTaskRow({
+    required this.taskId,
+    required this.learningItemId,
+    required this.title,
+    required this.description,
+    required this.legacyNote,
+    required this.subtaskCount,
+    required this.tags,
+    required this.reviewRound,
+    required this.scheduledDate,
+    required this.status,
+    required this.completedAt,
+    required this.skippedAt,
+    required this.occurredAt,
+    required this.isLastInGroup,
+  });
+
+  final int taskId;
+  final int learningItemId;
+  final String title;
+  final String? description;
+  final String? legacyNote;
+  final int subtaskCount;
+  final List<String> tags;
+  final int reviewRound;
+  final DateTime scheduledDate;
+  final ReviewTaskStatus status;
+  final DateTime? completedAt;
+  final DateTime? skippedAt;
+  final DateTime occurredAt;
+
+  /// 是否为该日期分组的最后一条任务（用于插入更大的组间距）。
+  final bool isLastInGroup;
+
+  TaskHubTimelineTaskRow copyWith({bool? isLastInGroup}) {
+    return TaskHubTimelineTaskRow(
+      taskId: taskId,
+      learningItemId: learningItemId,
+      title: title,
+      description: description,
+      legacyNote: legacyNote,
+      subtaskCount: subtaskCount,
+      tags: tags,
+      reviewRound: reviewRound,
+      scheduledDate: scheduledDate,
+      status: status,
+      completedAt: completedAt,
+      skippedAt: skippedAt,
+      occurredAt: occurredAt,
+      isLastInGroup: isLastInGroup ?? this.isLastInGroup,
+    );
+  }
+
+  /// 从时间线实体构建行模型。
+  factory TaskHubTimelineTaskRow.fromEntity(
+    ReviewTaskTimelineItemEntity item, {
+    required bool isLastInGroup,
+  }) {
+    return TaskHubTimelineTaskRow(
+      taskId: item.task.taskId,
+      learningItemId: item.task.learningItemId,
+      title: item.task.title,
+      description: item.task.description,
+      legacyNote: item.task.note,
+      subtaskCount: item.task.subtaskCount,
+      tags: item.task.tags,
+      reviewRound: item.task.reviewRound,
+      scheduledDate: item.task.scheduledDate,
+      status: item.task.status,
+      completedAt: item.task.completedAt,
+      skippedAt: item.task.skippedAt,
+      occurredAt: item.occurredAt,
+      isLastInGroup: isLastInGroup,
+    );
+  }
+}
 
 /// 任务中心页面状态。
 class TaskHubState {
@@ -22,6 +119,7 @@ class TaskHubState {
     required this.filter,
     required this.counts,
     required this.items,
+    required this.timelineRows,
     required this.nextCursor,
     required this.expandedTaskIds,
     this.errorMessage,
@@ -42,6 +140,11 @@ class TaskHubState {
   /// 已加载的时间线条目（按发生时间倒序）。
   final List<ReviewTaskTimelineItemEntity> items;
 
+  /// 时间线行模型（Provider 侧预处理结果）。
+  ///
+  /// 说明：仅当 items 变化（refresh/loadMore）时更新；展开态变化不会触发重建。
+  final List<TaskHubTimelineRow> timelineRows;
+
   /// 下一页游标；为空表示没有更多数据。
   final TaskTimelineCursorEntity? nextCursor;
 
@@ -57,6 +160,7 @@ class TaskHubState {
     filter: ReviewTaskFilter.all,
     counts: TaskStatusCounts(all: 0, pending: 0, done: 0, skipped: 0),
     items: [],
+    timelineRows: [],
     nextCursor: null,
     expandedTaskIds: {},
     errorMessage: null,
@@ -68,6 +172,7 @@ class TaskHubState {
     ReviewTaskFilter? filter,
     TaskStatusCounts? counts,
     List<ReviewTaskTimelineItemEntity>? items,
+    List<TaskHubTimelineRow>? timelineRows,
     TaskTimelineCursorEntity? nextCursor,
     bool clearCursor = false,
     Set<int>? expandedTaskIds,
@@ -79,6 +184,7 @@ class TaskHubState {
       filter: filter ?? this.filter,
       counts: counts ?? this.counts,
       items: items ?? this.items,
+      timelineRows: timelineRows ?? this.timelineRows,
       nextCursor: clearCursor ? null : (nextCursor ?? this.nextCursor),
       expandedTaskIds: expandedTaskIds ?? this.expandedTaskIds,
       errorMessage: errorMessage,
@@ -113,6 +219,7 @@ class TaskHubNotifier extends StateNotifier<TaskHubState> {
       isLoading: true,
       isLoadingMore: false,
       items: const [],
+      timelineRows: const [],
       clearCursor: true,
       errorMessage: null,
       expandedTaskIds: <int>{},
@@ -121,9 +228,11 @@ class TaskHubNotifier extends StateNotifier<TaskHubState> {
       final useCase = _ref.read(getTasksByTimeUseCaseProvider);
       final status = _mapFilterToStatus(state.filter);
       final page = await useCase.execute(status: status, cursor: null, limit: 20);
+      final rows = _buildTimelineRows(page.items);
       state = state.copyWith(
         isLoading: false,
         items: page.items,
+        timelineRows: rows,
         nextCursor: page.nextCursor,
       );
     } catch (e) {
@@ -143,9 +252,12 @@ class TaskHubNotifier extends StateNotifier<TaskHubState> {
       final page =
           await useCase.execute(status: status, cursor: cursor, limit: 20);
 
+      final mergedItems = [...state.items, ...page.items];
+      final rows = _buildTimelineRows(mergedItems);
       state = state.copyWith(
         isLoadingMore: false,
-        items: [...state.items, ...page.items],
+        items: mergedItems,
+        timelineRows: rows,
         nextCursor: page.nextCursor,
       );
     } catch (e) {
@@ -216,6 +328,51 @@ class TaskHubNotifier extends StateNotifier<TaskHubState> {
     _ref.invalidate(homeTasksProvider);
     _ref.invalidate(calendarProvider);
     _ref.invalidate(statisticsProvider);
+  }
+
+  /// 构建时间线行模型（按日期分组，扁平化为 header/task 行序列）。
+  ///
+  /// 关键逻辑：
+  /// - 仅在 items 发生变化时执行（refresh/loadMore）
+  /// - 展开态（expandedTaskIds）变化不触发行模型重建，避免频繁分组带来的 jank
+  List<TaskHubTimelineRow> _buildTimelineRows(
+    List<ReviewTaskTimelineItemEntity> items,
+  ) {
+    if (items.isEmpty) return const <TaskHubTimelineRow>[];
+
+    final rows = <TaskHubTimelineRow>[];
+    DateTime? currentDay;
+    int? lastTaskRowIndex;
+
+    for (final item in items) {
+      final day = YikeDateUtils.atStartOfDay(item.occurredAt);
+
+      if (currentDay == null || !YikeDateUtils.isSameDay(currentDay, day)) {
+        // 当进入新的日期分组时，回填上一组最后一条任务的 isLastInGroup 标记。
+        if (lastTaskRowIndex != null) {
+          final last = rows[lastTaskRowIndex];
+          if (last is TaskHubTimelineTaskRow) {
+            rows[lastTaskRowIndex] = last.copyWith(isLastInGroup: true);
+          }
+        }
+
+        currentDay = day;
+        rows.add(TaskHubTimelineHeaderRow(day: day));
+      }
+
+      rows.add(TaskHubTimelineTaskRow.fromEntity(item, isLastInGroup: false));
+      lastTaskRowIndex = rows.length - 1;
+    }
+
+    // 最后一组收尾。
+    if (lastTaskRowIndex != null) {
+      final last = rows[lastTaskRowIndex];
+      if (last is TaskHubTimelineTaskRow) {
+        rows[lastTaskRowIndex] = last.copyWith(isLastInGroup: true);
+      }
+    }
+
+    return rows;
   }
 }
 

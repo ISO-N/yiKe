@@ -31,6 +31,7 @@ import '../../providers/settings_provider.dart';
 import '../../providers/sync_provider.dart';
 import '../../providers/task_hub_provider.dart';
 import '../../providers/task_filter_provider.dart';
+import '../../providers/ui_preferences_provider.dart';
 import '../../widgets/review_progress.dart';
 import '../../widgets/search_bar.dart';
 import '../../widgets/task_filter_bar.dart';
@@ -98,6 +99,7 @@ class _HomePageState extends ConsumerState<HomePage> {
     final permissionAsync = ref.watch(notificationPermissionProvider);
     final syncUi = ref.watch(syncControllerProvider);
     final tab = ref.watch(homeTaskTabProvider);
+    final blurEnabled = ref.watch(taskListBlurEnabledProvider);
 
     // 首页默认展示“今日”任务；tab=all 时会额外复用 taskHubProvider 的逻辑展示全量任务。
     final state = ref.watch(homeTasksProvider);
@@ -382,51 +384,136 @@ class _HomePageState extends ConsumerState<HomePage> {
         child: SafeArea(
           child: RefreshIndicator(
             onRefresh: refresh,
-            child: ListView(
-              controller: tab == HomeTaskTab.all
-                  ? _allTasksScrollController
-                  : null,
-              padding: const EdgeInsets.all(AppSpacing.lg),
-              children: [
-                LearningSearchBar(
-                  query: searchQuery,
-                  enabled: tab == HomeTaskTab.all
-                      ? !(hubState?.isLoading ?? false)
-                      : !state.isLoading,
-                  onChanged: (v) => searchQueryNotifier.state = v,
-                  onClear: () => searchQueryNotifier.state = '',
-                ),
-                if (searchKeyword.isNotEmpty) ...[
-                  const SizedBox(height: AppSpacing.md),
-                  _SearchResultsCard(
-                    keyword: searchKeyword,
-                    results: searchAsync,
-                    onTapItem: (id) => context.push('/items/$id'),
-                  ),
-                ],
-                const SizedBox(height: AppSpacing.lg),
-                HomeTabSwitcher(tab: tab, onChanged: changeTab),
-                const SizedBox(height: AppSpacing.lg),
-                if (tab == HomeTaskTab.all &&
-                    hubState != null &&
-                    hubNotifier != null) ...[
-                  TaskFilterBar(
-                    filter: hubState.filter,
-                    counts: hubState.counts,
-                    onChanged: (next) => hubNotifier.setFilter(next),
-                  ),
-                  const SizedBox(height: AppSpacing.lg),
-                  TaskHubTimelineList(
-                    state: hubState,
-                    notifier: hubNotifier,
-                    emptyState: state.isLoading
-                        ? null
-                        : _EmptyState(
-                            learningItemCount: state.learningItemCount,
+            // 性能优化（Phase 1）：tab=all 使用 CustomScrollView + SliverList 虚拟化时间线，避免一次性构建全部卡片。
+            child: (tab == HomeTaskTab.all && hubState != null && hubNotifier != null)
+                ? CustomScrollView(
+                    controller: _allTasksScrollController,
+                    slivers: [
+                      SliverPadding(
+                        padding: const EdgeInsets.fromLTRB(
+                          AppSpacing.lg,
+                          AppSpacing.lg,
+                          AppSpacing.lg,
+                          0,
+                        ),
+                        sliver: SliverToBoxAdapter(
+                          child: LearningSearchBar(
+                            query: searchQuery,
+                            enabled: !(hubState.isLoading),
+                            onChanged: (v) => searchQueryNotifier.state = v,
+                            onClear: () => searchQueryNotifier.state = '',
                           ),
-                  ),
-                  const SizedBox(height: 96),
-                ] else ...[
+                        ),
+                      ),
+                      if (searchKeyword.isNotEmpty)
+                        SliverPadding(
+                          padding: const EdgeInsets.fromLTRB(
+                            AppSpacing.lg,
+                            AppSpacing.md,
+                            AppSpacing.lg,
+                            0,
+                          ),
+                          sliver: SliverToBoxAdapter(
+                            child: _SearchResultsCard(
+                              keyword: searchKeyword,
+                              results: searchAsync,
+                              onTapItem: (id) => context.push('/items/$id'),
+                            ),
+                          ),
+                        ),
+                      const SliverToBoxAdapter(
+                        child: SizedBox(height: AppSpacing.lg),
+                      ),
+                      SliverPadding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: AppSpacing.lg,
+                        ),
+                        sliver: SliverToBoxAdapter(
+                          child: HomeTabSwitcher(
+                            tab: tab,
+                            onChanged: changeTab,
+                          ),
+                        ),
+                      ),
+                      const SliverToBoxAdapter(
+                        child: SizedBox(height: AppSpacing.lg),
+                      ),
+                      SliverPadding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: AppSpacing.lg,
+                        ),
+                        sliver: SliverToBoxAdapter(
+                          child: TaskFilterBar(
+                            filter: hubState.filter,
+                            counts: hubState.counts,
+                            onChanged: (next) => hubNotifier.setFilter(next),
+                          ),
+                        ),
+                      ),
+                      const SliverToBoxAdapter(
+                        child: SizedBox(height: AppSpacing.lg),
+                      ),
+                      SliverPadding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: AppSpacing.lg,
+                        ),
+                        sliver: TaskHubTimelineSliver(
+                          state: hubState,
+                          notifier: hubNotifier,
+                          blurEnabled: blurEnabled,
+                          emptyState: state.isLoading
+                              ? null
+                              : _EmptyState(
+                                  learningItemCount: state.learningItemCount,
+                                ),
+                        ),
+                      ),
+                      const SliverToBoxAdapter(child: SizedBox(height: 96)),
+                    ],
+                  )
+                : ListView(
+                    padding: const EdgeInsets.all(AppSpacing.lg),
+                    children: [
+                      LearningSearchBar(
+                        query: searchQuery,
+                        enabled: tab == HomeTaskTab.all
+                            ? !(hubState?.isLoading ?? false)
+                            : !state.isLoading,
+                        onChanged: (v) => searchQueryNotifier.state = v,
+                        onClear: () => searchQueryNotifier.state = '',
+                      ),
+                      if (searchKeyword.isNotEmpty) ...[
+                        const SizedBox(height: AppSpacing.md),
+                        _SearchResultsCard(
+                          keyword: searchKeyword,
+                          results: searchAsync,
+                          onTapItem: (id) => context.push('/items/$id'),
+                        ),
+                      ],
+                      const SizedBox(height: AppSpacing.lg),
+                      HomeTabSwitcher(tab: tab, onChanged: changeTab),
+                      const SizedBox(height: AppSpacing.lg),
+                      if (tab == HomeTaskTab.all &&
+                          hubState != null &&
+                          hubNotifier != null) ...[
+                        TaskFilterBar(
+                          filter: hubState.filter,
+                          counts: hubState.counts,
+                          onChanged: (next) => hubNotifier.setFilter(next),
+                        ),
+                        const SizedBox(height: AppSpacing.lg),
+                        TaskHubTimelineSliver(
+                          state: hubState,
+                          notifier: hubNotifier,
+                          blurEnabled: blurEnabled,
+                          emptyState: state.isLoading
+                              ? null
+                              : _EmptyState(
+                                  learningItemCount: state.learningItemCount,
+                                ),
+                        ),
+                        const SizedBox(height: 96),
+                      ] else ...[
                   const _DateHeader(),
                   const SizedBox(height: AppSpacing.lg),
                   const ReviewProgressWidget(),

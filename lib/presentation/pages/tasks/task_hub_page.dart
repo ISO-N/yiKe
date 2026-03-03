@@ -9,6 +9,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/app_spacing.dart';
 import '../../../core/constants/app_strings.dart';
 import '../../providers/task_hub_provider.dart';
+import '../../providers/ui_preferences_provider.dart';
 import '../../widgets/gradient_background.dart';
 import '../../widgets/task_filter_bar.dart';
 import 'widgets/task_hub_timeline_list.dart';
@@ -52,6 +53,7 @@ class _TaskHubPageState extends ConsumerState<TaskHubPage> {
   Widget build(BuildContext context) {
     final state = ref.watch(taskHubProvider);
     final notifier = ref.read(taskHubProvider.notifier);
+    final blurEnabled = ref.watch(taskListBlurEnabledProvider);
 
     return Scaffold(
       appBar: AppBar(title: const Text(AppStrings.taskHubTitle)),
@@ -59,17 +61,34 @@ class _TaskHubPageState extends ConsumerState<TaskHubPage> {
         child: SafeArea(
           child: RefreshIndicator(
             onRefresh: notifier.refresh,
-            child: ListView(
+            // 性能优化（Phase 1）：使用 CustomScrollView + SliverList 虚拟化时间线，避免一次性构建全部卡片。
+            child: CustomScrollView(
               controller: _scrollController,
-              padding: const EdgeInsets.all(AppSpacing.lg),
-              children: [
-                TaskFilterBar(
-                  filter: state.filter,
-                  counts: state.counts,
-                  onChanged: (next) => notifier.setFilter(next),
+              slivers: [
+                SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(
+                    AppSpacing.lg,
+                    AppSpacing.lg,
+                    AppSpacing.lg,
+                    0,
+                  ),
+                  sliver: SliverToBoxAdapter(
+                    child: TaskFilterBar(
+                      filter: state.filter,
+                      counts: state.counts,
+                      onChanged: (next) => notifier.setFilter(next),
+                    ),
+                  ),
                 ),
-                const SizedBox(height: AppSpacing.lg),
-                TaskHubTimelineList(state: state, notifier: notifier),
+                const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.lg)),
+                SliverPadding(
+                  padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+                  sliver: TaskHubTimelineSliver(
+                    state: state,
+                    notifier: notifier,
+                    blurEnabled: blurEnabled,
+                  ),
+                ),
               ],
             ),
           ),
