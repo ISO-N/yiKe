@@ -124,6 +124,11 @@ Future<void> _checkAndSendDailyReviewNotification() async {
     }
 
     await NotificationService.instance.initialize();
+
+    // 若已存在精准定时的计划通知，则后台检查不再重复发送（避免双重提醒）。
+    final hasScheduled = await NotificationService.instance.hasPendingNotification(1);
+    if (hasScheduled) return;
+
     final topTitles = pending.take(3).map((e) => e.item.title).toList();
     final body = topTitles.isEmpty
         ? '你有 ${pending.length} 条复习任务待完成'
@@ -133,6 +138,7 @@ Future<void> _checkAndSendDailyReviewNotification() async {
       id: 1,
       title: '今日复习提醒',
       body: body,
+      payloadRoute: '/home',
     );
 
     // 6) 记录今日已通知，防止重复发送。

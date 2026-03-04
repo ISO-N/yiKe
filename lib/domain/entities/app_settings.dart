@@ -15,6 +15,9 @@ class AppSettingsEntity {
     required this.doNotDisturbStart,
     required this.doNotDisturbEnd,
     required this.notificationsEnabled,
+    required this.overdueNotificationEnabled,
+    required this.goalNotificationEnabled,
+    required this.streakNotificationEnabled,
     required this.notificationPermissionGuideDismissed,
     required this.topicGuideDismissed,
     this.lastNotifiedDate,
@@ -32,6 +35,15 @@ class AppSettingsEntity {
   /// 通知开关。
   final bool notificationsEnabled;
 
+  /// 任务逾期通知开关（pending 超过阈值天数）。
+  final bool overdueNotificationEnabled;
+
+  /// 目标达成通知开关。
+  final bool goalNotificationEnabled;
+
+  /// 连续打卡里程碑通知开关。
+  final bool streakNotificationEnabled;
+
   /// 通知权限引导是否已被用户关闭（避免频繁弹窗）。
   final bool notificationPermissionGuideDismissed;
 
@@ -48,6 +60,9 @@ class AppSettingsEntity {
     String? doNotDisturbStart,
     String? doNotDisturbEnd,
     bool? notificationsEnabled,
+    bool? overdueNotificationEnabled,
+    bool? goalNotificationEnabled,
+    bool? streakNotificationEnabled,
     bool? notificationPermissionGuideDismissed,
     bool? topicGuideDismissed,
     String? lastNotifiedDate,
@@ -57,6 +72,12 @@ class AppSettingsEntity {
       doNotDisturbStart: doNotDisturbStart ?? this.doNotDisturbStart,
       doNotDisturbEnd: doNotDisturbEnd ?? this.doNotDisturbEnd,
       notificationsEnabled: notificationsEnabled ?? this.notificationsEnabled,
+      overdueNotificationEnabled:
+          overdueNotificationEnabled ?? this.overdueNotificationEnabled,
+      goalNotificationEnabled:
+          goalNotificationEnabled ?? this.goalNotificationEnabled,
+      streakNotificationEnabled:
+          streakNotificationEnabled ?? this.streakNotificationEnabled,
       notificationPermissionGuideDismissed:
           notificationPermissionGuideDismissed ??
           this.notificationPermissionGuideDismissed,
@@ -71,6 +92,9 @@ class AppSettingsEntity {
     doNotDisturbStart: '22:00',
     doNotDisturbEnd: '08:00',
     notificationsEnabled: true,
+    overdueNotificationEnabled: true,
+    goalNotificationEnabled: true,
+    streakNotificationEnabled: true,
     notificationPermissionGuideDismissed: false,
     topicGuideDismissed: false,
   );

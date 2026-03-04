@@ -17,6 +17,7 @@ import 'presentation/providers/theme_provider.dart';
 import 'presentation/widgets/desktop_shortcuts.dart';
 import 'presentation/widgets/desktop_title_bar.dart';
 import 'presentation/widgets/sync_bootstrap.dart';
+import 'presentation/widgets/ux_bootstrap.dart';
 
 class YiKeApp extends ConsumerWidget {
   /// App 根组件。
@@ -59,11 +60,10 @@ class YiKeApp extends ConsumerWidget {
         final isWidgetTest = bindingName.contains('TestWidgetsFlutterBinding');
         if (isWidgetTest) return content;
 
-        // 同步启动器：在应用根部接入同步/监听（避免在各页面重复绑定）。
+        // UX 启动器：首帧后执行资源预加载、通知点击导航绑定、启动时 UX 通知检查等。
         //
-        // 说明：UX 启动器（预加载/通知点击导航/启动通知检查）在后续交互与通知模块中接入，
-        // 这里保持 builder 层的职责单一，便于拆分提交与回归验证。
-        final bootstrapped = SyncBootstrap(child: content);
+        // 说明：该层级只负责“首帧后副作用”，不阻塞首屏渲染。
+        final bootstrapped = UxBootstrap(child: SyncBootstrap(child: content));
         if (kIsWeb) return content;
 
         // v3.0（F11）：Windows 使用隐藏系统标题栏 + 自定义标题栏。

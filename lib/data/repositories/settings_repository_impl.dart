@@ -33,11 +33,24 @@ class SettingsRepositoryImpl implements SettingsRepository {
   final SettingsCrypto _crypto;
   final SyncLogWriter? _sync;
 
-  // 预设设置项 Key（与 TDD 一致）。
-  static const String keyReminderTime = 'reminder_time';
+  // 预设设置项 Key（与 spec-user-experience-improvements.md 对齐）。
+  //
+  // 兼容策略：
+  // - 旧 key 继续读取（避免历史用户设置丢失）
+  // - 保存时写入新 key（并同时写入旧 key，便于旧版本读取）
+  static const String keyNotificationTime = 'notification_time';
+  static const String legacyKeyReminderTime = 'reminder_time';
   static const String keyDndStart = 'do_not_disturb_start';
   static const String keyDndEnd = 'do_not_disturb_end';
-  static const String keyNotificationsEnabled = 'notifications_enabled';
+  static const String keyNotificationEnabled = 'notification_enabled';
+  static const String legacyKeyNotificationsEnabled = 'notifications_enabled';
+
+  // v1.4.0：多通知类型开关。
+  static const String keyNotificationOverdueEnabled =
+      'notification_overdue_enabled';
+  static const String keyNotificationGoalEnabled = 'notification_goal_enabled';
+  static const String keyNotificationStreakEnabled =
+      'notification_streak_enabled';
   static const String keyNotificationPermissionGuideDismissed =
       'notification_permission_guide_dismissed';
   static const String keyTopicGuideDismissed = 'topic_guide_dismissed';
@@ -51,7 +64,8 @@ class SettingsRepositoryImpl implements SettingsRepository {
   @override
   Future<AppSettingsEntity> getSettings() async {
     final reminderTime =
-        await _getString(keyReminderTime) ??
+        await _getString(keyNotificationTime) ??
+        await _getString(legacyKeyReminderTime) ??
         AppSettingsEntity.defaults.reminderTime;
     final dndStart =
         await _getString(keyDndStart) ??
@@ -60,8 +74,18 @@ class SettingsRepositoryImpl implements SettingsRepository {
         await _getString(keyDndEnd) ??
         AppSettingsEntity.defaults.doNotDisturbEnd;
     final notificationsEnabled =
-        await _getBool(keyNotificationsEnabled) ??
+        await _getBool(keyNotificationEnabled) ??
+        await _getBool(legacyKeyNotificationsEnabled) ??
         AppSettingsEntity.defaults.notificationsEnabled;
+    final overdueEnabled =
+        await _getBool(keyNotificationOverdueEnabled) ??
+        AppSettingsEntity.defaults.overdueNotificationEnabled;
+    final goalEnabled =
+        await _getBool(keyNotificationGoalEnabled) ??
+        AppSettingsEntity.defaults.goalNotificationEnabled;
+    final streakEnabled =
+        await _getBool(keyNotificationStreakEnabled) ??
+        AppSettingsEntity.defaults.streakNotificationEnabled;
     final guideDismissed =
         await _getBool(keyNotificationPermissionGuideDismissed) ??
         AppSettingsEntity.defaults.notificationPermissionGuideDismissed;
@@ -75,6 +99,9 @@ class SettingsRepositoryImpl implements SettingsRepository {
       doNotDisturbStart: dndStart,
       doNotDisturbEnd: dndEnd,
       notificationsEnabled: notificationsEnabled,
+      overdueNotificationEnabled: overdueEnabled,
+      goalNotificationEnabled: goalEnabled,
+      streakNotificationEnabled: streakEnabled,
       notificationPermissionGuideDismissed: guideDismissed,
       topicGuideDismissed: topicGuideDismissed,
       lastNotifiedDate: lastNotifiedDate,
@@ -84,12 +111,32 @@ class SettingsRepositoryImpl implements SettingsRepository {
   @override
   Future<void> saveSettings(AppSettingsEntity settings) async {
     await dao.upsertValues({
-      keyReminderTime: await _crypto.encrypt(jsonEncode(settings.reminderTime)),
+      // 新 key（对齐 spec）。
+      keyNotificationTime: await _crypto.encrypt(
+        jsonEncode(settings.reminderTime),
+      ),
+      keyNotificationEnabled: await _crypto.encrypt(
+        jsonEncode(settings.notificationsEnabled),
+      ),
+      keyNotificationOverdueEnabled: await _crypto.encrypt(
+        jsonEncode(settings.overdueNotificationEnabled),
+      ),
+      keyNotificationGoalEnabled: await _crypto.encrypt(
+        jsonEncode(settings.goalNotificationEnabled),
+      ),
+      keyNotificationStreakEnabled: await _crypto.encrypt(
+        jsonEncode(settings.streakNotificationEnabled),
+      ),
+
+      // 旧 key（兼容历史/旧版本）。
+      legacyKeyReminderTime: await _crypto.encrypt(
+        jsonEncode(settings.reminderTime),
+      ),
       keyDndStart: await _crypto.encrypt(
         jsonEncode(settings.doNotDisturbStart),
       ),
       keyDndEnd: await _crypto.encrypt(jsonEncode(settings.doNotDisturbEnd)),
-      keyNotificationsEnabled: await _crypto.encrypt(
+      legacyKeyNotificationsEnabled: await _crypto.encrypt(
         jsonEncode(settings.notificationsEnabled),
       ),
       keyNotificationPermissionGuideDismissed: await _crypto.encrypt(
@@ -106,6 +153,14 @@ class SettingsRepositoryImpl implements SettingsRepository {
 
     // v3.0（F12）：记录设置变更（设置以主机为准，接收端会按本机密钥重加密写入）。
     await _logSettingsBundle({
+      // 新 key（对齐 spec）。
+      'notification_time': settings.reminderTime,
+      'notification_enabled': settings.notificationsEnabled,
+      'notification_overdue_enabled': settings.overdueNotificationEnabled,
+      'notification_goal_enabled': settings.goalNotificationEnabled,
+      'notification_streak_enabled': settings.streakNotificationEnabled,
+
+      // 旧 key（兼容旧客户端）。
       'reminder_time': settings.reminderTime,
       'do_not_disturb_start': settings.doNotDisturbStart,
       'do_not_disturb_end': settings.doNotDisturbEnd,

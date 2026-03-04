@@ -106,11 +106,11 @@ void main() {
     final dao = SettingsDao(db);
 
     // reminder_time：存储为数字，_getString 应转为字符串。
-    await dao.upsertValue(SettingsRepositoryImpl.keyReminderTime, '123');
+    await dao.upsertValue(SettingsRepositoryImpl.keyNotificationTime, '123');
 
     // notifications_enabled：存储为字符串，_getBool 应返回 null 并回退默认值。
     await dao.upsertValue(
-      SettingsRepositoryImpl.keyNotificationsEnabled,
+      SettingsRepositoryImpl.keyNotificationEnabled,
       '"true"',
     );
 

@@ -781,8 +781,14 @@ class SyncService {
     }
 
     // 说明：设置表是 key-value，接收端按当前设备密钥重新加密存储。
-    if (map.containsKey('reminder_time')) {
+    // v1.4.0：通知时间 key 迁移（reminder_time → notification_time）。
+    if (map.containsKey('notification_time')) {
+      await upsertEncrypted('notification_time', map['notification_time']);
+      // 兼容旧 key，保持两份一致，避免旧版本读取不到。
+      await upsertEncrypted('reminder_time', map['notification_time']);
+    } else if (map.containsKey('reminder_time')) {
       await upsertEncrypted('reminder_time', map['reminder_time']);
+      await upsertEncrypted('notification_time', map['reminder_time']);
     }
     if (map.containsKey('do_not_disturb_start')) {
       await upsertEncrypted(
@@ -793,18 +799,64 @@ class SyncService {
     if (map.containsKey('do_not_disturb_end')) {
       await upsertEncrypted('do_not_disturb_end', map['do_not_disturb_end']);
     }
-    if (map.containsKey('notifications_enabled')) {
+    // v1.4.0：通知开关 key 迁移（notifications_enabled → notification_enabled）。
+    if (map.containsKey('notification_enabled')) {
+      await upsertEncrypted('notification_enabled', map['notification_enabled']);
+      await upsertEncrypted(
+        'notifications_enabled',
+        map['notification_enabled'],
+      );
+    } else if (map.containsKey('notifications_enabled')) {
       await upsertEncrypted(
         'notifications_enabled',
         map['notifications_enabled'],
+      );
+      await upsertEncrypted(
+        'notification_enabled',
+        map['notifications_enabled'],
+      );
+    }
+
+    // 多通知类型开关（spec-user-experience-improvements.md）。
+    if (map.containsKey('notification_overdue_enabled')) {
+      await upsertEncrypted(
+        'notification_overdue_enabled',
+        map['notification_overdue_enabled'],
+      );
+    }
+    if (map.containsKey('notification_goal_enabled')) {
+      await upsertEncrypted(
+        'notification_goal_enabled',
+        map['notification_goal_enabled'],
+      );
+    }
+    if (map.containsKey('notification_streak_enabled')) {
+      await upsertEncrypted(
+        'notification_streak_enabled',
+        map['notification_streak_enabled'],
       );
     }
     if (map.containsKey('review_intervals')) {
       await upsertEncrypted('review_intervals', map['review_intervals']);
     }
+    if (map.containsKey('goal_daily')) {
+      await upsertEncrypted('goal_daily', map['goal_daily']);
+    }
+    if (map.containsKey('goal_streak')) {
+      await upsertEncrypted('goal_streak', map['goal_streak']);
+    }
+    if (map.containsKey('goal_weekly_rate')) {
+      await upsertEncrypted('goal_weekly_rate', map['goal_weekly_rate']);
+    }
     if (map.containsKey('theme_mode')) {
       // 主题设置仓储使用 key=theme_mode，value 为加密 JSON：{"mode":"system|light|dark"}
       await upsertEncrypted('theme_mode', {'mode': map['theme_mode']});
+    }
+    if (map.containsKey('theme_seed_color')) {
+      await upsertEncrypted('theme_seed_color', map['theme_seed_color']);
+    }
+    if (map.containsKey('theme_amoled')) {
+      await upsertEncrypted('theme_amoled', map['theme_amoled']);
     }
   }
 

@@ -252,7 +252,13 @@ void main() {
     expect((await repo.getThemeSettings()).mode, 'dark');
 
     // 4) 保存后可读取，并写入 sync_logs（settings_bundle:update）
-    await repo.saveThemeSettings(const ThemeSettingsEntity(mode: 'light'));
+    await repo.saveThemeSettings(
+      const ThemeSettingsEntity(
+        mode: 'light',
+        seedColorHex: '#2196F3',
+        amoled: false,
+      ),
+    );
     expect((await repo.getThemeSettings()).mode, 'light');
 
     final logs = await logDao.getLogsSince(0);
@@ -263,5 +269,7 @@ void main() {
     expect(settingsLogs.last.operation, 'update');
     final decoded = jsonDecode(settingsLogs.last.data) as Map<String, dynamic>;
     expect(decoded['theme_mode'], 'light');
+    expect(decoded['theme_seed_color'], '#2196F3');
+    expect(decoded['theme_amoled'], false);
   });
 }
