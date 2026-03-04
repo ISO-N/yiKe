@@ -32,24 +32,30 @@ class StatisticsTrendChart extends StatefulWidget {
   State<StatisticsTrendChart> createState() => _StatisticsTrendChartState();
 }
 
-class _StatisticsTrendChartState extends State<StatisticsTrendChart>
-    with SingleTickerProviderStateMixin {
-  late final TabController _controller;
+class _StatisticsTrendChartState extends State<StatisticsTrendChart> {
+  late final PageController _pageController;
+  int _pageIndex = 0;
 
   @override
   void initState() {
     super.initState();
-    _controller = TabController(length: 3, vsync: this);
+    _pageController = PageController(initialPage: 0);
   }
 
   @override
   void dispose() {
-    _controller.dispose();
+    _pageController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    final periodLabel = switch (_pageIndex) {
+      0 => '本周',
+      1 => '本月',
+      _ => '本年',
+    };
+
     return GlassCard(
       child: Padding(
         padding: const EdgeInsets.all(AppSpacing.lg),
@@ -61,24 +67,22 @@ class _StatisticsTrendChartState extends State<StatisticsTrendChart>
                 Expanded(
                   child: Text('完成率趋势', style: AppTypography.h2(context)),
                 ),
-                const Icon(Icons.show_chart, size: 18),
+                Text(
+                  periodLabel,
+                  style: AppTypography.bodySecondary(context).copyWith(
+                    fontSize: 12,
+                  ),
+                ),
+                const SizedBox(width: 6),
+                const Icon(Icons.swipe, size: 18),
               ],
             ),
             const SizedBox(height: AppSpacing.sm),
-            TabBar(
-              controller: _controller,
-              labelStyle: AppTypography.body(context),
-              tabs: const [
-                Tab(text: '本周'),
-                Tab(text: '本月'),
-                Tab(text: '本年'),
-              ],
-            ),
-            const SizedBox(height: AppSpacing.lg),
             SizedBox(
               height: 220,
-              child: TabBarView(
-                controller: _controller,
+              child: PageView(
+                controller: _pageController,
+                onPageChanged: (index) => setState(() => _pageIndex = index),
                 children: [
                   _Line(points: widget.insights.weekPoints, mode: _TrendMode.day),
                   _Line(
@@ -127,109 +131,138 @@ class _Line extends StatelessWidget {
     return Semantics(
       container: true,
       label: _semanticsLabel(points, mode: mode),
-      child: LineChart(
-        LineChartData(
-          minY: 0,
-          maxY: 100,
-          lineTouchData: LineTouchData(
-          enabled: true,
-          handleBuiltInTouches: true,
-          touchTooltipData: LineTouchTooltipData(
-            tooltipRoundedRadius: 10,
-            tooltipBgColor: isDark ? const Color(0xFF0B1220) : Colors.white,
-            getTooltipItems: (touchedSpots) {
-              return touchedSpots.map((s) {
-                final index = s.x.toInt();
-                if (index < 0 || index >= points.length) return null;
-                final p = points[index];
-                final text = _tooltipText(p, mode: mode);
-                return LineTooltipItem(
-                  text,
-                  TextStyle(
-                    color: isDark
-                        ? AppColors.darkTextPrimary
-                        : AppColors.textPrimary,
-                    fontSize: 12,
-                  ),
-                );
-              }).toList();
-            },
-          ),
-        ),
-        gridData: FlGridData(
-          show: true,
-          drawVerticalLine: false,
-          horizontalInterval: 25,
-          getDrawingHorizontalLine: (_) => FlLine(
-            color: gridColor,
-            strokeWidth: 1,
-          ),
-        ),
-        titlesData: FlTitlesData(
-          topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-          rightTitles:
-              const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-          leftTitles: AxisTitles(
-            sideTitles: SideTitles(
-              showTitles: true,
-              interval: 25,
-              reservedSize: 36,
-              getTitlesWidget: (value, meta) {
-                final v = value.toInt();
-                return Text(
-                  '$v%',
-                  style: AppTypography.bodySecondary(context).copyWith(
-                    fontSize: 11,
-                  ),
-                );
-              },
-            ),
-          ),
-          bottomTitles: AxisTitles(
-            sideTitles: SideTitles(
-              showTitles: true,
-              reservedSize: 22,
-              interval: mode == _TrendMode.month ? 1 : _bottomInterval(points),
-              getTitlesWidget: (value, meta) {
-                final index = value.toInt();
-                if (index < 0 || index >= points.length) {
-                  return const SizedBox.shrink();
-                }
-                return Padding(
-                  padding: const EdgeInsets.only(top: 6),
-                  child: Text(
-                    _xLabel(points[index].date, mode: mode),
-                    style: AppTypography.bodySecondary(context).copyWith(
-                      fontSize: 11,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          const yAxisWidth = 40.0;
+          const yAxisGap = 6.0;
+
+          // 关键逻辑：让 X 轴在数据点较多时可横向滚动，避免标签挤压。
+          // 经验值：日维度（最多 31）每点约 24px；月维度（12）每点更宽以容纳“X月”。
+          final pointSpacing = mode == _TrendMode.month ? 56.0 : 24.0;
+          final suggestedWidth = (points.isEmpty ? 1 : points.length) * pointSpacing;
+          final viewportWidth = (constraints.maxWidth - yAxisWidth - yAxisGap)
+              .clamp(0.0, double.infinity);
+          final chartWidth =
+              suggestedWidth < viewportWidth ? viewportWidth : suggestedWidth;
+
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const _YAxisLabels(width: yAxisWidth),
+              const SizedBox(width: yAxisGap),
+              Expanded(
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: SizedBox(
+                    width: chartWidth,
+                    child: LineChart(
+                      LineChartData(
+                        minX: 0,
+                        maxX: points.isEmpty ? 0 : (points.length - 1).toDouble(),
+                        minY: 0,
+                        maxY: 100,
+                        lineTouchData: LineTouchData(
+                          enabled: true,
+                          handleBuiltInTouches: true,
+                          touchTooltipData: LineTouchTooltipData(
+                            tooltipRoundedRadius: 10,
+                            tooltipBgColor:
+                                isDark ? const Color(0xFF0B1220) : Colors.white,
+                            getTooltipItems: (touchedSpots) {
+                              return touchedSpots.map((s) {
+                                final index = s.x.toInt();
+                                if (index < 0 || index >= points.length) {
+                                  return null;
+                                }
+                                final p = points[index];
+                                final text = _tooltipText(p, mode: mode);
+                                return LineTooltipItem(
+                                  text,
+                                  TextStyle(
+                                    color: isDark
+                                        ? AppColors.darkTextPrimary
+                                        : AppColors.textPrimary,
+                                    fontSize: 12,
+                                  ),
+                                );
+                              }).toList();
+                            },
+                          ),
+                        ),
+                        gridData: FlGridData(
+                          show: true,
+                          drawVerticalLine: false,
+                          horizontalInterval: 25,
+                          getDrawingHorizontalLine: (_) => FlLine(
+                            color: gridColor,
+                            strokeWidth: 1,
+                          ),
+                        ),
+                        titlesData: FlTitlesData(
+                          topTitles: const AxisTitles(
+                            sideTitles: SideTitles(showTitles: false),
+                          ),
+                          rightTitles: const AxisTitles(
+                            sideTitles: SideTitles(showTitles: false),
+                          ),
+                          // Y 轴固定：由左侧独立组件渲染，因此这里关闭 leftTitles。
+                          leftTitles: const AxisTitles(
+                            sideTitles: SideTitles(showTitles: false),
+                          ),
+                          bottomTitles: AxisTitles(
+                            sideTitles: SideTitles(
+                              showTitles: true,
+                              reservedSize: 22,
+                              interval:
+                                  mode == _TrendMode.month ? 1 : _bottomInterval(points),
+                              getTitlesWidget: (value, meta) {
+                                final index = value.toInt();
+                                if (index < 0 || index >= points.length) {
+                                  return const SizedBox.shrink();
+                                }
+                                return Padding(
+                                  padding: const EdgeInsets.only(top: 6),
+                                  child: Text(
+                                    _xLabel(points[index].date, mode: mode),
+                                    style: AppTypography.bodySecondary(context)
+                                        .copyWith(fontSize: 11),
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                        ),
+                        borderData: FlBorderData(
+                          show: true,
+                          border: Border.all(color: gridColor),
+                        ),
+                        lineBarsData: [
+                          LineChartBarData(
+                            spots: spots,
+                            isCurved: true,
+                            curveSmoothness: 0.22,
+                            color: primary,
+                            barWidth: 3,
+                            isStrokeCapRound: true,
+                            dotData: FlDotData(show: points.length <= 12),
+                            belowBarData: BarAreaData(
+                              show: true,
+                              color: primary.withValues(
+                                alpha: isDark ? 0.12 : 0.14,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      duration: const Duration(milliseconds: 220),
+                      curve: Curves.easeOut,
                     ),
                   ),
-                );
-              },
-            ),
-          ),
-        ),
-        borderData: FlBorderData(
-          show: true,
-          border: Border.all(color: gridColor),
-        ),
-        lineBarsData: [
-          LineChartBarData(
-            spots: spots,
-            isCurved: true,
-            curveSmoothness: 0.22,
-            color: primary,
-            barWidth: 3,
-            isStrokeCapRound: true,
-            dotData: FlDotData(show: points.length <= 12),
-            belowBarData: BarAreaData(
-              show: true,
-              color: primary.withValues(alpha: isDark ? 0.12 : 0.14),
-            ),
-          ),
-          ],
-        ),
-        duration: const Duration(milliseconds: 220),
-        curve: Curves.easeOut,
+                ),
+              ),
+            ],
+          );
+        },
       ),
     );
   }
@@ -284,5 +317,48 @@ class _Line extends StatelessWidget {
       buffer.write('$label 完成率 $rate%；');
     }
     return buffer.toString();
+  }
+}
+
+class _YAxisLabels extends StatelessWidget {
+  const _YAxisLabels({required this.width});
+
+  final double width;
+
+  @override
+  Widget build(BuildContext context) {
+    // 关键逻辑：Y 轴固定不滚动，独立绘制 0~100 的刻度标签。
+    //
+    // 说明：为了与 fl_chart 的默认坐标系接近，这里使用 Stack 按比例定位。
+    // 由于字体高度/边距存在差异，可能与网格线有 1~2px 误差，但整体可读性更好。
+    final style = AppTypography.bodySecondary(context).copyWith(fontSize: 11);
+    const ticks = <int>[100, 75, 50, 25, 0];
+
+    return SizedBox(
+      width: width,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          // 与上方 LineChart 的 bottomTitles reservedSize 保持一致。
+          const bottomReserved = 22.0;
+          final usableHeight = (constraints.maxHeight - bottomReserved)
+              .clamp(0.0, double.infinity);
+
+          return Padding(
+            padding: const EdgeInsets.only(bottom: bottomReserved),
+            child: Stack(
+              children: [
+                for (final t in ticks)
+                  Positioned(
+                    left: 0,
+                    right: 0,
+                    top: (1 - t / 100) * usableHeight - 6,
+                    child: Text('$t%', style: style, textAlign: TextAlign.right),
+                  ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
   }
 }

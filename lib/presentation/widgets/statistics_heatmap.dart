@@ -18,7 +18,7 @@ import 'skeleton_loader.dart';
 /// 统计热力图（按年）。
 ///
 /// 说明：
-/// - 7 行（周一~周日）× 52~53 列（周）
+/// - 7 行（每列 7 天）× 52~53 列（周块）
 /// - tooltip：桌面端 hover，移动端长按（Flutter Tooltip 默认行为）
 class StatisticsHeatmap extends ConsumerStatefulWidget {
   /// 构造函数。
@@ -162,10 +162,8 @@ class _HeatmapGrid extends StatelessWidget {
     final yearStart = DateTime(year, 1, 1);
     final yearEnd = DateTime(year + 1, 1, 1);
 
-    // 关键逻辑：按 GitHub 热力图习惯对齐到“周一”，可能会从上一年的最后一周开始补齐。
-    final start = yearStart.subtract(
-      Duration(days: (yearStart.weekday - DateTime.monday) % 7),
-    );
+    // 关键逻辑：1 月 1 日顶格显示（不再对齐到周一，也不显示上一年的补齐占位）。
+    final start = yearStart;
 
     final days = yearEnd.difference(start).inDays;
     final weekCount = ((days + 6) / 7).floor();
