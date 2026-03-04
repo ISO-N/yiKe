@@ -32,28 +32,19 @@ class StatisticsTrendChart extends StatefulWidget {
   State<StatisticsTrendChart> createState() => _StatisticsTrendChartState();
 }
 
+/// 时间周期枚举（用于切换按钮）
+enum _Period { week, month, year }
+
 class _StatisticsTrendChartState extends State<StatisticsTrendChart> {
-  late final PageController _pageController;
-  int _pageIndex = 0;
-
-  @override
-  void initState() {
-    super.initState();
-    _pageController = PageController(initialPage: 0);
-  }
-
-  @override
-  void dispose() {
-    _pageController.dispose();
-    super.dispose();
-  }
+  _Period _selectedPeriod = _Period.week;
 
   @override
   Widget build(BuildContext context) {
-    final periodLabel = switch (_pageIndex) {
-      0 => '本周',
-      1 => '本月',
-      _ => '本年',
+    // 根据选中状态获取对应的数据点和模式
+    final (points, mode) = switch (_selectedPeriod) {
+      _Period.week => (widget.insights.weekPoints, _TrendMode.day),
+      _Period.month => (widget.insights.monthPoints, _TrendMode.day),
+      _Period.year => (widget.insights.yearPoints, _TrendMode.month),
     };
 
     return GlassCard(
@@ -67,34 +58,30 @@ class _StatisticsTrendChartState extends State<StatisticsTrendChart> {
                 Expanded(
                   child: Text('完成率趋势', style: AppTypography.h2(context)),
                 ),
-                Text(
-                  periodLabel,
-                  style: AppTypography.bodySecondary(context).copyWith(
-                    fontSize: 12,
+                // 使用 SegmentedButton 点击切换周/月/年
+                SegmentedButton<_Period>(
+                  segments: const [
+                    ButtonSegment(value: _Period.week, label: Text('本周')),
+                    ButtonSegment(value: _Period.month, label: Text('本月')),
+                    ButtonSegment(value: _Period.year, label: Text('本年')),
+                  ],
+                  selected: {_selectedPeriod},
+                  onSelectionChanged: (selected) {
+                    setState(() => _selectedPeriod = selected.first);
+                  },
+                  style: ButtonStyle(
+                    visualDensity: VisualDensity.compact,
+                    textStyle: WidgetStateProperty.all(
+                      AppTypography.bodySecondary(context).copyWith(fontSize: 12),
+                    ),
                   ),
                 ),
-                const SizedBox(width: 6),
-                const Icon(Icons.swipe, size: 18),
               ],
             ),
             const SizedBox(height: AppSpacing.sm),
             SizedBox(
               height: 220,
-              child: PageView(
-                controller: _pageController,
-                onPageChanged: (index) => setState(() => _pageIndex = index),
-                children: [
-                  _Line(points: widget.insights.weekPoints, mode: _TrendMode.day),
-                  _Line(
-                    points: widget.insights.monthPoints,
-                    mode: _TrendMode.day,
-                  ),
-                  _Line(
-                    points: widget.insights.yearPoints,
-                    mode: _TrendMode.month,
-                  ),
-                ],
-              ),
+              child: _Line(points: points, mode: mode),
             ),
           ],
         ),
@@ -157,10 +144,14 @@ class _Line extends StatelessWidget {
                     width: chartWidth,
                     child: LineChart(
                       LineChartData(
-                        minX: 0,
-                        maxX: points.isEmpty ? 0 : (points.length - 1).toDouble(),
-                        minY: 0,
-                        maxY: 100,
+                        // 扩大 X 轴范围，两侧各留半格边距，避免标签被裁剪
+                        minX: -0.5,
+                        maxX: points.isEmpty ? 0.5 : (points.length - 0.5),
+                        // 扩大 Y 轴范围，避免线条被裁剪
+                        minY: -5,
+                        maxY: 105,
+                        // 不裁剪线条，允许超出边界
+                        clipData: const FlClipData.none(),
                         lineTouchData: LineTouchData(
                           enabled: true,
                           handleBuiltInTouches: true,
@@ -216,6 +207,10 @@ class _Line extends StatelessWidget {
                               interval:
                                   mode == _TrendMode.month ? 1 : _bottomInterval(points),
                               getTitlesWidget: (value, meta) {
+                                // 只在整数位置显示标签，避免重复
+                                if (value != value.roundToDouble()) {
+                                  return const SizedBox.shrink();
+                                }
                                 final index = value.toInt();
                                 if (index < 0 || index >= points.length) {
                                   return const SizedBox.shrink();
@@ -240,7 +235,8 @@ class _Line extends StatelessWidget {
                           LineChartBarData(
                             spots: spots,
                             isCurved: true,
-                            curveSmoothness: 0.22,
+                            // 降低平滑度，使水平线段更直，避免相邻100显示为曲线
+                            curveSmoothness: 0.05,
                             color: primary,
                             barWidth: 3,
                             isStrokeCapRound: true,
@@ -328,20 +324,38 @@ class _YAxisLabels extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     // 关键逻辑：Y 轴固定不滚动，独立绘制 0~100 的刻度标签。
-    //
-    // 说明：为了与 fl_chart 的默认坐标系接近，这里使用 Stack 按比例定位。
-    // 由于字体高度/边距存在差异，可能与网格线有 1~2px 误差，但整体可读性更好。
+    // 改进：添加上下边距，使标签不被裁剪，且与 fl_chart 网格线对齐。
     final style = AppTypography.bodySecondary(context).copyWith(fontSize: 11);
     const ticks = <int>[100, 75, 50, 25, 0];
+
+    // fl_chart 默认的垂直 padding，使网格线不会到达最顶端和最底端
+    // 这里模拟相同的布局，使 Y 轴标签与网格线对齐
+    const topPadding = 16.0;
+    const bottomReserved = 22.0;
 
     return SizedBox(
       width: width,
       child: LayoutBuilder(
         builder: (context, constraints) {
-          // 与上方 LineChart 的 bottomTitles reservedSize 保持一致。
-          const bottomReserved = 22.0;
-          final usableHeight = (constraints.maxHeight - bottomReserved)
-              .clamp(0.0, double.infinity);
+          final totalHeight = constraints.maxHeight;
+          final chartHeight = (totalHeight - bottomReserved).clamp(0.0, double.infinity);
+          // 网格线实际占据的高度（去除 topPadding）
+          final gridHeight = chartHeight - topPadding;
+
+          // 测量文本高度用于精确对齐
+          final textPainter = TextPainter(
+            text: TextSpan(text: '100%', style: style),
+            textDirection: TextDirection.ltr,
+          )..layout();
+
+          // 计算每个刻度标签的位置
+          // fl_chart: y=100 在顶部下方 topPadding 处，y=0 在底部上方
+          double positionForTick(int tick) {
+            // tick=100 -> top = topPadding
+            // tick=0 -> top = topPadding + gridHeight
+            final basePosition = topPadding + (1 - tick / 100) * gridHeight;
+            return basePosition - textPainter.height / 2;
+          }
 
           return Padding(
             padding: const EdgeInsets.only(bottom: bottomReserved),
@@ -351,7 +365,10 @@ class _YAxisLabels extends StatelessWidget {
                   Positioned(
                     left: 0,
                     right: 0,
-                    top: (1 - t / 100) * usableHeight - 6,
+                    top: positionForTick(t).clamp(
+                      0.0,
+                      chartHeight - textPainter.height,
+                    ),
                     child: Text('$t%', style: style, textAlign: TextAlign.right),
                   ),
               ],
