@@ -308,11 +308,56 @@ class SettingsPage extends ConsumerWidget {
                           state.isLoading
                               ? null
                               : (v) => save(
-                                state.settings.copyWith(
-                                  streakNotificationEnabled: v,
-                                ),
-                              ),
+                                 state.settings.copyWith(
+                                   streakNotificationEnabled: v,
+                                 ),
+                               ),
                     ),
+                    if (kDebugMode) ...[
+                      const Divider(height: 1),
+                      ListTile(
+                        title: const Text('测试通知（仅调试模式）'),
+                        subtitle: const Text('用于验证 Android/Windows 通知通道是否正常'),
+                        trailing: const Icon(Icons.notifications_active_outlined),
+                        onTap: state.isLoading
+                            ? null
+                            : () async {
+                                try {
+                                  // 说明：测试按钮尽量走同一套初始化/发送逻辑，便于复现实机问题。
+                                  await NotificationService.instance.initialize();
+                                  await NotificationService.instance
+                                      .requestPermission();
+
+                                  final id = DateTime.now()
+                                      .millisecondsSinceEpoch
+                                      .remainder(100000);
+                                  await NotificationService.instance
+                                      .showReviewNotification(
+                                    id: id,
+                                    title: '测试通知',
+                                    body: '如果你看到了这条通知，说明通知功能已正常工作。',
+                                    payloadRoute: '/settings',
+                                  );
+
+                                  if (context.mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(content: Text('已发送测试通知')),
+                                    );
+                                  }
+                                } catch (e, st) {
+                                  // 调试期需要可见的失败信息，避免“无效果”无法定位。
+                                  debugPrint('测试通知发送失败：$e\n$st');
+                                  if (context.mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text('发送失败，请检查权限或查看调试日志'),
+                                      ),
+                                    );
+                                  }
+                                }
+                              },
+                      ),
+                    ],
                   ],
                 ),
               ),

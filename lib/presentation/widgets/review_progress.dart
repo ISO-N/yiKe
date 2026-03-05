@@ -4,6 +4,7 @@
 library;
 
 import 'dart:ui';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -228,28 +229,14 @@ class _AnimatedProgressMainState extends State<_AnimatedProgressMain> {
             return Row(
               children: [
                 RepaintBoundary(
-                  child: SizedBox(
-                    width: 80,
-                    height: 80,
-                    child: Stack(
-                      alignment: Alignment.center,
-                      children: [
-                        CircularProgressIndicator(
-                          value: animatedProgress,
-                          strokeWidth: 8,
-                          backgroundColor: ringColor.withValues(alpha: 0.12),
-                          valueColor: AlwaysStoppedAnimation<Color>(ringColor),
-                        ),
-                        Text(
-                          '$percentText%',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w800,
-                            color: ringColor,
-                          ),
-                        ),
-                      ],
-                    ),
+                  // 关键逻辑：使用“内圆 + 自适应文字”的组合，避免在字体缩放/100% 等情况下
+                  // 百分比文字侵入圆环内侧边缘，导致视觉上“内圆被文字遮挡/环被切掉”的问题。
+                  child: _DonutProgressRing(
+                    progress: animatedProgress,
+                    ringColor: ringColor,
+                    label: '$percentText%',
+                    size: 80,
+                    strokeWidth: 8,
                   ),
                 ),
                 const SizedBox(width: AppSpacing.lg),
@@ -315,6 +302,191 @@ class _AnimatedProgressMainState extends State<_AnimatedProgressMain> {
     if (total <= 0 || completed <= 0) return '未开始';
     if (completed >= total) return '已完成';
     return '进行中';
+  }
+}
+
+/// 环形进度（甜甜圈样式）组件：用于在固定尺寸内展示进度环、内圆与居中文字。
+///
+/// 设计目标：
+/// - 文字必须始终落在“内圆”可用区域内，不覆盖圆环的内侧边缘；
+/// - 支持系统字体缩放（无障碍字号）与 `100%` 等宽度更大的文本；
+/// - 内圆提供稳定背景，避免毛玻璃/渐变背景下中心文字可读性下降。
+class _DonutProgressRing extends StatelessWidget {
+  /// 构造函数。
+  ///
+  /// 参数：
+  /// - [progress] 进度值（0~1）。
+  /// - [ringColor] 圆环颜色。
+  /// - [label] 圆环中心文字（例如 `75%`）。
+  /// - [size] 组件尺寸（宽高相等）。
+  /// - [strokeWidth] 圆环描边宽度。
+  /// 返回值：Widget。
+  /// 异常：无（内部会对 [progress] 做安全 clamp）。
+  const _DonutProgressRing({
+    required this.progress,
+    required this.ringColor,
+    required this.label,
+    required this.size,
+    required this.strokeWidth,
+  });
+
+  final double progress;
+  final Color ringColor;
+  final String label;
+  final double size;
+  final double strokeWidth;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    // 关键逻辑：内圆底色与 GlassCard 保持一致，但略微提高不透明度，
+    // 用于提升文字可读性，并形成明确的“内圆”视觉层次。
+    final innerFillColor = (isDark ? AppColors.darkGlassSurface : AppColors.glassSurface)
+        .withValues(alpha: isDark ? 0.90 : 0.92);
+
+    // 关键逻辑：使用自绘（CustomPainter）替代 CircularProgressIndicator + Stack。
+    // 原因：在 Android “粗体文本”/字体度量变化时，Stack 的中心文字即便不 overflow，
+    // 也可能视觉上贴到圆环甚至压到圆环上；自绘可根据文字真实尺寸动态缩放，严格保证留白。
+    return SizedBox.square(
+      dimension: size,
+      child: RepaintBoundary(
+        child: CustomPaint(
+          painter: _DonutProgressRingPainter(
+            progress: progress,
+            ringColor: ringColor,
+            trackColor: ringColor.withValues(alpha: isDark ? 0.22 : 0.16),
+            innerFillColor: innerFillColor,
+            label: label,
+            strokeWidth: strokeWidth,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// 甜甜圈进度环绘制器：负责绘制底轨、进度弧、内圆与自适应居中文字。
+///
+/// 关键点：
+/// - 通过 `TextPainter` 获取文字真实尺寸，并计算缩放比例，保证文字永不侵入圆环区域；
+/// - 内圆半径明确小于圆环内侧边缘，避免“把环盖淡/盖薄”的问题（用户反馈的深色模式变淡）。
+class _DonutProgressRingPainter extends CustomPainter {
+  /// 构造函数。
+  ///
+  /// 参数：
+  /// - [progress] 进度 0~1。
+  /// - [ringColor] 进度弧颜色。
+  /// - [trackColor] 底轨颜色。
+  /// - [innerFillColor] 内圆填充色。
+  /// - [label] 居中显示文本。
+  /// - [strokeWidth] 圆环宽度。
+  /// 返回值：Painter。
+  /// 异常：无（内部会 clamp progress）。
+  _DonutProgressRingPainter({
+    required this.progress,
+    required this.ringColor,
+    required this.trackColor,
+    required this.innerFillColor,
+    required this.label,
+    required this.strokeWidth,
+  });
+
+  final double progress;
+  final Color ringColor;
+  final Color trackColor;
+  final Color innerFillColor;
+  final String label;
+  final double strokeWidth;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final safeProgress = progress.isNaN ? 0.0 : progress.clamp(0.0, 1.0);
+
+    final center = Offset(size.width / 2, size.height / 2);
+
+    // 关键逻辑：半径使用 “外边界 - 半个描边”，确保描边不会超出绘制区域。
+    final ringRadius = math.min(size.width, size.height) / 2 - strokeWidth / 2;
+
+    final ringPaintBase = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = strokeWidth
+      ..strokeCap = StrokeCap.round
+      ..isAntiAlias = true;
+
+    // 1) 底轨圆环（不随进度变化）
+    final trackPaint = ringPaintBase..color = trackColor;
+    canvas.drawCircle(center, ringRadius, trackPaint);
+
+    // 2) 进度弧（从 12 点方向开始顺时针）
+    if (safeProgress > 0) {
+      final progressPaint = ringPaintBase..color = ringColor;
+      final sweepAngle = 2 * math.pi * safeProgress;
+      canvas.drawArc(
+        Rect.fromCircle(center: center, radius: ringRadius),
+        -math.pi / 2,
+        sweepAngle,
+        false,
+        progressPaint,
+      );
+    }
+
+    // 3) 内圆：严格小于圆环内侧边缘，避免覆盖进度环导致“变淡/变薄”。
+    // 圆环内侧半径约为 ringRadius - strokeWidth / 2；
+    // 再减去 1.5px 作为抗锯齿缓冲，保证边缘干净。
+    final innerRadius = (ringRadius - strokeWidth / 2 - 1.5).clamp(0.0, ringRadius);
+    final innerPaint = Paint()
+      ..style = PaintingStyle.fill
+      ..color = innerFillColor
+      ..isAntiAlias = true;
+    canvas.drawCircle(center, innerRadius, innerPaint);
+
+    // 4) 文字：测量真实尺寸后按需缩放，确保始终落在内圆安全区内。
+    // 关键逻辑：在“粗体文本”场景下，字形外扩更明显，因此安全边距取稍大值。
+    final textSafePadding = 6.0;
+    final maxTextDiameter = (innerRadius * 2 - textSafePadding * 2).clamp(0.0, size.shortestSide);
+
+    if (maxTextDiameter <= 0) return;
+
+    final textStyle = TextStyle(
+      fontSize: 18,
+      fontWeight: FontWeight.w800,
+      color: ringColor,
+      height: 1.0, // 关键逻辑：减少行高带来的额外占用，降低贴边概率。
+    );
+
+    final textPainter = TextPainter(
+      text: TextSpan(text: label, style: textStyle),
+      textAlign: TextAlign.center,
+      textDirection: TextDirection.ltr,
+      maxLines: 1,
+      ellipsis: null,
+    )..layout();
+
+    final textWidth = textPainter.width;
+    final textHeight = textPainter.height;
+    final textMaxSide = math.max(textWidth, textHeight);
+
+    // 关键逻辑：仅在需要时缩小，避免小数字看起来过小。
+    final scale = textMaxSide <= 0 ? 1.0 : math.min(1.0, maxTextDiameter / textMaxSide);
+
+    canvas.save();
+    canvas.translate(center.dx, center.dy);
+    canvas.scale(scale, scale);
+    final offset = Offset(-textPainter.width / 2, -textPainter.height / 2);
+    textPainter.paint(canvas, offset);
+    canvas.restore();
+  }
+
+  @override
+  bool shouldRepaint(covariant _DonutProgressRingPainter oldDelegate) {
+    // 关键逻辑：任一输入变化都需要重绘。
+    return oldDelegate.progress != progress ||
+        oldDelegate.ringColor != ringColor ||
+        oldDelegate.trackColor != trackColor ||
+        oldDelegate.innerFillColor != innerFillColor ||
+        oldDelegate.label != label ||
+        oldDelegate.strokeWidth != strokeWidth;
   }
 }
 
