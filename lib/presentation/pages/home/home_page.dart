@@ -220,7 +220,12 @@ class _HomePageState extends ConsumerState<HomePage> {
       if (!context.mounted) return;
       // 交互优化：新提示覆盖旧提示，避免连续操作时 Snackbar 堆叠。
       ScaffoldMessenger.of(context).hideCurrentSnackBar();
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(text),
+          duration: const Duration(seconds: 2),
+        ),
+      );
     }
 
     void showUndoSnack({required String text, required int taskId}) {
@@ -230,7 +235,7 @@ class _HomePageState extends ConsumerState<HomePage> {
       messenger.showSnackBar(
         SnackBar(
           content: Text(text),
-          duration: const Duration(seconds: 5),
+          duration: const Duration(seconds: 3),
           action: SnackBarAction(
             label: '撤销',
             onPressed: () async {

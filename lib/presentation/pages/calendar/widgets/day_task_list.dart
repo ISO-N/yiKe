@@ -52,7 +52,12 @@ class DayTaskListSheet extends ConsumerWidget {
       if (!context.mounted) return;
       final messenger = ScaffoldMessenger.of(context);
       messenger.hideCurrentSnackBar();
-      messenger.showSnackBar(SnackBar(content: Text(text)));
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(text),
+          duration: const Duration(seconds: 2),
+        ),
+      );
     }
 
     void showUndoSnack({required String text, required int taskId}) {
@@ -62,7 +67,7 @@ class DayTaskListSheet extends ConsumerWidget {
       messenger.showSnackBar(
         SnackBar(
           content: Text(text),
-          duration: const Duration(seconds: 5),
+          duration: const Duration(seconds: 3),
           action: SnackBarAction(
             label: '撤销',
             onPressed: () async {

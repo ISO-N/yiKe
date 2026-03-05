@@ -45,6 +45,47 @@ class ReviewIntervalsNotifier extends StateNotifier<ReviewIntervalsState> {
 
   final SettingsRepository _repository;
 
+  /// 校验配置合法性。
+  ///
+  /// 参数：
+  /// - [sortedConfigs] 已按 round 升序排序的配置列表
+  ///
+  /// 异常：
+  /// - 不满足规则时抛出 [ArgumentError]，用于阻止持久化错误配置
+  void _validateConfigs(List<ReviewIntervalConfigEntity> sortedConfigs) {
+    if (sortedConfigs.isEmpty) {
+      throw ArgumentError('复习配置不能为空');
+    }
+
+    // 规则 1：round 必须从 1 开始连续，且不可重复。
+    for (var i = 0; i < sortedConfigs.length; i++) {
+      final expectedRound = i + 1;
+      final actualRound = sortedConfigs[i].round;
+      if (actualRound != expectedRound) {
+        throw ArgumentError('轮次编号必须从 1 开始连续（当前发现第 $expectedRound 轮缺失或重复）');
+      }
+    }
+
+    // 规则 2：至少保留一轮启用。
+    final enabled = sortedConfigs.where((e) => e.enabled).toList();
+    if (enabled.isEmpty) {
+      throw ArgumentError('至少保留一轮复习');
+    }
+
+    // 规则 3：后一次复习必须更晚（以学习日为基准的 intervalDays 需递增）。
+    ReviewIntervalConfigEntity? prevEnabled;
+    for (final c in sortedConfigs) {
+      if (!c.enabled) continue;
+      final prev = prevEnabled;
+      if (prev != null && c.intervalDays <= prev.intervalDays) {
+        throw ArgumentError(
+          '第${c.round}轮复习需晚于第${prev.round}轮（间隔天数需递增）',
+        );
+      }
+      prevEnabled = c;
+    }
+  }
+
   /// 加载配置。
   Future<void> load() async {
     state = state.copyWith(isLoading: true, errorMessage: null);
@@ -58,14 +99,17 @@ class ReviewIntervalsNotifier extends StateNotifier<ReviewIntervalsState> {
 
   /// 保存配置（并持久化到设置表）。
   Future<void> save(List<ReviewIntervalConfigEntity> configs) async {
+    final next = [...configs]..sort((a, b) => a.round.compareTo(b.round));
+    _validateConfigs(next);
+
     state = state.copyWith(
       isLoading: true,
       errorMessage: null,
-      configs: configs,
+      configs: next,
     );
     try {
-      await _repository.saveReviewIntervalConfigs(configs);
-      state = state.copyWith(isLoading: false, configs: configs);
+      await _repository.saveReviewIntervalConfigs(next);
+      state = state.copyWith(isLoading: false, configs: next);
     } catch (e) {
       state = state.copyWith(isLoading: false, errorMessage: e.toString());
       rethrow;

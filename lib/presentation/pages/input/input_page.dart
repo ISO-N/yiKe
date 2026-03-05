@@ -46,6 +46,8 @@ class _InputPageState extends ConsumerState<InputPage> {
   final _formKey = GlobalKey<FormState>();
 
   bool _saving = false;
+  // 录入页的复习配置面板是否存在未保存更改：用于拦截返回并提示用户。
+  bool _hasUnsavedReviewIntervalsChanges = false;
   final List<_DraftItemControllers> _items = [];
   int _activeIndex = 0;
   late final Future<List<String>> _availableTagsFuture;
@@ -298,7 +300,14 @@ class _InputPageState extends ConsumerState<InputPage> {
         if (_saving) return;
         _onSave();
       },
-      child: Scaffold(
+      child: PopScope(
+        canPop: !_hasUnsavedReviewIntervalsChanges,
+        onPopInvokedWithResult: (didPop, result) {
+          if (didPop) return;
+          // PopScope 的回调不支持 async：这里改为触发异步确认弹窗流程。
+          _handlePopBlockedByUnsavedReviewIntervals();
+        },
+        child: Scaffold(
       appBar: AppBar(
         title: const Text('录入'),
         actions: [
@@ -534,6 +543,10 @@ class _InputPageState extends ConsumerState<InputPage> {
                     DateTime.now().month,
                     DateTime.now().day,
                   ),
+                  onUnsavedChangesChanged: (hasUnsaved) {
+                    if (_hasUnsavedReviewIntervalsChanges == hasUnsaved) return;
+                    setState(() => _hasUnsavedReviewIntervalsChanges = hasUnsaved);
+                  },
                 ),
                 const SizedBox(height: 120),
               ],
@@ -550,7 +563,42 @@ class _InputPageState extends ConsumerState<InputPage> {
         ],
       ),
       ),
+      ),
     );
+  }
+
+  /// 拦截返回：当复习配置有未保存更改时，提示用户确认是否离开。
+  ///
+  /// 说明：
+  /// - 使用 PopScope 以兼容 Android 预测式返回（WillPopScope 已弃用）
+  /// - 当用户确认离开时，会先清除未保存标记，再执行 Navigator.pop()
+  Future<void> _handlePopBlockedByUnsavedReviewIntervals() async {
+    final leave = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('未保存的更改'),
+          content: const Text('您有未保存的更改，确定要离开吗？'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('取消'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('离开'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (leave != true) return;
+    if (!mounted) return;
+
+    // 允许返回：先清除拦截标记，避免 PopScope 再次阻断 pop。
+    setState(() => _hasUnsavedReviewIntervalsChanges = false);
+    Navigator.of(context).pop();
   }
 
   void _appendTag(TextEditingController controller, String tag) {
