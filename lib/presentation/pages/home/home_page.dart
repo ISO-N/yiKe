@@ -27,6 +27,7 @@ import '../../widgets/skeleton_loader.dart';
 import '../../providers/home_tasks_provider.dart';
 import '../../providers/home_task_filter_provider.dart';
 import '../../providers/home_task_tab_provider.dart';
+import '../../providers/home_time_filter_provider.dart';
 import '../../providers/notification_permission_provider.dart';
 import '../../providers/search_provider.dart';
 import '../../providers/settings_provider.dart';
@@ -44,6 +45,7 @@ import '../../widgets/home_bottom_stats_bar.dart';
 import '../../widgets/shortcut_hint.dart';
 import '../../widgets/yike_refresh_indicator.dart';
 import '../tasks/widgets/task_hub_timeline_list.dart';
+import 'widgets/home_time_filter_bar.dart';
 import 'widgets/home_tab_switcher.dart';
 
 class HomePage extends ConsumerStatefulWidget {
@@ -120,7 +122,9 @@ class _HomePageState extends ConsumerState<HomePage> {
 
     final settingsState = ref.watch(settingsProvider);
     final permissionAsync = ref.watch(notificationPermissionProvider);
-    final syncUiState = ref.watch(syncControllerProvider.select((s) => s.state));
+    final syncUiState = ref.watch(
+      syncControllerProvider.select((s) => s.state),
+    );
     final tab = ref.watch(homeTaskTabProvider);
     final blurEnabled = ref.watch(taskListBlurEnabledProvider);
     final undoSnackbarEnabled = ref.watch(undoSnackbarEnabledProvider);
@@ -131,6 +135,7 @@ class _HomePageState extends ConsumerState<HomePage> {
     final state = ref.watch(homeTasksProvider);
     final notifier = ref.read(homeTasksProvider.notifier);
     final homeFilter = ref.watch(homeTaskFilterProvider);
+    final homeTimeFilter = ref.watch(homeTimeFilterProvider);
 
     // 关键逻辑：兼容通知深链/旧路由使用 query 参数控制 Tab（tab=all/today）与聚焦位置（focus=overdue）。
     //
@@ -163,6 +168,15 @@ class _HomePageState extends ConsumerState<HomePage> {
     final TaskHubNotifier? hubNotifier = tab == HomeTaskTab.all
         ? ref.read(taskHubProvider.notifier)
         : null;
+    if (tab == HomeTaskTab.all &&
+        hubState != null &&
+        hubNotifier != null &&
+        hubState.timeFilter != homeTimeFilter) {
+      // 当 all-tab 首次挂载或 Provider 发生重建时，确保查询链路与会话筛选状态保持一致。
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        hubNotifier.setTimeFilter(homeTimeFilter);
+      });
+    }
 
     final statusCounts = TaskStatusCounts(
       all:
@@ -194,10 +208,9 @@ class _HomePageState extends ConsumerState<HomePage> {
         Scrollable.ensureVisible(
           targetContext,
           alignment: 0.06,
-          duration:
-              disableAnimations
-                  ? Duration.zero
-                  : const Duration(milliseconds: 280),
+          duration: disableAnimations
+              ? Duration.zero
+              : const Duration(milliseconds: 280),
           curve: Curves.easeOut,
         );
       });
@@ -331,7 +344,11 @@ class _HomePageState extends ConsumerState<HomePage> {
     }
 
     Future<bool> skipTask(int taskId) {
-      return runAction(() => notifier.skipTask(taskId), ok: '任务已跳过', undoTaskId: taskId);
+      return runAction(
+        () => notifier.skipTask(taskId),
+        ok: '任务已跳过',
+        undoTaskId: taskId,
+      );
     }
 
     Future<bool> skipFromSwipe(int taskId) {
@@ -522,525 +539,570 @@ class _HomePageState extends ConsumerState<HomePage> {
               // 性能优化（Phase 1）：tab=all 使用 CustomScrollView + SliverList 虚拟化时间线，避免一次性构建全部卡片。
               child:
                   (tab == HomeTaskTab.all &&
-                          hubState != null &&
-                          hubNotifier != null)
-                      ? CustomScrollView(
-                    key: const PageStorageKey('home_all_tasks_scroll'),
-                    controller: _allTasksScrollController,
-                    slivers: [
-                      SliverPadding(
-                        padding: const EdgeInsets.fromLTRB(
-                          AppSpacing.lg,
-                          AppSpacing.lg,
-                          AppSpacing.lg,
-                          0,
-                        ),
-                        sliver: SliverToBoxAdapter(
-                          child: LearningSearchBar(
-                            query: searchQuery,
-                            focusNode: _searchFocusNode,
-                            enabled: !(hubState.isLoading),
-                            onChanged: (v) => searchQueryNotifier.state = v,
-                            onClear: () => searchQueryNotifier.state = '',
-                          ),
-                        ),
-                      ),
-                      if (searchKeyword.isNotEmpty)
+                      hubState != null &&
+                      hubNotifier != null)
+                  ? CustomScrollView(
+                      key: const PageStorageKey('home_all_tasks_scroll'),
+                      controller: _allTasksScrollController,
+                      slivers: [
                         SliverPadding(
                           padding: const EdgeInsets.fromLTRB(
                             AppSpacing.lg,
-                            AppSpacing.md,
+                            AppSpacing.lg,
                             AppSpacing.lg,
                             0,
                           ),
                           sliver: SliverToBoxAdapter(
-                            child: _SearchResultsCard(
-                              keyword: searchKeyword,
-                              results: searchAsync,
-                              onTapItem: (id) => context.push('/items/$id'),
+                            child: LearningSearchBar(
+                              query: searchQuery,
+                              focusNode: _searchFocusNode,
+                              enabled: !(hubState.isLoading),
+                              onChanged: (v) => searchQueryNotifier.state = v,
+                              onClear: () => searchQueryNotifier.state = '',
                             ),
                           ),
                         ),
-                      const SliverToBoxAdapter(
-                        child: SizedBox(height: AppSpacing.lg),
-                      ),
-                      SliverPadding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: AppSpacing.lg,
+                        if (searchKeyword.isNotEmpty)
+                          SliverPadding(
+                            padding: const EdgeInsets.fromLTRB(
+                              AppSpacing.lg,
+                              AppSpacing.md,
+                              AppSpacing.lg,
+                              0,
+                            ),
+                            sliver: SliverToBoxAdapter(
+                              child: _SearchResultsCard(
+                                keyword: searchKeyword,
+                                results: searchAsync,
+                                onTapItem: (id) => context.push('/items/$id'),
+                              ),
+                            ),
+                          ),
+                        const SliverToBoxAdapter(
+                          child: SizedBox(height: AppSpacing.lg),
                         ),
-                        sliver: SliverToBoxAdapter(
-                          child: HomeTabSwitcher(
-                            tab: tab,
-                            onChanged: changeTab,
+                        SliverPadding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: AppSpacing.lg,
+                          ),
+                          sliver: SliverToBoxAdapter(
+                            child: HomeTabSwitcher(
+                              tab: tab,
+                              onChanged: changeTab,
+                            ),
                           ),
                         ),
-                      ),
-                      const SliverToBoxAdapter(
-                        child: SizedBox(height: AppSpacing.lg),
-                      ),
-                      SliverPadding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: AppSpacing.lg,
+                        const SliverToBoxAdapter(
+                          child: SizedBox(height: AppSpacing.md),
                         ),
-                        sliver: SliverToBoxAdapter(
-                          child: TaskFilterBar(
+                        SliverPadding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: AppSpacing.lg,
+                          ),
+                          sliver: SliverToBoxAdapter(
+                            child: HomeTimeFilterBar(
+                              filter: homeTimeFilter,
+                              onChanged: (next) {
+                                ref
+                                        .read(homeTimeFilterProvider.notifier)
+                                        .state =
+                                    next;
+                                hubNotifier.setTimeFilter(next);
+                              },
+                            ),
+                          ),
+                        ),
+                        const SliverToBoxAdapter(
+                          child: SizedBox(height: AppSpacing.lg),
+                        ),
+                        SliverPadding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: AppSpacing.lg,
+                          ),
+                          sliver: SliverToBoxAdapter(
+                            child: TaskFilterBar(
+                              filter: hubState.filter,
+                              counts: hubState.counts,
+                              onChanged: (next) => hubNotifier.setFilter(next),
+                            ),
+                          ),
+                        ),
+                        const SliverToBoxAdapter(
+                          child: SizedBox(height: AppSpacing.lg),
+                        ),
+                        SliverPadding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: AppSpacing.lg,
+                          ),
+                          sliver: TaskHubTimelineSliver(
+                            state: hubState,
+                            notifier: hubNotifier,
+                            blurEnabled: blurEnabled,
+                            emptyState: state.isLoading
+                                ? null
+                                : _EmptyState(
+                                    learningItemCount: state.learningItemCount,
+                                  ),
+                          ),
+                        ),
+                        const SliverToBoxAdapter(child: SizedBox(height: 96)),
+                      ],
+                    )
+                  : ListView(
+                      key: const PageStorageKey('home_today_scroll'),
+                      controller: _todayScrollController,
+                      padding: const EdgeInsets.all(AppSpacing.lg),
+                      children: [
+                        LearningSearchBar(
+                          query: searchQuery,
+                          focusNode: _searchFocusNode,
+                          enabled: tab == HomeTaskTab.all
+                              ? !(hubState?.isLoading ?? false)
+                              : !state.isLoading,
+                          onChanged: (v) => searchQueryNotifier.state = v,
+                          onClear: () => searchQueryNotifier.state = '',
+                        ),
+                        if (searchKeyword.isNotEmpty) ...[
+                          const SizedBox(height: AppSpacing.md),
+                          _SearchResultsCard(
+                            keyword: searchKeyword,
+                            results: searchAsync,
+                            onTapItem: (id) => context.push('/items/$id'),
+                          ),
+                        ],
+                        const SizedBox(height: AppSpacing.lg),
+                        HomeTabSwitcher(tab: tab, onChanged: changeTab),
+                        const SizedBox(height: AppSpacing.lg),
+                        if (tab == HomeTaskTab.all &&
+                            hubState != null &&
+                            hubNotifier != null) ...[
+                          TaskFilterBar(
                             filter: hubState.filter,
                             counts: hubState.counts,
                             onChanged: (next) => hubNotifier.setFilter(next),
                           ),
-                        ),
-                      ),
-                      const SliverToBoxAdapter(
-                        child: SizedBox(height: AppSpacing.lg),
-                      ),
-                      SliverPadding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: AppSpacing.lg,
-                        ),
-                        sliver: TaskHubTimelineSliver(
-                          state: hubState,
-                          notifier: hubNotifier,
-                          blurEnabled: blurEnabled,
-                          emptyState: state.isLoading
-                              ? null
-                              : _EmptyState(
-                                  learningItemCount: state.learningItemCount,
-                                ),
-                        ),
-                      ),
-                      const SliverToBoxAdapter(child: SizedBox(height: 96)),
-                    ],
-                  )
-                : ListView(
-                    key: const PageStorageKey('home_today_scroll'),
-                    controller: _todayScrollController,
-                    padding: const EdgeInsets.all(AppSpacing.lg),
-                    children: [
-                      LearningSearchBar(
-                        query: searchQuery,
-                        focusNode: _searchFocusNode,
-                        enabled: tab == HomeTaskTab.all
-                            ? !(hubState?.isLoading ?? false)
-                            : !state.isLoading,
-                        onChanged: (v) => searchQueryNotifier.state = v,
-                        onClear: () => searchQueryNotifier.state = '',
-                      ),
-                      if (searchKeyword.isNotEmpty) ...[
-                        const SizedBox(height: AppSpacing.md),
-                        _SearchResultsCard(
-                          keyword: searchKeyword,
-                          results: searchAsync,
-                          onTapItem: (id) => context.push('/items/$id'),
-                        ),
-                      ],
-                      const SizedBox(height: AppSpacing.lg),
-                      HomeTabSwitcher(tab: tab, onChanged: changeTab),
-                      const SizedBox(height: AppSpacing.lg),
-                      if (tab == HomeTaskTab.all &&
-                          hubState != null &&
-                          hubNotifier != null) ...[
-                        TaskFilterBar(
-                          filter: hubState.filter,
-                          counts: hubState.counts,
-                          onChanged: (next) => hubNotifier.setFilter(next),
-                        ),
-                        const SizedBox(height: AppSpacing.lg),
-                        TaskHubTimelineSliver(
-                          state: hubState,
-                          notifier: hubNotifier,
-                          blurEnabled: blurEnabled,
-                          emptyState: state.isLoading
-                              ? null
-                              : _EmptyState(
-                                  learningItemCount: state.learningItemCount,
-                                ),
-                        ),
-                        const SizedBox(height: 96),
-                      ] else ...[
-                  const _DateHeader(),
-                  const SizedBox(height: AppSpacing.lg),
-                  const ReviewProgressWidget(),
-                  const SizedBox(height: AppSpacing.lg),
-                  TaskFilterBar(
-                    filter: homeFilter,
-                    counts: statusCounts,
-                    onChanged: (next) {
-                      ref.read(homeTaskFilterProvider.notifier).state = next;
-                    },
-                  ),
-                  const SizedBox(height: AppSpacing.lg),
-                  if (state.errorMessage != null) ...[
-                    ErrorCard(message: state.errorMessage!),
-                    const SizedBox(height: AppSpacing.lg),
-                  ],
-                  if (state.isLoading) ...[
-                    SkeletonLoader(
-                      isLoading: true,
-                      strategy: skeletonStrategy,
-                      skeleton: const SkeletonShimmer(
-                        child: _HomeLoadingSkeleton(),
-                      ),
-                      // auto/on：<200ms 不显示任何加载态；off：保留传统进度指示器。
-                      child:
-                          skeletonStrategy == 'off'
-                              ? const Center(
-                                  child: Padding(
-                                    padding: EdgeInsets.all(24),
-                                    child: CircularProgressIndicator(),
-                                  ),
-                                )
-                              : const SizedBox.shrink(),
-                    ),
-                  ] else ...[
-                    if ((homeFilter == ReviewTaskFilter.pending ||
-                            homeFilter == ReviewTaskFilter.all) &&
-                        state.todayPending.length +
-                                state.overduePending.length >
-                            20) ...[
-                      GlassCard(
-                        child: Padding(
-                          padding: const EdgeInsets.all(AppSpacing.lg),
-                          child: Row(
-                            children: [
-                              const Icon(
-                                Icons.warning_amber_rounded,
-                                color: AppColors.warning,
-                              ),
-                              const SizedBox(width: AppSpacing.sm),
-                              Expanded(
-                                child: Text(
-                                  '今日任务较多，建议优先完成逾期任务。',
-                                  style: AppTypography.bodySecondary(context),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: AppSpacing.lg),
-                    ],
-                      if (homeFilter == ReviewTaskFilter.pending) ...[
-                      if (overduePendingUi.isNotEmpty) ...[
-                        KeyedSubtree(
-                          key: _overdueSectionKey,
-                          child: const _SectionHeader(
-                            title: '逾期任务',
-                            subtitle: '优先处理红色逾期任务，避免堆积',
-                            color: AppColors.warning,
-                          ),
-                        ),
-                        const SizedBox(height: AppSpacing.sm),
-                        _TaskGrid(
-                          tasks: overduePendingUi,
-                          isOverdue: true,
-                          selectionMode: effectiveSelectionMode,
-                          selectedTaskIds: state.selectedTaskIds,
-                          expandedTaskIds: state.expandedTaskIds,
-                          lastDoneOrSkippedRoundByLearningItemId:
-                              state.lastDoneOrSkippedRoundByLearningItemId,
-                          nextReviewScheduledDateByLearningItemId:
-                              state.nextReviewScheduledDateByLearningItemId,
-                          nextReviewPreviewDisabledLearningItemIds:
-                              state.nextReviewPreviewDisabledLearningItemIds,
-                          removingTaskIds: _removingTaskIds,
-                          disableAnimations: disableAnimations,
-                          onRemovingAnimationCompleted:
-                              onRemovingAnimationCompleted,
-                          onSwipeDismissed: () => notifier.load(),
-                          onToggleSelected: notifier.toggleSelected,
-                          onToggleExpanded: notifier.toggleExpanded,
-                          onComplete: completeFromButtonOrMenu,
-                          onSwipeComplete: completeFromSwipe,
-                          onSkip: skipTask,
-                          onSwipeSkip: skipFromSwipe,
-                        ),
-                        const SizedBox(height: AppSpacing.lg),
-                      ],
-                      _SectionHeader(
-                        title: '今日待复习',
-                        subtitle: todayPendingUi.isEmpty ? '今天没有待复习任务' : null,
-                        color: primary,
-                      ),
-                      const SizedBox(height: AppSpacing.sm),
-                      if (todayPendingUi.isEmpty && overduePendingUi.isEmpty)
-                        _EmptyState(learningItemCount: state.learningItemCount)
-                      else if (todayPendingUi.isEmpty)
-                        const _EmptySectionHint(
-                          text: AppStrings.emptyTodayTasks,
-                        )
-                      else
-                        _TaskGrid(
-                          tasks: todayPendingUi,
-                          isOverdue: false,
-                          selectionMode: effectiveSelectionMode,
-                          selectedTaskIds: state.selectedTaskIds,
-                          expandedTaskIds: state.expandedTaskIds,
-                          lastDoneOrSkippedRoundByLearningItemId:
-                              state.lastDoneOrSkippedRoundByLearningItemId,
-                          nextReviewScheduledDateByLearningItemId:
-                              state.nextReviewScheduledDateByLearningItemId,
-                          nextReviewPreviewDisabledLearningItemIds:
-                              state.nextReviewPreviewDisabledLearningItemIds,
-                          removingTaskIds: _removingTaskIds,
-                          disableAnimations: disableAnimations,
-                          onRemovingAnimationCompleted:
-                              onRemovingAnimationCompleted,
-                          onSwipeDismissed: () => notifier.load(),
-                          onToggleSelected: notifier.toggleSelected,
-                          onToggleExpanded: notifier.toggleExpanded,
-                          onComplete: completeFromButtonOrMenu,
-                          onSwipeComplete: completeFromSwipe,
-                          onSkip: skipTask,
-                          onSwipeSkip: skipFromSwipe,
-                        ),
-                    ] else if (homeFilter == ReviewTaskFilter.done) ...[
-                      _SectionHeader(
-                        title: '今日已完成',
-                        subtitle: todayCompletedUi.isEmpty ? '今天还没有完成任务' : null,
-                        color: AppColors.success,
-                      ),
-                      const SizedBox(height: AppSpacing.sm),
-                      if (todayCompletedUi.isEmpty)
-                        const _EmptySectionHint(text: '暂无今日已完成任务')
-                      else
-                        _TaskGrid(
-                          tasks: todayCompletedUi,
-                          isOverdue: false,
-                          selectionMode: false,
-                          selectedTaskIds: const {},
-                          expandedTaskIds: state.expandedTaskIds,
-                          lastDoneOrSkippedRoundByLearningItemId:
-                              state.lastDoneOrSkippedRoundByLearningItemId,
-                          nextReviewScheduledDateByLearningItemId:
-                              state.nextReviewScheduledDateByLearningItemId,
-                          nextReviewPreviewDisabledLearningItemIds:
-                              state.nextReviewPreviewDisabledLearningItemIds,
-                          removingTaskIds: const {},
-                          disableAnimations: disableAnimations,
-                          onRemovingAnimationCompleted: (_) {},
-                          onSwipeDismissed: () {},
-                          onToggleSelected: (_) {},
-                          onToggleExpanded: notifier.toggleExpanded,
-                          onComplete: (_) async => true,
-                          onSwipeComplete: (_) async => true,
-                          onSkip: (_) async => true,
-                          onSwipeSkip: (_) async => true,
-                          onUndo: confirmUndo,
-                        ),
-                    ] else if (homeFilter == ReviewTaskFilter.skipped) ...[
-                      _SectionHeader(
-                        title: '今日已跳过',
-                        subtitle: todaySkippedUi.isEmpty ? '今天还没有跳过任务' : null,
-                        color: AppColors.warning,
-                      ),
-                      const SizedBox(height: AppSpacing.sm),
-                      if (todaySkippedUi.isEmpty)
-                        const _EmptySectionHint(text: '暂无今日已跳过任务')
-                      else
-                        _TaskGrid(
-                          tasks: todaySkippedUi,
-                          isOverdue: false,
-                          selectionMode: false,
-                          selectedTaskIds: const {},
-                          expandedTaskIds: state.expandedTaskIds,
-                          lastDoneOrSkippedRoundByLearningItemId:
-                              state.lastDoneOrSkippedRoundByLearningItemId,
-                          nextReviewScheduledDateByLearningItemId:
-                              state.nextReviewScheduledDateByLearningItemId,
-                          nextReviewPreviewDisabledLearningItemIds:
-                              state.nextReviewPreviewDisabledLearningItemIds,
-                          removingTaskIds: const {},
-                          disableAnimations: disableAnimations,
-                          onRemovingAnimationCompleted: (_) {},
-                          onSwipeDismissed: () {},
-                          onToggleSelected: (_) {},
-                          onToggleExpanded: notifier.toggleExpanded,
-                          onComplete: (_) async => true,
-                          onSwipeComplete: (_) async => true,
-                          onSkip: (_) async => true,
-                          onSwipeSkip: (_) async => true,
-                          onUndo: confirmUndo,
-                        ),
-                    ] else ...[
-                      if (statusCounts.all == 0) ...[
-                        _EmptyState(learningItemCount: state.learningItemCount),
-                      ] else ...[
-                        if (overduePendingUi.isNotEmpty) ...[
-                          KeyedSubtree(
-                            key: _overdueSectionKey,
-                            child: const _SectionHeader(
-                              title: '逾期任务',
-                              subtitle: '优先处理红色逾期任务，避免堆积',
-                              color: AppColors.warning,
-                            ),
-                          ),
-                          const SizedBox(height: AppSpacing.sm),
-                          _TaskGrid(
-                            tasks: overduePendingUi,
-                            isOverdue: true,
-                            selectionMode: false,
-                            selectedTaskIds: const {},
-                            expandedTaskIds: state.expandedTaskIds,
-                            lastDoneOrSkippedRoundByLearningItemId:
-                                state.lastDoneOrSkippedRoundByLearningItemId,
-                            nextReviewScheduledDateByLearningItemId:
-                                state.nextReviewScheduledDateByLearningItemId,
-                            nextReviewPreviewDisabledLearningItemIds:
-                                state.nextReviewPreviewDisabledLearningItemIds,
-                            removingTaskIds: _removingTaskIds,
-                            disableAnimations: disableAnimations,
-                            onRemovingAnimationCompleted:
-                                onRemovingAnimationCompleted,
-                            onSwipeDismissed: () => notifier.load(),
-                            onToggleSelected: (_) {},
-                            onToggleExpanded: notifier.toggleExpanded,
-                            onComplete: completeFromButtonOrMenu,
-                            onSwipeComplete: completeFromSwipe,
-                            onSkip: skipTask,
-                            onSwipeSkip: skipFromSwipe,
+                          const SizedBox(height: AppSpacing.md),
+                          HomeTimeFilterBar(
+                            filter: homeTimeFilter,
+                            onChanged: (next) {
+                              ref.read(homeTimeFilterProvider.notifier).state =
+                                  next;
+                              hubNotifier.setTimeFilter(next);
+                            },
                           ),
                           const SizedBox(height: AppSpacing.lg),
-                        ],
-                        _SectionHeader(
-                          title: '今日待复习',
-                          subtitle: todayPendingUi.isEmpty ? '今天没有待复习任务' : null,
-                          color: primary,
-                        ),
-                        const SizedBox(height: AppSpacing.sm),
-                        if (todayPendingUi.isEmpty)
-                          const _EmptySectionHint(
-                            text: AppStrings.emptyTodayTasks,
-                          )
-                        else
-                          _TaskGrid(
-                            tasks: todayPendingUi,
-                            isOverdue: false,
-                            selectionMode: false,
-                            selectedTaskIds: const {},
-                            expandedTaskIds: state.expandedTaskIds,
-                            lastDoneOrSkippedRoundByLearningItemId:
-                                state.lastDoneOrSkippedRoundByLearningItemId,
-                            nextReviewScheduledDateByLearningItemId:
-                                state.nextReviewScheduledDateByLearningItemId,
-                            nextReviewPreviewDisabledLearningItemIds:
-                                state.nextReviewPreviewDisabledLearningItemIds,
-                            removingTaskIds: _removingTaskIds,
-                            disableAnimations: disableAnimations,
-                            onRemovingAnimationCompleted:
-                                onRemovingAnimationCompleted,
-                            onSwipeDismissed: () => notifier.load(),
-                            onToggleSelected: (_) {},
-                            onToggleExpanded: notifier.toggleExpanded,
-                            onComplete: completeFromButtonOrMenu,
-                            onSwipeComplete: completeFromSwipe,
-                            onSkip: skipTask,
-                            onSwipeSkip: skipFromSwipe,
+                          TaskHubTimelineSliver(
+                            state: hubState,
+                            notifier: hubNotifier,
+                            blurEnabled: blurEnabled,
+                            emptyState: state.isLoading
+                                ? null
+                                : _EmptyState(
+                                    learningItemCount: state.learningItemCount,
+                                  ),
                           ),
-                        const SizedBox(height: AppSpacing.lg),
-                        _SectionHeader(
-                          title: '今日已完成',
-                          subtitle: todayCompletedUi.isEmpty
-                              ? '今天还没有完成任务'
-                              : null,
-                          color: AppColors.success,
-                        ),
-                        const SizedBox(height: AppSpacing.sm),
-                        if (todayCompletedUi.isEmpty)
-                          const _EmptySectionHint(text: '暂无今日已完成任务')
-                        else
-                          _TaskGrid(
-                            tasks: todayCompletedUi,
-                            isOverdue: false,
-                            selectionMode: false,
-                            selectedTaskIds: const {},
-                            expandedTaskIds: state.expandedTaskIds,
-                            lastDoneOrSkippedRoundByLearningItemId:
-                                state.lastDoneOrSkippedRoundByLearningItemId,
-                            nextReviewScheduledDateByLearningItemId:
-                                state.nextReviewScheduledDateByLearningItemId,
-                            nextReviewPreviewDisabledLearningItemIds:
-                                state.nextReviewPreviewDisabledLearningItemIds,
-                            removingTaskIds: const {},
-                            disableAnimations: disableAnimations,
-                            onRemovingAnimationCompleted: (_) {},
-                            onSwipeDismissed: () {},
-                            onToggleSelected: (_) {},
-                            onToggleExpanded: notifier.toggleExpanded,
-                            onComplete: (_) async => true,
-                            onSwipeComplete: (_) async => true,
-                            onSkip: (_) async => true,
-                            onSwipeSkip: (_) async => true,
-                            onUndo: confirmUndo,
+                          const SizedBox(height: 96),
+                        ] else ...[
+                          const _DateHeader(),
+                          const SizedBox(height: AppSpacing.lg),
+                          const ReviewProgressWidget(),
+                          const SizedBox(height: AppSpacing.lg),
+                          TaskFilterBar(
+                            filter: homeFilter,
+                            counts: statusCounts,
+                            onChanged: (next) {
+                              ref.read(homeTaskFilterProvider.notifier).state =
+                                  next;
+                            },
                           ),
-                        const SizedBox(height: AppSpacing.lg),
-                        _SectionHeader(
-                          title: '今日已跳过',
-                          subtitle: todaySkippedUi.isEmpty ? '今天还没有跳过任务' : null,
-                          color: AppColors.warning,
-                        ),
-                        const SizedBox(height: AppSpacing.sm),
-                        if (todaySkippedUi.isEmpty)
-                          const _EmptySectionHint(text: '暂无今日已跳过任务')
-                        else
-                          _TaskGrid(
-                            tasks: todaySkippedUi,
-                            isOverdue: false,
-                            selectionMode: false,
-                            selectedTaskIds: const {},
-                            expandedTaskIds: state.expandedTaskIds,
-                            lastDoneOrSkippedRoundByLearningItemId:
-                                state.lastDoneOrSkippedRoundByLearningItemId,
-                            nextReviewScheduledDateByLearningItemId:
-                                state.nextReviewScheduledDateByLearningItemId,
-                            nextReviewPreviewDisabledLearningItemIds:
-                                state.nextReviewPreviewDisabledLearningItemIds,
-                            removingTaskIds: const {},
-                            disableAnimations: disableAnimations,
-                            onRemovingAnimationCompleted: (_) {},
-                            onSwipeDismissed: () {},
-                            onToggleSelected: (_) {},
-                            onToggleExpanded: notifier.toggleExpanded,
-                            onComplete: (_) async => true,
-                            onSwipeComplete: (_) async => true,
-                            onSkip: (_) async => true,
-                            onSwipeSkip: (_) async => true,
-                            onUndo: confirmUndo,
-                          ),
-                      ],
-                    ],
-                    // 性能优化（spec-user-experience-improvements.md 3.3.4）：
-                    // 首页底部统计栏属于非首屏组件，延迟到“首帧后 300ms + 滚动可见”再渲染。
-                    const SizedBox(height: AppSpacing.lg),
-                    DeferredVisibilityBuilder(
-                      id: 'home_bottom_stats_bar',
-                      placeholder: SizedBox(
-                        height: 92,
-                        // 轻量占位：避免首屏构建额外 Provider 与图表组件。
-                        child: DecoratedBox(
-                          decoration: BoxDecoration(
-                            color: Theme.of(context)
-                                .colorScheme
-                                .surface
-                                .withValues(alpha: 0.06),
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(
-                              color: Theme.of(context)
-                                  .dividerColor
-                                  .withValues(alpha: 0.30),
+                          const SizedBox(height: AppSpacing.lg),
+                          if (state.errorMessage != null) ...[
+                            ErrorCard(message: state.errorMessage!),
+                            const SizedBox(height: AppSpacing.lg),
+                          ],
+                          if (state.isLoading) ...[
+                            SkeletonLoader(
+                              isLoading: true,
+                              strategy: skeletonStrategy,
+                              skeleton: const SkeletonShimmer(
+                                child: _HomeLoadingSkeleton(),
+                              ),
+                              // auto/on：<200ms 不显示任何加载态；off：保留传统进度指示器。
+                              child: skeletonStrategy == 'off'
+                                  ? const Center(
+                                      child: Padding(
+                                        padding: EdgeInsets.all(24),
+                                        child: CircularProgressIndicator(),
+                                      ),
+                                    )
+                                  : const SizedBox.shrink(),
                             ),
-                          ),
-                        ),
-                      ),
-                      builder: (_) => const HomeBottomStatsBar(),
+                          ] else ...[
+                            if ((homeFilter == ReviewTaskFilter.pending ||
+                                    homeFilter == ReviewTaskFilter.all) &&
+                                state.todayPending.length +
+                                        state.overduePending.length >
+                                    20) ...[
+                              GlassCard(
+                                child: Padding(
+                                  padding: const EdgeInsets.all(AppSpacing.lg),
+                                  child: Row(
+                                    children: [
+                                      const Icon(
+                                        Icons.warning_amber_rounded,
+                                        color: AppColors.warning,
+                                      ),
+                                      const SizedBox(width: AppSpacing.sm),
+                                      Expanded(
+                                        child: Text(
+                                          '今日任务较多，建议优先完成逾期任务。',
+                                          style: AppTypography.bodySecondary(
+                                            context,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: AppSpacing.lg),
+                            ],
+                            if (homeFilter == ReviewTaskFilter.pending) ...[
+                              if (overduePendingUi.isNotEmpty) ...[
+                                KeyedSubtree(
+                                  key: _overdueSectionKey,
+                                  child: const _SectionHeader(
+                                    title: '逾期任务',
+                                    subtitle: '优先处理红色逾期任务，避免堆积',
+                                    color: AppColors.warning,
+                                  ),
+                                ),
+                                const SizedBox(height: AppSpacing.sm),
+                                _TaskGrid(
+                                  tasks: overduePendingUi,
+                                  isOverdue: true,
+                                  selectionMode: effectiveSelectionMode,
+                                  selectedTaskIds: state.selectedTaskIds,
+                                  expandedTaskIds: state.expandedTaskIds,
+                                  lastDoneOrSkippedRoundByLearningItemId: state
+                                      .lastDoneOrSkippedRoundByLearningItemId,
+                                  nextReviewScheduledDateByLearningItemId: state
+                                      .nextReviewScheduledDateByLearningItemId,
+                                  nextReviewPreviewDisabledLearningItemIds: state
+                                      .nextReviewPreviewDisabledLearningItemIds,
+                                  removingTaskIds: _removingTaskIds,
+                                  disableAnimations: disableAnimations,
+                                  onRemovingAnimationCompleted:
+                                      onRemovingAnimationCompleted,
+                                  onSwipeDismissed: () => notifier.load(),
+                                  onToggleSelected: notifier.toggleSelected,
+                                  onToggleExpanded: notifier.toggleExpanded,
+                                  onComplete: completeFromButtonOrMenu,
+                                  onSwipeComplete: completeFromSwipe,
+                                  onSkip: skipTask,
+                                  onSwipeSkip: skipFromSwipe,
+                                ),
+                                const SizedBox(height: AppSpacing.lg),
+                              ],
+                              _SectionHeader(
+                                title: '今日待复习',
+                                subtitle: todayPendingUi.isEmpty
+                                    ? '今天没有待复习任务'
+                                    : null,
+                                color: primary,
+                              ),
+                              const SizedBox(height: AppSpacing.sm),
+                              if (todayPendingUi.isEmpty &&
+                                  overduePendingUi.isEmpty)
+                                _EmptyState(
+                                  learningItemCount: state.learningItemCount,
+                                )
+                              else if (todayPendingUi.isEmpty)
+                                const _EmptySectionHint(
+                                  text: AppStrings.emptyTodayTasks,
+                                )
+                              else
+                                _TaskGrid(
+                                  tasks: todayPendingUi,
+                                  isOverdue: false,
+                                  selectionMode: effectiveSelectionMode,
+                                  selectedTaskIds: state.selectedTaskIds,
+                                  expandedTaskIds: state.expandedTaskIds,
+                                  lastDoneOrSkippedRoundByLearningItemId: state
+                                      .lastDoneOrSkippedRoundByLearningItemId,
+                                  nextReviewScheduledDateByLearningItemId: state
+                                      .nextReviewScheduledDateByLearningItemId,
+                                  nextReviewPreviewDisabledLearningItemIds: state
+                                      .nextReviewPreviewDisabledLearningItemIds,
+                                  removingTaskIds: _removingTaskIds,
+                                  disableAnimations: disableAnimations,
+                                  onRemovingAnimationCompleted:
+                                      onRemovingAnimationCompleted,
+                                  onSwipeDismissed: () => notifier.load(),
+                                  onToggleSelected: notifier.toggleSelected,
+                                  onToggleExpanded: notifier.toggleExpanded,
+                                  onComplete: completeFromButtonOrMenu,
+                                  onSwipeComplete: completeFromSwipe,
+                                  onSkip: skipTask,
+                                  onSwipeSkip: skipFromSwipe,
+                                ),
+                            ] else if (homeFilter == ReviewTaskFilter.done) ...[
+                              _SectionHeader(
+                                title: '今日已完成',
+                                subtitle: todayCompletedUi.isEmpty
+                                    ? '今天还没有完成任务'
+                                    : null,
+                                color: AppColors.success,
+                              ),
+                              const SizedBox(height: AppSpacing.sm),
+                              if (todayCompletedUi.isEmpty)
+                                const _EmptySectionHint(text: '暂无今日已完成任务')
+                              else
+                                _TaskGrid(
+                                  tasks: todayCompletedUi,
+                                  isOverdue: false,
+                                  selectionMode: false,
+                                  selectedTaskIds: const {},
+                                  expandedTaskIds: state.expandedTaskIds,
+                                  lastDoneOrSkippedRoundByLearningItemId: state
+                                      .lastDoneOrSkippedRoundByLearningItemId,
+                                  nextReviewScheduledDateByLearningItemId: state
+                                      .nextReviewScheduledDateByLearningItemId,
+                                  nextReviewPreviewDisabledLearningItemIds: state
+                                      .nextReviewPreviewDisabledLearningItemIds,
+                                  removingTaskIds: const {},
+                                  disableAnimations: disableAnimations,
+                                  onRemovingAnimationCompleted: (_) {},
+                                  onSwipeDismissed: () {},
+                                  onToggleSelected: (_) {},
+                                  onToggleExpanded: notifier.toggleExpanded,
+                                  onComplete: (_) async => true,
+                                  onSwipeComplete: (_) async => true,
+                                  onSkip: (_) async => true,
+                                  onSwipeSkip: (_) async => true,
+                                  onUndo: confirmUndo,
+                                ),
+                            ] else if (homeFilter ==
+                                ReviewTaskFilter.skipped) ...[
+                              _SectionHeader(
+                                title: '今日已跳过',
+                                subtitle: todaySkippedUi.isEmpty
+                                    ? '今天还没有跳过任务'
+                                    : null,
+                                color: AppColors.warning,
+                              ),
+                              const SizedBox(height: AppSpacing.sm),
+                              if (todaySkippedUi.isEmpty)
+                                const _EmptySectionHint(text: '暂无今日已跳过任务')
+                              else
+                                _TaskGrid(
+                                  tasks: todaySkippedUi,
+                                  isOverdue: false,
+                                  selectionMode: false,
+                                  selectedTaskIds: const {},
+                                  expandedTaskIds: state.expandedTaskIds,
+                                  lastDoneOrSkippedRoundByLearningItemId: state
+                                      .lastDoneOrSkippedRoundByLearningItemId,
+                                  nextReviewScheduledDateByLearningItemId: state
+                                      .nextReviewScheduledDateByLearningItemId,
+                                  nextReviewPreviewDisabledLearningItemIds: state
+                                      .nextReviewPreviewDisabledLearningItemIds,
+                                  removingTaskIds: const {},
+                                  disableAnimations: disableAnimations,
+                                  onRemovingAnimationCompleted: (_) {},
+                                  onSwipeDismissed: () {},
+                                  onToggleSelected: (_) {},
+                                  onToggleExpanded: notifier.toggleExpanded,
+                                  onComplete: (_) async => true,
+                                  onSwipeComplete: (_) async => true,
+                                  onSkip: (_) async => true,
+                                  onSwipeSkip: (_) async => true,
+                                  onUndo: confirmUndo,
+                                ),
+                            ] else ...[
+                              if (statusCounts.all == 0) ...[
+                                _EmptyState(
+                                  learningItemCount: state.learningItemCount,
+                                ),
+                              ] else ...[
+                                if (overduePendingUi.isNotEmpty) ...[
+                                  KeyedSubtree(
+                                    key: _overdueSectionKey,
+                                    child: const _SectionHeader(
+                                      title: '逾期任务',
+                                      subtitle: '优先处理红色逾期任务，避免堆积',
+                                      color: AppColors.warning,
+                                    ),
+                                  ),
+                                  const SizedBox(height: AppSpacing.sm),
+                                  _TaskGrid(
+                                    tasks: overduePendingUi,
+                                    isOverdue: true,
+                                    selectionMode: false,
+                                    selectedTaskIds: const {},
+                                    expandedTaskIds: state.expandedTaskIds,
+                                    lastDoneOrSkippedRoundByLearningItemId: state
+                                        .lastDoneOrSkippedRoundByLearningItemId,
+                                    nextReviewScheduledDateByLearningItemId: state
+                                        .nextReviewScheduledDateByLearningItemId,
+                                    nextReviewPreviewDisabledLearningItemIds: state
+                                        .nextReviewPreviewDisabledLearningItemIds,
+                                    removingTaskIds: _removingTaskIds,
+                                    disableAnimations: disableAnimations,
+                                    onRemovingAnimationCompleted:
+                                        onRemovingAnimationCompleted,
+                                    onSwipeDismissed: () => notifier.load(),
+                                    onToggleSelected: (_) {},
+                                    onToggleExpanded: notifier.toggleExpanded,
+                                    onComplete: completeFromButtonOrMenu,
+                                    onSwipeComplete: completeFromSwipe,
+                                    onSkip: skipTask,
+                                    onSwipeSkip: skipFromSwipe,
+                                  ),
+                                  const SizedBox(height: AppSpacing.lg),
+                                ],
+                                _SectionHeader(
+                                  title: '今日待复习',
+                                  subtitle: todayPendingUi.isEmpty
+                                      ? '今天没有待复习任务'
+                                      : null,
+                                  color: primary,
+                                ),
+                                const SizedBox(height: AppSpacing.sm),
+                                if (todayPendingUi.isEmpty)
+                                  const _EmptySectionHint(
+                                    text: AppStrings.emptyTodayTasks,
+                                  )
+                                else
+                                  _TaskGrid(
+                                    tasks: todayPendingUi,
+                                    isOverdue: false,
+                                    selectionMode: false,
+                                    selectedTaskIds: const {},
+                                    expandedTaskIds: state.expandedTaskIds,
+                                    lastDoneOrSkippedRoundByLearningItemId: state
+                                        .lastDoneOrSkippedRoundByLearningItemId,
+                                    nextReviewScheduledDateByLearningItemId: state
+                                        .nextReviewScheduledDateByLearningItemId,
+                                    nextReviewPreviewDisabledLearningItemIds: state
+                                        .nextReviewPreviewDisabledLearningItemIds,
+                                    removingTaskIds: _removingTaskIds,
+                                    disableAnimations: disableAnimations,
+                                    onRemovingAnimationCompleted:
+                                        onRemovingAnimationCompleted,
+                                    onSwipeDismissed: () => notifier.load(),
+                                    onToggleSelected: (_) {},
+                                    onToggleExpanded: notifier.toggleExpanded,
+                                    onComplete: completeFromButtonOrMenu,
+                                    onSwipeComplete: completeFromSwipe,
+                                    onSkip: skipTask,
+                                    onSwipeSkip: skipFromSwipe,
+                                  ),
+                                const SizedBox(height: AppSpacing.lg),
+                                _SectionHeader(
+                                  title: '今日已完成',
+                                  subtitle: todayCompletedUi.isEmpty
+                                      ? '今天还没有完成任务'
+                                      : null,
+                                  color: AppColors.success,
+                                ),
+                                const SizedBox(height: AppSpacing.sm),
+                                if (todayCompletedUi.isEmpty)
+                                  const _EmptySectionHint(text: '暂无今日已完成任务')
+                                else
+                                  _TaskGrid(
+                                    tasks: todayCompletedUi,
+                                    isOverdue: false,
+                                    selectionMode: false,
+                                    selectedTaskIds: const {},
+                                    expandedTaskIds: state.expandedTaskIds,
+                                    lastDoneOrSkippedRoundByLearningItemId: state
+                                        .lastDoneOrSkippedRoundByLearningItemId,
+                                    nextReviewScheduledDateByLearningItemId: state
+                                        .nextReviewScheduledDateByLearningItemId,
+                                    nextReviewPreviewDisabledLearningItemIds: state
+                                        .nextReviewPreviewDisabledLearningItemIds,
+                                    removingTaskIds: const {},
+                                    disableAnimations: disableAnimations,
+                                    onRemovingAnimationCompleted: (_) {},
+                                    onSwipeDismissed: () {},
+                                    onToggleSelected: (_) {},
+                                    onToggleExpanded: notifier.toggleExpanded,
+                                    onComplete: (_) async => true,
+                                    onSwipeComplete: (_) async => true,
+                                    onSkip: (_) async => true,
+                                    onSwipeSkip: (_) async => true,
+                                    onUndo: confirmUndo,
+                                  ),
+                                const SizedBox(height: AppSpacing.lg),
+                                _SectionHeader(
+                                  title: '今日已跳过',
+                                  subtitle: todaySkippedUi.isEmpty
+                                      ? '今天还没有跳过任务'
+                                      : null,
+                                  color: AppColors.warning,
+                                ),
+                                const SizedBox(height: AppSpacing.sm),
+                                if (todaySkippedUi.isEmpty)
+                                  const _EmptySectionHint(text: '暂无今日已跳过任务')
+                                else
+                                  _TaskGrid(
+                                    tasks: todaySkippedUi,
+                                    isOverdue: false,
+                                    selectionMode: false,
+                                    selectedTaskIds: const {},
+                                    expandedTaskIds: state.expandedTaskIds,
+                                    lastDoneOrSkippedRoundByLearningItemId: state
+                                        .lastDoneOrSkippedRoundByLearningItemId,
+                                    nextReviewScheduledDateByLearningItemId: state
+                                        .nextReviewScheduledDateByLearningItemId,
+                                    nextReviewPreviewDisabledLearningItemIds: state
+                                        .nextReviewPreviewDisabledLearningItemIds,
+                                    removingTaskIds: const {},
+                                    disableAnimations: disableAnimations,
+                                    onRemovingAnimationCompleted: (_) {},
+                                    onSwipeDismissed: () {},
+                                    onToggleSelected: (_) {},
+                                    onToggleExpanded: notifier.toggleExpanded,
+                                    onComplete: (_) async => true,
+                                    onSwipeComplete: (_) async => true,
+                                    onSkip: (_) async => true,
+                                    onSwipeSkip: (_) async => true,
+                                    onUndo: confirmUndo,
+                                  ),
+                              ],
+                            ],
+                            // 性能优化（spec-user-experience-improvements.md 3.3.4）：
+                            // 首页底部统计栏属于非首屏组件，延迟到“首帧后 300ms + 滚动可见”再渲染。
+                            const SizedBox(height: AppSpacing.lg),
+                            DeferredVisibilityBuilder(
+                              id: 'home_bottom_stats_bar',
+                              placeholder: SizedBox(
+                                height: 92,
+                                // 轻量占位：避免首屏构建额外 Provider 与图表组件。
+                                child: DecoratedBox(
+                                  decoration: BoxDecoration(
+                                    color: Theme.of(context).colorScheme.surface
+                                        .withValues(alpha: 0.06),
+                                    borderRadius: BorderRadius.circular(16),
+                                    border: Border.all(
+                                      color: Theme.of(
+                                        context,
+                                      ).dividerColor.withValues(alpha: 0.30),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              builder: (_) => const HomeBottomStatsBar(),
+                            ),
+                            const SizedBox(height: 96),
+                          ],
+                        ],
+                      ],
                     ),
-                    const SizedBox(height: 96),
-                  ],
-                ],
-              ],
             ),
           ),
         ),
-      ),
       ),
       bottomNavigationBar: effectiveSelectionMode
           ? _BatchActionBar(
@@ -1910,9 +1972,7 @@ class _TaskCard extends StatelessWidget {
                                   : () async {
                                       await onSkip();
                                     },
-                              icon: const Icon(
-                                Icons.not_interested_outlined,
-                              ),
+                              icon: const Icon(Icons.not_interested_outlined),
                               color: secondaryText,
                             ),
                           ),

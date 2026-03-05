@@ -84,6 +84,12 @@
 
 - 首页提供"今日 / 全部"切换（`/home?tab=all`）
 - 时间线按发生时间排序（pending 用 scheduledDate，done 用 completedAt）
+- all-tab 支持**状态 + 时间**双重筛选
+  - 状态：全部 / 待复习 / 已完成 / 已跳过
+  - 时间：全部 / 今天前 / 今天后（基于 `scheduledDate`）
+  - 时间边界：今天前=`scheduledDate < 今天00:00`；今天后=`scheduledDate >= 明天00:00`
+  - 今天任务仅在时间筛选为"全部"时出现
+  - "未完成"口径仅指 pending，skipped 保持独立查看
 - 游标分页 + 列表虚拟化
 
 ### 3.2.2 任务操作增强

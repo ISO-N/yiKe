@@ -141,6 +141,8 @@ class _FakeReviewTaskRepository implements ReviewTaskRepository {
   @override
   Future<TaskTimelinePageEntity> getTaskTimelinePage({
     ReviewTaskStatus? status,
+    DateTime? scheduledDateBefore,
+    DateTime? scheduledDateOnOrAfter,
     TaskTimelineCursorEntity? cursor,
     int limit = 20,
   }) => throw UnimplementedError();

@@ -20,15 +20,21 @@ class GetTasksByTimeUseCase {
   ///
   /// 参数：
   /// - [status] 状态筛选；为空表示全部
+  /// - [scheduledDateBefore] 计划日期上界（开区间 `<`）；为空表示不限制
+  /// - [scheduledDateOnOrAfter] 计划日期下界（闭区间 `>=`）；为空表示不限制
   /// - [cursor] 游标；为空表示首页
   /// - [limit] 每页条数（建议 20）
   Future<TaskTimelinePageEntity> execute({
     ReviewTaskStatus? status,
+    DateTime? scheduledDateBefore,
+    DateTime? scheduledDateOnOrAfter,
     TaskTimelineCursorEntity? cursor,
     int limit = 20,
   }) {
     return _reviewTaskRepository.getTaskTimelinePage(
       status: status,
+      scheduledDateBefore: scheduledDateBefore,
+      scheduledDateOnOrAfter: scheduledDateOnOrAfter,
       cursor: cursor,
       limit: limit,
     );
@@ -39,4 +45,3 @@ class GetTasksByTimeUseCase {
     return _reviewTaskRepository.getGlobalTaskStatusCounts();
   }
 }
-

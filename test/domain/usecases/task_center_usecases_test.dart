@@ -30,8 +30,10 @@ class _FakeReviewTaskRepository extends Fake implements ReviewTaskRepository {
   ReviewTaskStatus? lastTimelineStatus;
   TaskTimelineCursorEntity? lastTimelineCursor;
   int? lastTimelineLimit;
-  TaskTimelinePageEntity timelineResult =
-      const TaskTimelinePageEntity(items: [], nextCursor: null);
+  TaskTimelinePageEntity timelineResult = const TaskTimelinePageEntity(
+    items: [],
+    nextCursor: null,
+  );
 
   (int all, int pending, int done, int skipped) statusCounts = (0, 0, 0, 0);
 
@@ -64,6 +66,8 @@ class _FakeReviewTaskRepository extends Fake implements ReviewTaskRepository {
   @override
   Future<TaskTimelinePageEntity> getTaskTimelinePage({
     ReviewTaskStatus? status,
+    DateTime? scheduledDateBefore,
+    DateTime? scheduledDateOnOrAfter,
     TaskTimelineCursorEntity? cursor,
     int limit = 20,
   }) async {
@@ -80,7 +84,8 @@ class _FakeReviewTaskRepository extends Fake implements ReviewTaskRepository {
   }
 }
 
-class _FakeLearningItemRepository extends Fake implements LearningItemRepository {
+class _FakeLearningItemRepository extends Fake
+    implements LearningItemRepository {
   int? lastDeactivateId;
   int? lastUpdateNoteId;
   String? lastUpdateNoteValue;
@@ -201,8 +206,9 @@ void main() {
 
     test('DeactivateLearningItemUseCase 会透传到仓储', () async {
       final repo = _FakeLearningItemRepository();
-      final useCase =
-          DeactivateLearningItemUseCase(learningItemRepository: repo);
+      final useCase = DeactivateLearningItemUseCase(
+        learningItemRepository: repo,
+      );
 
       await useCase.execute(77);
       expect(repo.lastDeactivateId, 77);
@@ -210,8 +216,9 @@ void main() {
 
     test('UpdateLearningItemNoteUseCase 会透传到仓储', () async {
       final repo = _FakeLearningItemRepository();
-      final useCase =
-          UpdateLearningItemNoteUseCase(learningItemRepository: repo);
+      final useCase = UpdateLearningItemNoteUseCase(
+        learningItemRepository: repo,
+      );
 
       await useCase.execute(learningItemId: 88, note: '  n  ');
       expect(repo.lastUpdateNoteId, 88);

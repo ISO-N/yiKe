@@ -607,6 +607,150 @@ void main() {
     ]);
   });
 
+  test('getTaskTimelinePageWithItem: 支持状态×时间筛选，且“今天”任务仅在时间筛选=全部时出现', () async {
+    final itemId = await insertItem(tags: jsonEncode(['a']), isDeleted: false);
+    final todayStart = DateTime(2026, 3, 5);
+    final tomorrowStart = todayStart.add(const Duration(days: 1));
+    final yesterdayStart = todayStart.subtract(const Duration(days: 1));
+
+    // 构造“昨天/今天/明天”三段数据，覆盖 pending/done/skipped。
+    final beforePendingId = await dao.insertReviewTask(
+      ReviewTasksCompanion.insert(
+        learningItemId: itemId,
+        reviewRound: 1,
+        scheduledDate: yesterdayStart.add(const Duration(hours: 9)),
+        status: const drift.Value('pending'),
+        createdAt: drift.Value(todayStart),
+      ),
+    );
+    final todayPendingId = await dao.insertReviewTask(
+      ReviewTasksCompanion.insert(
+        learningItemId: itemId,
+        reviewRound: 2,
+        scheduledDate: todayStart.add(const Duration(hours: 10)),
+        status: const drift.Value('pending'),
+        createdAt: drift.Value(todayStart),
+      ),
+    );
+    final afterPendingId = await dao.insertReviewTask(
+      ReviewTasksCompanion.insert(
+        learningItemId: itemId,
+        reviewRound: 3,
+        scheduledDate: tomorrowStart.add(const Duration(hours: 11)),
+        status: const drift.Value('pending'),
+        createdAt: drift.Value(todayStart),
+      ),
+    );
+    final beforeDoneId = await dao.insertReviewTask(
+      ReviewTasksCompanion.insert(
+        learningItemId: itemId,
+        reviewRound: 4,
+        scheduledDate: yesterdayStart.add(const Duration(hours: 12)),
+        status: const drift.Value('done'),
+        completedAt: drift.Value(todayStart.add(const Duration(hours: 8))),
+        createdAt: drift.Value(todayStart),
+      ),
+    );
+    final afterDoneId = await dao.insertReviewTask(
+      ReviewTasksCompanion.insert(
+        learningItemId: itemId,
+        reviewRound: 5,
+        scheduledDate: tomorrowStart.add(const Duration(hours: 13)),
+        status: const drift.Value('done'),
+        completedAt: drift.Value(todayStart.add(const Duration(hours: 9))),
+        createdAt: drift.Value(todayStart),
+      ),
+    );
+    final beforeSkippedId = await dao.insertReviewTask(
+      ReviewTasksCompanion.insert(
+        learningItemId: itemId,
+        reviewRound: 6,
+        scheduledDate: yesterdayStart.add(const Duration(hours: 14)),
+        status: const drift.Value('skipped'),
+        skippedAt: drift.Value(todayStart.add(const Duration(hours: 7))),
+        createdAt: drift.Value(todayStart),
+      ),
+    );
+    final afterSkippedId = await dao.insertReviewTask(
+      ReviewTasksCompanion.insert(
+        learningItemId: itemId,
+        reviewRound: 7,
+        scheduledDate: tomorrowStart.add(const Duration(hours: 15)),
+        status: const drift.Value('skipped'),
+        skippedAt: drift.Value(todayStart.add(const Duration(hours: 6))),
+        createdAt: drift.Value(todayStart),
+      ),
+    );
+
+    final allRows = await dao.getTaskTimelinePageWithItem(limit: 20);
+    final allIds = allRows.map((e) => e.model.task.id).toSet();
+    expect(allIds, contains(todayPendingId));
+
+    final beforeRows = await dao.getTaskTimelinePageWithItem(
+      scheduledDateBefore: todayStart,
+      limit: 20,
+    );
+    final beforeIds = beforeRows.map((e) => e.model.task.id).toSet();
+    expect(beforeIds, {beforePendingId, beforeDoneId, beforeSkippedId});
+
+    final afterRows = await dao.getTaskTimelinePageWithItem(
+      scheduledDateOnOrAfter: tomorrowStart,
+      limit: 20,
+    );
+    final afterIds = afterRows.map((e) => e.model.task.id).toSet();
+    expect(afterIds, {afterPendingId, afterDoneId, afterSkippedId});
+
+    final pendingBeforeRows = await dao.getTaskTimelinePageWithItem(
+      status: 'pending',
+      scheduledDateBefore: todayStart,
+      limit: 20,
+    );
+    expect(pendingBeforeRows.map((e) => e.model.task.id).toSet(), {
+      beforePendingId,
+    });
+
+    final pendingAfterRows = await dao.getTaskTimelinePageWithItem(
+      status: 'pending',
+      scheduledDateOnOrAfter: tomorrowStart,
+      limit: 20,
+    );
+    expect(pendingAfterRows.map((e) => e.model.task.id).toSet(), {
+      afterPendingId,
+    });
+
+    final doneBeforeRows = await dao.getTaskTimelinePageWithItem(
+      status: 'done',
+      scheduledDateBefore: todayStart,
+      limit: 20,
+    );
+    expect(doneBeforeRows.map((e) => e.model.task.id).toSet(), {beforeDoneId});
+
+    final doneAfterRows = await dao.getTaskTimelinePageWithItem(
+      status: 'done',
+      scheduledDateOnOrAfter: tomorrowStart,
+      limit: 20,
+    );
+    expect(doneAfterRows.map((e) => e.model.task.id).toSet(), {afterDoneId});
+
+    final skippedBeforeRows = await dao.getTaskTimelinePageWithItem(
+      status: 'skipped',
+      scheduledDateBefore: todayStart,
+      limit: 20,
+    );
+    expect(skippedBeforeRows.map((e) => e.model.task.id).toSet(), {
+      beforeSkippedId,
+    });
+
+    final skippedAfterRows = await dao.getTaskTimelinePageWithItem(
+      status: 'skipped',
+      scheduledDateOnOrAfter: tomorrowStart,
+      limit: 20,
+    );
+    expect(skippedAfterRows.map((e) => e.model.task.id).toSet(), {
+      afterSkippedId,
+    });
+  });
+
   test('getReviewPlanWithItem: 不过滤 is_deleted（详情页只读模式需要）', () async {
     final deletedId = await insertItem(
       tags: jsonEncode(['a']),
