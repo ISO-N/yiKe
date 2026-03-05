@@ -10,6 +10,7 @@ import '../../core/utils/date_utils.dart';
 import '../../domain/entities/review_task.dart';
 import '../../domain/entities/task_timeline.dart';
 import 'calendar_provider.dart';
+import 'home_time_filter_provider.dart';
 import 'home_tasks_provider.dart';
 import 'statistics_provider.dart';
 import 'task_filter_provider.dart';
@@ -117,6 +118,7 @@ class TaskHubState {
     required this.isLoading,
     required this.isLoadingMore,
     required this.filter,
+    required this.timeFilter,
     required this.counts,
     required this.items,
     required this.timelineRows,
@@ -133,6 +135,9 @@ class TaskHubState {
 
   /// 当前筛选（单选）。
   final ReviewTaskFilter filter;
+
+  /// 当前时间筛选（仅用于首页 all-tab）。
+  final HomeTimeFilter timeFilter;
 
   /// 全量任务状态计数（用于筛选栏展示）。
   final TaskStatusCounts counts;
@@ -158,6 +163,7 @@ class TaskHubState {
     isLoading: true,
     isLoadingMore: false,
     filter: ReviewTaskFilter.all,
+    timeFilter: HomeTimeFilter.all,
     counts: TaskStatusCounts(all: 0, pending: 0, done: 0, skipped: 0),
     items: [],
     timelineRows: [],
@@ -170,6 +176,7 @@ class TaskHubState {
     bool? isLoading,
     bool? isLoadingMore,
     ReviewTaskFilter? filter,
+    HomeTimeFilter? timeFilter,
     TaskStatusCounts? counts,
     List<ReviewTaskTimelineItemEntity>? items,
     List<TaskHubTimelineRow>? timelineRows,
@@ -182,6 +189,7 @@ class TaskHubState {
       isLoading: isLoading ?? this.isLoading,
       isLoadingMore: isLoadingMore ?? this.isLoadingMore,
       filter: filter ?? this.filter,
+      timeFilter: timeFilter ?? this.timeFilter,
       counts: counts ?? this.counts,
       items: items ?? this.items,
       timelineRows: timelineRows ?? this.timelineRows,
@@ -213,6 +221,13 @@ class TaskHubNotifier extends StateNotifier<TaskHubState> {
     await refresh();
   }
 
+  /// 切换时间筛选并刷新列表。
+  Future<void> setTimeFilter(HomeTimeFilter next) async {
+    if (next == state.timeFilter) return;
+    state = state.copyWith(timeFilter: next, expandedTaskIds: <int>{});
+    await refresh();
+  }
+
   /// 下拉刷新：重置游标并重新加载首屏。
   Future<void> refresh() async {
     state = state.copyWith(
@@ -227,7 +242,15 @@ class TaskHubNotifier extends StateNotifier<TaskHubState> {
     try {
       final useCase = _ref.read(getTasksByTimeUseCaseProvider);
       final status = _mapFilterToStatus(state.filter);
-      final page = await useCase.execute(status: status, cursor: null, limit: 20);
+      final (scheduledDateBefore, scheduledDateOnOrAfter) =
+          _resolveTimeFilterRange(state.timeFilter);
+      final page = await useCase.execute(
+        status: status,
+        scheduledDateBefore: scheduledDateBefore,
+        scheduledDateOnOrAfter: scheduledDateOnOrAfter,
+        cursor: null,
+        limit: 20,
+      );
       final rows = _buildTimelineRows(page.items);
       state = state.copyWith(
         isLoading: false,
@@ -249,8 +272,15 @@ class TaskHubNotifier extends StateNotifier<TaskHubState> {
     try {
       final useCase = _ref.read(getTasksByTimeUseCaseProvider);
       final status = _mapFilterToStatus(state.filter);
-      final page =
-          await useCase.execute(status: status, cursor: cursor, limit: 20);
+      final (scheduledDateBefore, scheduledDateOnOrAfter) =
+          _resolveTimeFilterRange(state.timeFilter);
+      final page = await useCase.execute(
+        status: status,
+        scheduledDateBefore: scheduledDateBefore,
+        scheduledDateOnOrAfter: scheduledDateOnOrAfter,
+        cursor: cursor,
+        limit: 20,
+      );
 
       final mergedItems = [...state.items, ...page.items];
       final rows = _buildTimelineRows(mergedItems);
@@ -330,6 +360,22 @@ class TaskHubNotifier extends StateNotifier<TaskHubState> {
     _ref.invalidate(statisticsProvider);
   }
 
+  /// 将 UI 时间筛选映射为查询边界（本地自然日）。
+  ///
+  /// 返回值：
+  /// - `scheduledDateBefore`：用于 `<` 条件
+  /// - `scheduledDateOnOrAfter`：用于 `>=` 条件
+  (DateTime? scheduledDateBefore, DateTime? scheduledDateOnOrAfter)
+  _resolveTimeFilterRange(HomeTimeFilter filter) {
+    final todayStart = YikeDateUtils.atStartOfDay(DateTime.now());
+    final tomorrowStart = todayStart.add(const Duration(days: 1));
+    return switch (filter) {
+      HomeTimeFilter.all => (null, null),
+      HomeTimeFilter.beforeToday => (todayStart, null),
+      HomeTimeFilter.afterToday => (null, tomorrowStart),
+    };
+  }
+
   /// 构建时间线行模型（按日期分组，扁平化为 header/task 行序列）。
   ///
   /// 关键逻辑：
@@ -382,4 +428,3 @@ final taskHubProvider = StateNotifierProvider<TaskHubNotifier, TaskHubState>((
 ) {
   return TaskHubNotifier(ref);
 });
-

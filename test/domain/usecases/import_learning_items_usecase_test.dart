@@ -106,8 +106,10 @@ class _FakeLearningItemRepository implements LearningItemRepository {
       throw UnimplementedError();
 
   @override
-  Future<void> updateDescription({required int id, required String? description}) =>
-      throw UnimplementedError();
+  Future<void> updateDescription({
+    required int id,
+    required String? description,
+  }) => throw UnimplementedError();
 
   @override
   Future<void> deactivate(int id) => throw UnimplementedError();
@@ -234,6 +236,8 @@ class _FakeReviewTaskRepository implements ReviewTaskRepository {
   @override
   Future<TaskTimelinePageEntity> getTaskTimelinePage({
     ReviewTaskStatus? status,
+    DateTime? scheduledDateBefore,
+    DateTime? scheduledDateOnOrAfter,
     TaskTimelineCursorEntity? cursor,
     int limit = 20,
   }) => throw UnimplementedError();

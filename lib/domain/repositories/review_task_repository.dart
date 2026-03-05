@@ -114,18 +114,23 @@ abstract class ReviewTaskRepository {
   /// 获取全量任务状态计数（用于任务中心筛选栏展示）。
   ///
   /// 返回值：(all, pending, done, skipped)。
-  Future<(int all, int pending, int done, int skipped)> getGlobalTaskStatusCounts();
+  Future<(int all, int pending, int done, int skipped)>
+  getGlobalTaskStatusCounts();
 
   /// 按“发生时间”倒序获取任务时间线分页数据（用于任务中心）。
   ///
   /// 参数：
   /// - [status] 状态筛选；为空表示全部
+  /// - [scheduledDateBefore] 计划日期上界（开区间 `<`）；为空表示不限制
+  /// - [scheduledDateOnOrAfter] 计划日期下界（闭区间 `>=`）；为空表示不限制
   /// - [cursor] 游标；为空表示首页
   /// - [limit] 每页条数（建议 20）
   ///
   /// 返回值：分页结果（包含下一页游标）。
   Future<TaskTimelinePageEntity> getTaskTimelinePage({
     ReviewTaskStatus? status,
+    DateTime? scheduledDateBefore,
+    DateTime? scheduledDateOnOrAfter,
     TaskTimelineCursorEntity? cursor,
     int limit = 20,
   });

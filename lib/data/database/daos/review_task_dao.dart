@@ -184,8 +184,9 @@ class ReviewTaskDao {
 
     final now = DateTime.now();
     // 性能优化（v10）：批量完成/跳过时直接写入 occurredAt，避免时间线查询回退到计算逻辑。
-    final occurredAt =
-        (status == 'done' || status == 'skipped') ? (timestamp ?? now) : null;
+    final occurredAt = (status == 'done' || status == 'skipped')
+        ? (timestamp ?? now)
+        : null;
     final companion = ReviewTasksCompanion(
       status: Value(status),
       completedAt: Value(status == 'done' ? timestamp : null),
@@ -466,6 +467,8 @@ WHERE li.is_deleted = 0
   /// - 游标：下一页取“当前页最后一条”，查询条件为 (occurredAt > cursor) OR (occurredAt = cursor AND taskId > cursorId)
   Future<List<ReviewTaskTimelineModel>> getTaskTimelinePageWithItem({
     String? status,
+    DateTime? scheduledDateBefore,
+    DateTime? scheduledDateOnOrAfter,
     DateTime? cursorOccurredAt,
     int? cursorTaskId,
     int limit = 20,
@@ -477,6 +480,14 @@ WHERE li.is_deleted = 0
     if (status != null) {
       where.write(' AND rt.status = ?');
       variables.add(Variable<String>(status));
+    }
+    if (scheduledDateBefore != null) {
+      where.write(' AND rt.scheduled_date < ?');
+      variables.add(Variable<DateTime>(scheduledDateBefore));
+    }
+    if (scheduledDateOnOrAfter != null) {
+      where.write(' AND rt.scheduled_date >= ?');
+      variables.add(Variable<DateTime>(scheduledDateOnOrAfter));
     }
 
     final cursorWhere = StringBuffer();
@@ -541,7 +552,8 @@ WHERE li.is_deleted = 0
       final task = db.reviewTasks.map(row.data, tablePrefix: 'rt');
       final item = db.learningItems.map(row.data, tablePrefix: 'li');
       // 保护：极端历史脏数据（occurred_at 未回填）时回退 scheduledDate，避免时间线崩溃。
-      final occurredAt = row.read<DateTime?>('occurred_at') ?? task.scheduledDate;
+      final occurredAt =
+          row.read<DateTime?>('occurred_at') ?? task.scheduledDate;
       return ReviewTaskTimelineModel(
         model: ReviewTaskWithItemModel(task: task, item: item),
         occurredAt: occurredAt,
@@ -958,8 +970,9 @@ WHERE li.is_deleted = 0
     // - 今天未完成但昨天完成：从昨天算（避免今日 pending 导致直接归零）
     // - 否则：未形成连续链
     final yesterdayStart = todayStart.subtract(const Duration(days: 1));
-    var cursor =
-        completedDays.contains(todayStart) ? todayStart : yesterdayStart;
+    var cursor = completedDays.contains(todayStart)
+        ? todayStart
+        : yesterdayStart;
     if (!completedDays.contains(cursor)) return 0;
 
     var streak = 0;

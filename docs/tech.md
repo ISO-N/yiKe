@@ -156,6 +156,15 @@ lib/
 - pending → skipped：记录 `skippedAt`
 - 统计与进度以任务表状态为准
 
+### 6.2.1 全量任务双重筛选（状态 × 时间）
+
+- 仅首页 all-tab 启用时间筛选：`all / beforeToday / afterToday`
+- 时间语义基于 `scheduledDate`（计划日期），不基于 `completedAt/skippedAt`
+  - beforeToday：`scheduled_date < todayStart`
+  - afterToday：`scheduled_date >= tomorrowStart`
+- 查询链路：`TaskHubProvider -> GetTasksByTimeUseCase -> ReviewTaskRepository -> ReviewTaskDao`
+- 状态语义保持不变：pending=未完成，skipped 独立筛选，不并入 pending
+
 ### 6.3 复习算法
 
 - 默认间隔：`[1, 2, 4, 7, 15, 30, 60, 90, 120, 180]` 天
