@@ -15,6 +15,7 @@ import '../../widgets/shortcut_hint.dart';
 /// 设计说明：
 /// - 入口统一：录入功能只保留一个入口（符合 UI 布局精简规范）。
 /// - 路由保持：点击后始终跳转 `/input`，桌面端/移动端具体呈现由路由层策略决定。
+/// - 显示策略：仅在“今日 / 计划 / 专注”主路径显示；“我的”页隐藏。
 class ShellFAB extends StatefulWidget {
   /// 构造函数。
   ///
@@ -36,8 +37,11 @@ class _ShellFABState extends State<ShellFAB> {
         (defaultTargetPlatform == TargetPlatform.windows ||
             defaultTargetPlatform == TargetPlatform.macOS ||
             defaultTargetPlatform == TargetPlatform.linux);
-    final isWindows = !kIsWeb && defaultTargetPlatform == TargetPlatform.windows;
-    final hint = defaultTargetPlatform == TargetPlatform.macOS ? '⌘N' : 'Ctrl+N';
+    final isWindows =
+        !kIsWeb && defaultTargetPlatform == TargetPlatform.windows;
+    final hint = defaultTargetPlatform == TargetPlatform.macOS
+        ? '⌘N'
+        : 'Ctrl+N';
     final tooltip = isDesktop ? '${AppStrings.input}（$hint）' : AppStrings.input;
 
     // 快捷键提示 UI（spec-user-experience-improvements.md）：

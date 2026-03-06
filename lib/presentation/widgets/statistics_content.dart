@@ -10,6 +10,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_spacing.dart';
 import '../../core/constants/app_typography.dart';
+import '../../core/utils/responsive_utils.dart';
 import '../providers/statistics_insights_provider.dart';
 import '../providers/statistics_provider.dart';
 import '../../domain/entities/statistics_insights.dart';
@@ -17,6 +18,7 @@ import '../providers/ui_preferences_provider.dart';
 import 'error_card.dart';
 import 'glass_card.dart';
 import 'goal_progress_card.dart';
+import 'semantic_panels.dart';
 import 'skeleton_loader.dart';
 import 'statistics_heatmap.dart';
 import 'statistics_trend_chart.dart';
@@ -49,70 +51,97 @@ class StatisticsContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDesktop = ResponsiveUtils.isDesktop(context);
     final list = ListView(
       padding: padding,
       children: [
-        // 统计增强（P0）：目标进度（展示在统计详情顶部）。
-        const GoalProgressCard(),
+        _StatisticsHero(state: state),
         const SizedBox(height: AppSpacing.lg),
-        _StreakCard(days: state.consecutiveCompletedDays),
-        const SizedBox(height: AppSpacing.lg),
-        Row(
-          children: [
-            Expanded(
-              child: _CompletionCard(
-                title: '本周',
-                completed: state.weekCompleted,
-                total: state.weekTotal,
-                rate: state.weekCompletionRate,
+        if (isDesktop)
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Expanded(child: GoalProgressCard()),
+              const SizedBox(width: AppSpacing.lg),
+              Expanded(
+                child: Column(
+                  children: [
+                    _StreakCard(days: state.consecutiveCompletedDays),
+                    const SizedBox(height: AppSpacing.lg),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _CompletionCard(
+                            title: '本周',
+                            completed: state.weekCompleted,
+                            total: state.weekTotal,
+                            rate: state.weekCompletionRate,
+                          ),
+                        ),
+                        const SizedBox(width: AppSpacing.lg),
+                        Expanded(
+                          child: _CompletionCard(
+                            title: '本月',
+                            completed: state.monthCompleted,
+                            total: state.monthTotal,
+                            rate: state.monthCompletionRate,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
-            ),
-            const SizedBox(width: AppSpacing.lg),
-            Expanded(
-              child: _CompletionCard(
-                title: '本月',
-                completed: state.monthCompleted,
-                total: state.monthTotal,
-                rate: state.monthCompletionRate,
+            ],
+          )
+        else ...[
+          // 统计增强（P0）：目标进度（展示在统计详情顶部）。
+          const GoalProgressCard(),
+          const SizedBox(height: AppSpacing.lg),
+          _StreakCard(days: state.consecutiveCompletedDays),
+          const SizedBox(height: AppSpacing.lg),
+          Row(
+            children: [
+              Expanded(
+                child: _CompletionCard(
+                  title: '本周',
+                  completed: state.weekCompleted,
+                  total: state.weekTotal,
+                  rate: state.weekCompletionRate,
+                ),
               ),
-            ),
-          ],
-        ),
-        const SizedBox(height: AppSpacing.lg),
-        // 统计增强（P0）：趋势图 + 对比分析。
-        Consumer(
-          builder: (context, ref, _) {
-            final async = ref.watch(statisticsInsightsProvider);
-            final skeletonStrategy = ref.watch(skeletonStrategyProvider);
-            return async.when(
-              loading: () => SkeletonLoader(
-                isLoading: true,
-                strategy: skeletonStrategy,
-                skeleton: const SkeletonShimmer(child: _StatisticsInsightsSkeleton()),
-                child:
-                    skeletonStrategy == 'off'
-                        ? const Padding(
-                            padding: EdgeInsets.symmetric(vertical: 12),
-                            child: Center(child: CircularProgressIndicator()),
-                          )
-                        : const SizedBox.shrink(),
+              const SizedBox(width: AppSpacing.lg),
+              Expanded(
+                child: _CompletionCard(
+                  title: '本月',
+                  completed: state.monthCompleted,
+                  total: state.monthTotal,
+                  rate: state.monthCompletionRate,
+                ),
               ),
-              error: (e, _) => ErrorCard(message: '趋势数据加载失败：$e'),
-              data: (insights) => Column(
-                children: [
-                  StatisticsTrendChart(insights: insights),
-                  const SizedBox(height: AppSpacing.lg),
-                  _WeekCompareCard(compare: insights.weekCompare),
-                ],
+            ],
+          ),
+        ],
+        const SizedBox(height: AppSpacing.lg),
+        _InsightsSection(isDesktop: isDesktop),
+        const SizedBox(height: AppSpacing.lg),
+        if (isDesktop)
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Expanded(child: StatisticsHeatmap()),
+              const SizedBox(width: AppSpacing.lg),
+              Expanded(
+                child: _TagPieChart(distribution: state.tagDistribution),
               ),
-            );
-          },
-        ),
-        const SizedBox(height: AppSpacing.lg),
-        // 统计增强（P0）：年度热力图。
-        StatisticsHeatmap(),
-        const SizedBox(height: AppSpacing.lg),
-        _TagPieChart(distribution: state.tagDistribution),
+            ],
+          )
+        else ...[
+          // 统计增强（P0）：年度热力图。
+          StatisticsHeatmap(),
+          const SizedBox(height: AppSpacing.lg),
+          _TagPieChart(distribution: state.tagDistribution),
+        ],
         if (state.errorMessage != null) ...[
           const SizedBox(height: AppSpacing.lg),
           ErrorCard(message: state.errorMessage!),
@@ -135,6 +164,124 @@ class StatisticsContent extends StatelessWidget {
           child: list,
         );
       },
+    );
+  }
+}
+
+class _StatisticsHero extends StatelessWidget {
+  const _StatisticsHero({required this.state});
+
+  final StatisticsState state;
+
+  @override
+  Widget build(BuildContext context) {
+    final weekPercent =
+        (state.weekCompletionRate.isNaN ? 0 : state.weekCompletionRate * 100)
+            .clamp(0, 100);
+    final monthPercent =
+        (state.monthCompletionRate.isNaN ? 0 : state.monthCompletionRate * 100)
+            .clamp(0, 100);
+
+    return HeroCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('学习统计', style: AppTypography.h2(context)),
+          const SizedBox(height: AppSpacing.sm),
+          Text(
+            '本周完成率 ${weekPercent.toStringAsFixed(0)}%',
+            style: AppTypography.display(context),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          Text(
+            state.consecutiveCompletedDays <= 0
+                ? '先完成今天的复习，开始形成稳定节奏。'
+                : '已连续打卡 ${state.consecutiveCompletedDays} 天，本月完成率 ${monthPercent.toStringAsFixed(0)}%。',
+            style: AppTypography.bodySecondary(context),
+          ),
+          const SizedBox(height: AppSpacing.lg),
+          SummaryStrip(
+            child: Row(
+              children: [
+                Expanded(
+                  child: _HeroSummaryMetric(
+                    label: '本周完成',
+                    value: '${state.weekCompleted}/${state.weekTotal}',
+                  ),
+                ),
+                Expanded(
+                  child: _HeroSummaryMetric(
+                    label: '本月完成',
+                    value: '${state.monthCompleted}/${state.monthTotal}',
+                  ),
+                ),
+                Expanded(
+                  child: _HeroSummaryMetric(
+                    label: '连续打卡',
+                    value: '${state.consecutiveCompletedDays} 天',
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _HeroSummaryMetric extends StatelessWidget {
+  const _HeroSummaryMetric({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(value, style: AppTypography.title(context)),
+        const SizedBox(height: 2),
+        Text(label, style: AppTypography.meta(context)),
+      ],
+    );
+  }
+}
+
+class _InsightsSection extends ConsumerWidget {
+  const _InsightsSection({required this.isDesktop});
+
+  final bool isDesktop;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final async = ref.watch(statisticsInsightsProvider);
+    final skeletonStrategy = ref.watch(skeletonStrategyProvider);
+    return async.when(
+      loading: () => SkeletonLoader(
+        isLoading: true,
+        strategy: skeletonStrategy,
+        skeleton: const SkeletonShimmer(child: _StatisticsInsightsSkeleton()),
+        child: skeletonStrategy == 'off'
+            ? const Padding(
+                padding: EdgeInsets.symmetric(vertical: 12),
+                child: Center(child: CircularProgressIndicator()),
+              )
+            : const SizedBox.shrink(),
+      ),
+      error: (e, _) => ErrorCard(message: '趋势数据加载失败：$e'),
+      data: (insights) => SectionCard(
+        title: '最近趋势',
+        subtitle: isDesktop ? '先看趋势，再对比本周与上周的变化。' : '趋势图与对比分析放在同一模块，方便快速理解变化。',
+        child: Column(
+          children: [
+            StatisticsTrendChart(insights: insights),
+            const SizedBox(height: AppSpacing.lg),
+            _WeekCompareCard(compare: insights.weekCompare),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -292,7 +439,9 @@ class _WeekCompareCard extends StatelessWidget {
 
     final isUp = diff > 0 || (diff == 0 && diffRate > 0);
     final isDown = diff < 0 || (diff == 0 && diffRate < 0);
-    final color = isUp ? upColor : (isDown ? downColor : AppColors.textSecondary);
+    final color = isUp
+        ? upColor
+        : (isDown ? downColor : AppColors.textSecondary);
 
     final arrow = isUp
         ? Icons.trending_up
@@ -334,8 +483,8 @@ class _WeekCompareCard extends StatelessWidget {
                 color: hasCompare
                     ? color
                     : (isDark
-                        ? AppColors.darkTextSecondary
-                        : AppColors.textSecondary),
+                          ? AppColors.darkTextSecondary
+                          : AppColors.textSecondary),
               ),
             ),
             const SizedBox(height: AppSpacing.sm),
@@ -365,8 +514,9 @@ class _TagPieChartState extends State<_TagPieChart> {
 
   @override
   Widget build(BuildContext context) {
-    final entries =
-        widget.distribution.entries.where((e) => e.value > 0).toList();
+    final entries = widget.distribution.entries
+        .where((e) => e.value > 0)
+        .toList();
 
     return GlassCard(
       child: Padding(
@@ -392,9 +542,13 @@ class _TagPieChartState extends State<_TagPieChart> {
                 ),
               )
             else
-              _Pie(entries: entries, touchedIndex: _touchedIndex, onTouch: (i) {
-                setState(() => _touchedIndex = i);
-              }),
+              _Pie(
+                entries: entries,
+                touchedIndex: _touchedIndex,
+                onTouch: (i) {
+                  setState(() => _touchedIndex = i);
+                },
+              ),
           ],
         ),
       ),
@@ -417,8 +571,9 @@ class _Pie extends StatelessWidget {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final tooltipBackground = isDark ? const Color(0xFF1E293B) : Colors.white;
-    final tooltipTextColor =
-        isDark ? AppColors.darkTextPrimary : AppColors.textPrimary;
+    final tooltipTextColor = isDark
+        ? AppColors.darkTextPrimary
+        : AppColors.textPrimary;
 
     final total = entries.fold<int>(0, (sum, e) => sum + e.value);
     final palette = _palette(isDark: isDark);
@@ -435,15 +590,14 @@ class _Pie extends StatelessWidget {
           color: color,
           radius: isTouched ? 22 : 18,
           showTitle: false,
-          badgeWidget:
-              isTouched
-                  ? _PieTooltip(
-                    text:
-                        '${entries[i].key} · ${entries[i].value}（${percent.toStringAsFixed(1)}%）',
-                    backgroundColor: tooltipBackground,
-                    textColor: tooltipTextColor,
-                  )
-                  : null,
+          badgeWidget: isTouched
+              ? _PieTooltip(
+                  text:
+                      '${entries[i].key} · ${entries[i].value}（${percent.toStringAsFixed(1)}%）',
+                  backgroundColor: tooltipBackground,
+                  textColor: tooltipTextColor,
+                )
+              : null,
           badgePositionPercentageOffset: 1.18,
         ),
       );
@@ -584,4 +738,3 @@ class _LegendRow extends StatelessWidget {
     );
   }
 }
-

@@ -42,6 +42,7 @@ import '../../widgets/task_filter_bar.dart';
 import '../../widgets/task_context_menu.dart';
 import '../../widgets/deferred_visibility_builder.dart';
 import '../../widgets/home_bottom_stats_bar.dart';
+import '../../widgets/semantic_panels.dart';
 import '../../widgets/shortcut_hint.dart';
 import '../../widgets/yike_refresh_indicator.dart';
 import '../tasks/widgets/task_hub_timeline_list.dart';
@@ -119,6 +120,7 @@ class _HomePageState extends ConsumerState<HomePage> {
     final primary = isDark ? AppColors.primaryLight : AppColors.primary;
     final mq = MediaQuery.of(context);
     final disableAnimations = mq.disableAnimations || mq.accessibleNavigation;
+    final isDesktop = ResponsiveUtils.isDesktop(context);
 
     final settingsState = ref.watch(settingsProvider);
     final permissionAsync = ref.watch(notificationPermissionProvider);
@@ -221,10 +223,7 @@ class _HomePageState extends ConsumerState<HomePage> {
       // 交互优化：新提示覆盖旧提示，避免连续操作时 Snackbar 堆叠。
       ScaffoldMessenger.of(context).hideCurrentSnackBar();
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(text),
-          duration: const Duration(seconds: 2),
-        ),
+        SnackBar(content: Text(text), duration: const Duration(seconds: 2)),
       );
     }
 
@@ -479,10 +478,368 @@ class _HomePageState extends ConsumerState<HomePage> {
       await refresh();
     }
 
-    void changeTab(HomeTaskTab next) {
-      // 使用本地状态管理 Tab，避免路由重建触发全量页面刷新。
-      ref.read(homeTaskTabProvider.notifier).state = next;
-    }
+    final desktopSummary = Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _HomeOverviewHero(
+          pendingCount: statusCounts.pending,
+          completedCount: statusCounts.done,
+          overdueCount: state.overduePending.length,
+          onReviewNow: () async {
+            if (!_todayScrollController.hasClients) return;
+            await _todayScrollController.animateTo(
+              420,
+              duration: disableAnimations
+                  ? Duration.zero
+                  : const Duration(milliseconds: 280),
+              curve: Curves.easeOut,
+            );
+          },
+          onOpenTasks: () => context.push('/tasks'),
+          onQuickInput: () => context.push('/input'),
+        ),
+        const SizedBox(height: AppSpacing.lg),
+        const _DateHeader(),
+        const SizedBox(height: AppSpacing.lg),
+        const ReviewProgressWidget(),
+        const SizedBox(height: AppSpacing.lg),
+        _ProcessedSummaryStrip(
+          doneCount: statusCounts.done,
+          skippedCount: statusCounts.skipped,
+          onOpenTasks: () => context.push('/tasks'),
+        ),
+      ],
+    );
+
+    final desktopSearchSection = <Widget>[
+      LearningSearchBar(
+        query: searchQuery,
+        focusNode: _searchFocusNode,
+        enabled: !state.isLoading,
+        onChanged: (v) => searchQueryNotifier.state = v,
+        onClear: () => searchQueryNotifier.state = '',
+      ),
+      if (searchKeyword.isNotEmpty) ...[
+        const SizedBox(height: AppSpacing.md),
+        _SearchResultsCard(
+          keyword: searchKeyword,
+          results: searchAsync,
+          onTapItem: (id) => context.push('/items/$id'),
+        ),
+      ],
+      const SizedBox(height: AppSpacing.lg),
+    ];
+
+    final pendingTaskSections = <Widget>[
+      if (overduePendingUi.isNotEmpty) ...[
+        KeyedSubtree(
+          key: _overdueSectionKey,
+          child: const _SectionHeader(
+            title: '逾期任务',
+            subtitle: '优先处理红色逾期任务，避免堆积',
+            color: AppColors.warning,
+          ),
+        ),
+        const SizedBox(height: AppSpacing.sm),
+        _TaskGrid(
+          tasks: overduePendingUi,
+          isOverdue: true,
+          selectionMode: effectiveSelectionMode,
+          selectedTaskIds: state.selectedTaskIds,
+          expandedTaskIds: state.expandedTaskIds,
+          lastDoneOrSkippedRoundByLearningItemId:
+              state.lastDoneOrSkippedRoundByLearningItemId,
+          nextReviewScheduledDateByLearningItemId:
+              state.nextReviewScheduledDateByLearningItemId,
+          nextReviewPreviewDisabledLearningItemIds:
+              state.nextReviewPreviewDisabledLearningItemIds,
+          removingTaskIds: _removingTaskIds,
+          disableAnimations: disableAnimations,
+          onRemovingAnimationCompleted: onRemovingAnimationCompleted,
+          onSwipeDismissed: () => notifier.load(),
+          onToggleSelected: notifier.toggleSelected,
+          onToggleExpanded: notifier.toggleExpanded,
+          onComplete: completeFromButtonOrMenu,
+          onSwipeComplete: completeFromSwipe,
+          onSkip: skipTask,
+          onSwipeSkip: skipFromSwipe,
+        ),
+        const SizedBox(height: AppSpacing.lg),
+      ],
+      _SectionHeader(
+        title: '今日待复习',
+        subtitle: todayPendingUi.isEmpty ? '今天没有待复习任务' : null,
+        color: primary,
+      ),
+      const SizedBox(height: AppSpacing.sm),
+      if (todayPendingUi.isEmpty && overduePendingUi.isEmpty)
+        _EmptyState(learningItemCount: state.learningItemCount)
+      else if (todayPendingUi.isEmpty)
+        const _EmptySectionHint(text: AppStrings.emptyTodayTasks)
+      else
+        _TaskGrid(
+          tasks: todayPendingUi,
+          isOverdue: false,
+          selectionMode: effectiveSelectionMode,
+          selectedTaskIds: state.selectedTaskIds,
+          expandedTaskIds: state.expandedTaskIds,
+          lastDoneOrSkippedRoundByLearningItemId:
+              state.lastDoneOrSkippedRoundByLearningItemId,
+          nextReviewScheduledDateByLearningItemId:
+              state.nextReviewScheduledDateByLearningItemId,
+          nextReviewPreviewDisabledLearningItemIds:
+              state.nextReviewPreviewDisabledLearningItemIds,
+          removingTaskIds: _removingTaskIds,
+          disableAnimations: disableAnimations,
+          onRemovingAnimationCompleted: onRemovingAnimationCompleted,
+          onSwipeDismissed: () => notifier.load(),
+          onToggleSelected: notifier.toggleSelected,
+          onToggleExpanded: notifier.toggleExpanded,
+          onComplete: completeFromButtonOrMenu,
+          onSwipeComplete: completeFromSwipe,
+          onSkip: skipTask,
+          onSwipeSkip: skipFromSwipe,
+        ),
+    ];
+
+    final doneTaskSections = <Widget>[
+      _SectionHeader(
+        title: '今日已完成',
+        subtitle: todayCompletedUi.isEmpty ? '今天还没有完成任务' : null,
+        color: AppColors.success,
+      ),
+      const SizedBox(height: AppSpacing.sm),
+      if (todayCompletedUi.isEmpty)
+        const _EmptySectionHint(text: '暂无今日已完成任务')
+      else
+        _TaskGrid(
+          tasks: todayCompletedUi,
+          isOverdue: false,
+          selectionMode: false,
+          selectedTaskIds: const {},
+          expandedTaskIds: state.expandedTaskIds,
+          lastDoneOrSkippedRoundByLearningItemId:
+              state.lastDoneOrSkippedRoundByLearningItemId,
+          nextReviewScheduledDateByLearningItemId:
+              state.nextReviewScheduledDateByLearningItemId,
+          nextReviewPreviewDisabledLearningItemIds:
+              state.nextReviewPreviewDisabledLearningItemIds,
+          removingTaskIds: const {},
+          disableAnimations: disableAnimations,
+          onRemovingAnimationCompleted: (_) {},
+          onSwipeDismissed: () {},
+          onToggleSelected: (_) {},
+          onToggleExpanded: notifier.toggleExpanded,
+          onComplete: (_) async => true,
+          onSwipeComplete: (_) async => true,
+          onSkip: (_) async => true,
+          onSwipeSkip: (_) async => true,
+          onUndo: confirmUndo,
+        ),
+    ];
+
+    final skippedTaskSections = <Widget>[
+      _SectionHeader(
+        title: '今日已跳过',
+        subtitle: todaySkippedUi.isEmpty ? '今天还没有跳过任务' : null,
+        color: AppColors.warning,
+      ),
+      const SizedBox(height: AppSpacing.sm),
+      if (todaySkippedUi.isEmpty)
+        const _EmptySectionHint(text: '暂无今日已跳过任务')
+      else
+        _TaskGrid(
+          tasks: todaySkippedUi,
+          isOverdue: false,
+          selectionMode: false,
+          selectedTaskIds: const {},
+          expandedTaskIds: state.expandedTaskIds,
+          lastDoneOrSkippedRoundByLearningItemId:
+              state.lastDoneOrSkippedRoundByLearningItemId,
+          nextReviewScheduledDateByLearningItemId:
+              state.nextReviewScheduledDateByLearningItemId,
+          nextReviewPreviewDisabledLearningItemIds:
+              state.nextReviewPreviewDisabledLearningItemIds,
+          removingTaskIds: const {},
+          disableAnimations: disableAnimations,
+          onRemovingAnimationCompleted: (_) {},
+          onSwipeDismissed: () {},
+          onToggleSelected: (_) {},
+          onToggleExpanded: notifier.toggleExpanded,
+          onComplete: (_) async => true,
+          onSwipeComplete: (_) async => true,
+          onSkip: (_) async => true,
+          onSwipeSkip: (_) async => true,
+          onUndo: confirmUndo,
+        ),
+    ];
+
+    final allTaskSections = <Widget>[
+      if (statusCounts.all == 0) ...[
+        _EmptyState(learningItemCount: state.learningItemCount),
+      ] else ...[
+        if (overduePendingUi.isNotEmpty) ...[
+          KeyedSubtree(
+            key: _overdueSectionKey,
+            child: const _SectionHeader(
+              title: '逾期任务',
+              subtitle: '优先处理红色逾期任务，避免堆积',
+              color: AppColors.warning,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          _TaskGrid(
+            tasks: overduePendingUi,
+            isOverdue: true,
+            selectionMode: false,
+            selectedTaskIds: const {},
+            expandedTaskIds: state.expandedTaskIds,
+            lastDoneOrSkippedRoundByLearningItemId:
+                state.lastDoneOrSkippedRoundByLearningItemId,
+            nextReviewScheduledDateByLearningItemId:
+                state.nextReviewScheduledDateByLearningItemId,
+            nextReviewPreviewDisabledLearningItemIds:
+                state.nextReviewPreviewDisabledLearningItemIds,
+            removingTaskIds: _removingTaskIds,
+            disableAnimations: disableAnimations,
+            onRemovingAnimationCompleted: onRemovingAnimationCompleted,
+            onSwipeDismissed: () => notifier.load(),
+            onToggleSelected: (_) {},
+            onToggleExpanded: notifier.toggleExpanded,
+            onComplete: completeFromButtonOrMenu,
+            onSwipeComplete: completeFromSwipe,
+            onSkip: skipTask,
+            onSwipeSkip: skipFromSwipe,
+          ),
+          const SizedBox(height: AppSpacing.lg),
+        ],
+        _SectionHeader(
+          title: '今日待复习',
+          subtitle: todayPendingUi.isEmpty ? '今天没有待复习任务' : null,
+          color: primary,
+        ),
+        const SizedBox(height: AppSpacing.sm),
+        if (todayPendingUi.isEmpty)
+          const _EmptySectionHint(text: AppStrings.emptyTodayTasks)
+        else
+          _TaskGrid(
+            tasks: todayPendingUi,
+            isOverdue: false,
+            selectionMode: false,
+            selectedTaskIds: const {},
+            expandedTaskIds: state.expandedTaskIds,
+            lastDoneOrSkippedRoundByLearningItemId:
+                state.lastDoneOrSkippedRoundByLearningItemId,
+            nextReviewScheduledDateByLearningItemId:
+                state.nextReviewScheduledDateByLearningItemId,
+            nextReviewPreviewDisabledLearningItemIds:
+                state.nextReviewPreviewDisabledLearningItemIds,
+            removingTaskIds: _removingTaskIds,
+            disableAnimations: disableAnimations,
+            onRemovingAnimationCompleted: onRemovingAnimationCompleted,
+            onSwipeDismissed: () => notifier.load(),
+            onToggleSelected: (_) {},
+            onToggleExpanded: notifier.toggleExpanded,
+            onComplete: completeFromButtonOrMenu,
+            onSwipeComplete: completeFromSwipe,
+            onSkip: skipTask,
+            onSwipeSkip: skipFromSwipe,
+          ),
+        const SizedBox(height: AppSpacing.lg),
+        ...doneTaskSections,
+        const SizedBox(height: AppSpacing.lg),
+        ...skippedTaskSections,
+      ],
+    ];
+
+    final desktopTaskSections = switch (homeFilter) {
+      ReviewTaskFilter.pending => pendingTaskSections,
+      ReviewTaskFilter.done => doneTaskSections,
+      ReviewTaskFilter.skipped => skippedTaskSections,
+      ReviewTaskFilter.all => allTaskSections,
+    };
+
+    final desktopMain = Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        ...desktopSearchSection,
+        TaskFilterBar(
+          filter: homeFilter,
+          counts: statusCounts,
+          onChanged: (next) {
+            ref.read(homeTaskFilterProvider.notifier).state = next;
+          },
+        ),
+        const SizedBox(height: AppSpacing.lg),
+        if (state.errorMessage != null) ...[
+          ErrorCard(message: state.errorMessage!),
+          const SizedBox(height: AppSpacing.lg),
+        ],
+        if (state.isLoading) ...[
+          SkeletonLoader(
+            isLoading: true,
+            strategy: skeletonStrategy,
+            skeleton: const SkeletonShimmer(child: _HomeLoadingSkeleton()),
+            child: skeletonStrategy == 'off'
+                ? const Center(
+                    child: Padding(
+                      padding: EdgeInsets.all(24),
+                      child: CircularProgressIndicator(),
+                    ),
+                  )
+                : const SizedBox.shrink(),
+          ),
+        ] else ...[
+          if ((homeFilter == ReviewTaskFilter.pending ||
+                  homeFilter == ReviewTaskFilter.all) &&
+              state.todayPending.length + state.overduePending.length > 20) ...[
+            GlassCard(
+              child: Padding(
+                padding: const EdgeInsets.all(AppSpacing.lg),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.warning_amber_rounded,
+                      color: AppColors.warning,
+                    ),
+                    const SizedBox(width: AppSpacing.sm),
+                    Expanded(
+                      child: Text(
+                        '今日任务较多，建议优先完成逾期任务。',
+                        style: AppTypography.bodySecondary(context),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: AppSpacing.lg),
+          ],
+          ...desktopTaskSections,
+          const SizedBox(height: AppSpacing.lg),
+          DeferredVisibilityBuilder(
+            id: 'home_bottom_stats_bar_desktop',
+            placeholder: SizedBox(
+              height: 92,
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.surface.withValues(alpha: 0.06),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: Theme.of(
+                      context,
+                    ).dividerColor.withValues(alpha: 0.30),
+                  ),
+                ),
+              ),
+            ),
+            builder: (_) => const HomeBottomStatsBar(),
+          ),
+        ],
+      ],
+    );
 
     return Scaffold(
       appBar: AppBar(
@@ -591,20 +948,6 @@ class _HomePageState extends ConsumerState<HomePage> {
                             horizontal: AppSpacing.lg,
                           ),
                           sliver: SliverToBoxAdapter(
-                            child: HomeTabSwitcher(
-                              tab: tab,
-                              onChanged: changeTab,
-                            ),
-                          ),
-                        ),
-                        const SliverToBoxAdapter(
-                          child: SizedBox(height: AppSpacing.md),
-                        ),
-                        SliverPadding(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: AppSpacing.lg,
-                          ),
-                          sliver: SliverToBoxAdapter(
                             child: HomeTimeFilterBar(
                               filter: homeTimeFilter,
                               onChanged: (next) {
@@ -653,11 +996,42 @@ class _HomePageState extends ConsumerState<HomePage> {
                         const SliverToBoxAdapter(child: SizedBox(height: 96)),
                       ],
                     )
+                  : isDesktop
+                  ? ListView(
+                      key: const PageStorageKey('home_desktop_today_scroll'),
+                      controller: _todayScrollController,
+                      padding: const EdgeInsets.all(AppSpacing.lg),
+                      children: [
+                        _HomeDesktopSplitLayout(
+                          summary: desktopSummary,
+                          main: desktopMain,
+                        ),
+                        const SizedBox(height: 96),
+                      ],
+                    )
                   : ListView(
                       key: const PageStorageKey('home_today_scroll'),
                       controller: _todayScrollController,
                       padding: const EdgeInsets.all(AppSpacing.lg),
                       children: [
+                        _HomeOverviewHero(
+                          pendingCount: statusCounts.pending,
+                          completedCount: statusCounts.done,
+                          overdueCount: state.overduePending.length,
+                          onReviewNow: () async {
+                            if (!_todayScrollController.hasClients) return;
+                            await _todayScrollController.animateTo(
+                              420,
+                              duration: disableAnimations
+                                  ? Duration.zero
+                                  : const Duration(milliseconds: 280),
+                              curve: Curves.easeOut,
+                            );
+                          },
+                          onOpenTasks: () => context.push('/tasks'),
+                          onQuickInput: () => context.push('/input'),
+                        ),
+                        const SizedBox(height: AppSpacing.lg),
                         LearningSearchBar(
                           query: searchQuery,
                           focusNode: _searchFocusNode,
@@ -675,8 +1049,6 @@ class _HomePageState extends ConsumerState<HomePage> {
                             onTapItem: (id) => context.push('/items/$id'),
                           ),
                         ],
-                        const SizedBox(height: AppSpacing.lg),
-                        HomeTabSwitcher(tab: tab, onChanged: changeTab),
                         const SizedBox(height: AppSpacing.lg),
                         if (tab == HomeTaskTab.all &&
                             hubState != null &&
@@ -711,6 +1083,12 @@ class _HomePageState extends ConsumerState<HomePage> {
                           const _DateHeader(),
                           const SizedBox(height: AppSpacing.lg),
                           const ReviewProgressWidget(),
+                          const SizedBox(height: AppSpacing.lg),
+                          _ProcessedSummaryStrip(
+                            doneCount: statusCounts.done,
+                            skippedCount: statusCounts.skipped,
+                            onOpenTasks: () => context.push('/tasks'),
+                          ),
                           const SizedBox(height: AppSpacing.lg),
                           TaskFilterBar(
                             filter: homeFilter,
@@ -1435,6 +1813,202 @@ class _DateHeader extends StatelessWidget {
       default:
         return '';
     }
+  }
+}
+
+/// 首页首屏概览 Hero。
+class _HomeOverviewHero extends StatelessWidget {
+  const _HomeOverviewHero({
+    required this.pendingCount,
+    required this.completedCount,
+    required this.overdueCount,
+    required this.onReviewNow,
+    required this.onOpenTasks,
+    required this.onQuickInput,
+  });
+
+  final int pendingCount;
+  final int completedCount;
+  final int overdueCount;
+  final Future<void> Function() onReviewNow;
+  final VoidCallback onOpenTasks;
+  final VoidCallback onQuickInput;
+
+  @override
+  Widget build(BuildContext context) {
+    final subtitle = pendingCount <= 0
+        ? '今天暂时没有待处理任务，可以补充新的学习内容。'
+        : overdueCount > 0
+        ? '有 $overdueCount 项逾期任务，建议优先处理。'
+        : '今天还需处理 $pendingCount 项复习任务。';
+
+    return HeroCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('今日复习总览', style: AppTypography.h2(context)),
+          const SizedBox(height: AppSpacing.sm),
+          Text(
+            pendingCount <= 0 ? '今天节奏不错' : '还有 $pendingCount 项待复习',
+            style: AppTypography.display(context),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          Text(subtitle, style: AppTypography.bodySecondary(context)),
+          const SizedBox(height: AppSpacing.lg),
+          SummaryStrip(
+            child: Row(
+              children: [
+                Expanded(
+                  child: _HeroMetric(label: '待处理', value: '$pendingCount'),
+                ),
+                Expanded(
+                  child: _HeroMetric(label: '已完成', value: '$completedCount'),
+                ),
+                Expanded(
+                  child: _HeroMetric(label: '逾期', value: '$overdueCount'),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: AppSpacing.lg),
+          Wrap(
+            spacing: AppSpacing.md,
+            runSpacing: AppSpacing.md,
+            children: [
+              FilledButton(onPressed: onReviewNow, child: const Text('开始复习')),
+              FilledButton.tonal(
+                onPressed: onOpenTasks,
+                child: const Text('查看全部任务'),
+              ),
+              OutlinedButton(
+                onPressed: onQuickInput,
+                child: const Text('快速录入'),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// 首页已处理摘要条。
+class _ProcessedSummaryStrip extends StatelessWidget {
+  const _ProcessedSummaryStrip({
+    required this.doneCount,
+    required this.skippedCount,
+    required this.onOpenTasks,
+  });
+
+  final int doneCount;
+  final int skippedCount;
+  final VoidCallback onOpenTasks;
+
+  @override
+  Widget build(BuildContext context) {
+    return SummaryStrip(
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final useStacked = constraints.maxWidth < 420;
+          if (useStacked) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Icon(Icons.insights_outlined, size: 18),
+                    const SizedBox(width: AppSpacing.sm),
+                    Expanded(
+                      child: Text(
+                        '已完成 $doneCount 项，已跳过 $skippedCount 项。需要查看更多历史任务时，可进入任务中心。',
+                        style: AppTypography.bodySecondary(context),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: TextButton(
+                    onPressed: onOpenTasks,
+                    child: const Text('任务中心'),
+                  ),
+                ),
+              ],
+            );
+          }
+
+          return Row(
+            children: [
+              const Icon(Icons.insights_outlined, size: 18),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: Text(
+                  '已完成 $doneCount 项，已跳过 $skippedCount 项。需要查看更多历史任务时，可进入任务中心。',
+                  style: AppTypography.bodySecondary(context),
+                ),
+              ),
+              const SizedBox(width: AppSpacing.md),
+              TextButton(onPressed: onOpenTasks, child: const Text('任务中心')),
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _HomeDesktopSplitLayout extends StatelessWidget {
+  const _HomeDesktopSplitLayout({required this.summary, required this.main});
+
+  final Widget summary;
+  final Widget main;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.maxWidth < 900) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              summary,
+              const SizedBox(height: AppSpacing.xl),
+              main,
+            ],
+          );
+        }
+
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SizedBox(width: 340, child: summary),
+            const SizedBox(width: AppSpacing.xl),
+            Expanded(child: main),
+          ],
+        );
+      },
+    );
+  }
+}
+
+/// Hero 指标项。
+class _HeroMetric extends StatelessWidget {
+  const _HeroMetric({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(value, style: AppTypography.h1(context)),
+        const SizedBox(height: 2),
+        Text(label, style: AppTypography.meta(context)),
+      ],
+    );
   }
 }
 

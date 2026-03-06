@@ -60,11 +60,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                 const NoTransitionPage(child: CalendarPage()),
           ),
           GoRoute(
-            path: '/statistics',
-            pageBuilder: (context, state) =>
-                const NoTransitionPage(child: StatisticsPage()),
-          ),
-          GoRoute(
             path: '/settings',
             pageBuilder: (context, state) =>
                 const NoTransitionPage(child: SettingsPage()),
@@ -81,13 +76,19 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: '/help',
         pageBuilder: (context, state) => const MaterialPage(child: HelpPage()),
       ),
-
-      // 旧路由兼容：通过 redirect 迁移到新的导航结构，避免深链/历史入口断裂。
-      GoRoute(path: '/tasks', redirect: (context, state) => '/home?tab=all'),
       GoRoute(
-        path: '/settings/help',
-        redirect: (context, state) => '/help',
+        path: '/statistics',
+        pageBuilder: (context, state) =>
+            const MaterialPage(child: StatisticsPage()),
       ),
+
+      // 旧路由兼容：保留 `/tasks` 作为独立任务中心入口，不再回落到首页“全部任务”视图。
+      GoRoute(
+        path: '/tasks',
+        pageBuilder: (context, state) =>
+            const MaterialPage(child: TaskHubPage()),
+      ),
+      GoRoute(path: '/settings/help', redirect: (context, state) => '/help'),
       GoRoute(
         path: '/tasks/detail/:learningItemId',
         pageBuilder: (context, state) {
@@ -103,7 +104,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             context,
             TaskDetailSheet(learningItemId: id, openEditOnLoad: openEdit),
             fallback: MaterialPage(
-              child: TaskDetailSheet(learningItemId: id, openEditOnLoad: openEdit),
+              child: TaskDetailSheet(
+                learningItemId: id,
+                openEditOnLoad: openEdit,
+              ),
             ),
             dialogSize: const Size(760, 780),
             heightFactor: 0.88,

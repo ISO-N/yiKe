@@ -46,71 +46,104 @@ class CompactStatsBar extends ConsumerWidget {
       return '连续 ${state.consecutiveCompletedDays} 天';
     }
 
+    final streakSummary = Row(
+      children: [
+        Container(
+          width: 36,
+          height: 36,
+          decoration: BoxDecoration(
+            color: AppColors.cta.withAlpha(22),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: AppColors.cta.withAlpha(70)),
+          ),
+          child: const Icon(
+            Icons.local_fire_department,
+            color: AppColors.cta,
+            size: 20,
+          ),
+        ),
+        const SizedBox(width: AppSpacing.sm),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('连续打卡', style: AppTypography.body(context)),
+              const SizedBox(height: 2),
+              Text(
+                state.isLoading ? '加载中…' : streakText(),
+                style: AppTypography.bodySecondary(context),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+
+    final completionSummary = Row(
+      children: [
+        Icon(Icons.trending_up, color: primary, size: 20),
+        const SizedBox(width: 6),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('完成率', style: AppTypography.body(context)),
+              const SizedBox(height: 2),
+              Text(
+                state.isLoading ? '加载中…' : weekText(),
+                style: AppTypography.bodySecondary(context),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+
     final content = Padding(
       padding: const EdgeInsets.all(AppSpacing.lg),
-      child: Row(
-        children: [
-          Expanded(
-            child: Row(
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final useStacked = constraints.maxWidth < 320;
+          if (useStacked) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Container(
-                  width: 36,
-                  height: 36,
-                  decoration: BoxDecoration(
-                    color: AppColors.cta.withAlpha(22),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: AppColors.cta.withAlpha(70)),
-                  ),
-                  child: const Icon(
-                    Icons.local_fire_department,
-                    color: AppColors.cta,
-                    size: 20,
-                  ),
-                ),
-                const SizedBox(width: AppSpacing.sm),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                streakSummary,
+                const SizedBox(height: AppSpacing.md),
+                Divider(color: Theme.of(context).dividerColor.withAlpha(90)),
+                const SizedBox(height: AppSpacing.md),
+                Row(
                   children: [
-                    Text('连续打卡', style: AppTypography.body(context)),
-                    const SizedBox(height: 2),
-                    Text(
-                      state.isLoading ? '加载中…' : streakText(),
-                      style: AppTypography.bodySecondary(context),
+                    Expanded(child: completionSummary),
+                    const SizedBox(width: AppSpacing.sm),
+                    Icon(
+                      Icons.chevron_right,
+                      color: Theme.of(context).iconTheme.color?.withAlpha(160),
                     ),
                   ],
                 ),
               ],
-            ),
-          ),
-          Container(
-            width: 1,
-            height: 36,
-            color: Theme.of(context).dividerColor.withAlpha(90),
-          ),
-          const SizedBox(width: AppSpacing.md),
-          Row(
+            );
+          }
+
+          return Row(
             children: [
-              Icon(Icons.trending_up, color: primary, size: 20),
-              const SizedBox(width: 6),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('完成率', style: AppTypography.body(context)),
-                  const SizedBox(height: 2),
-                  Text(
-                    state.isLoading ? '加载中…' : weekText(),
-                    style: AppTypography.bodySecondary(context),
-                  ),
-                ],
+              Expanded(child: streakSummary),
+              Container(
+                width: 1,
+                height: 36,
+                color: Theme.of(context).dividerColor.withAlpha(90),
+              ),
+              const SizedBox(width: AppSpacing.md),
+              Expanded(child: completionSummary),
+              const SizedBox(width: AppSpacing.sm),
+              Icon(
+                Icons.chevron_right,
+                color: Theme.of(context).iconTheme.color?.withAlpha(160),
               ),
             ],
-          ),
-          const SizedBox(width: AppSpacing.sm),
-          Icon(
-            Icons.chevron_right,
-            color: Theme.of(context).iconTheme.color?.withAlpha(160),
-          ),
-        ],
+          );
+        },
       ),
     );
 
@@ -134,4 +167,3 @@ class CompactStatsBar extends ConsumerWidget {
     );
   }
 }
-

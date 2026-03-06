@@ -1,6 +1,7 @@
-/// 文件用途：日历底部弹窗 - 当日任务列表（F6）。
+/// 文件用途：日历当日任务内容与底部弹窗，支持移动端弹层与桌面端常驻详情复用。
 /// 作者：Codex
 /// 创建日期：2026-02-25
+/// 最后更新：2026-03-06（抽离可复用的 DayTaskListContent）
 library;
 
 import 'package:flutter/material.dart';
@@ -31,6 +32,39 @@ class DayTaskListSheet extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    return SafeArea(
+      child: DraggableScrollableSheet(
+        expand: false,
+        initialChildSize: 0.75,
+        minChildSize: 0.35,
+        maxChildSize: 0.95,
+        builder: (context, controller) {
+          return DayTaskListContent(
+            selectedDay: selectedDay,
+            controller: controller,
+          );
+        },
+      ),
+    );
+  }
+}
+
+/// 当日任务内容。
+class DayTaskListContent extends ConsumerWidget {
+  /// 构造函数。
+  const DayTaskListContent({
+    super.key,
+    required this.selectedDay,
+    this.controller,
+    this.showInteractionHint = true,
+  });
+
+  final DateTime selectedDay;
+  final ScrollController? controller;
+  final bool showInteractionHint;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
     final secondaryText =
         Theme.of(context).textTheme.bodySmall?.color ?? AppColors.textSecondary;
 
@@ -53,10 +87,7 @@ class DayTaskListSheet extends ConsumerWidget {
       final messenger = ScaffoldMessenger.of(context);
       messenger.hideCurrentSnackBar();
       messenger.showSnackBar(
-        SnackBar(
-          content: Text(text),
-          duration: const Duration(seconds: 2),
-        ),
+        SnackBar(content: Text(text), duration: const Duration(seconds: 2)),
       );
     }
 
@@ -87,143 +118,121 @@ class DayTaskListSheet extends ConsumerWidget {
     final counts = ref.watch(selectedDayTaskCountsProvider);
     final filteredTasks = ref.watch(filteredSelectedDayTasksProvider);
 
-    return SafeArea(
-      child: DraggableScrollableSheet(
-        expand: false,
-        initialChildSize: 0.75,
-        minChildSize: 0.35,
-        maxChildSize: 0.95,
-        builder: (context, controller) {
-          return Padding(
-            padding: const EdgeInsets.fromLTRB(
-              AppSpacing.lg,
-              AppSpacing.sm,
-              AppSpacing.lg,
-              AppSpacing.lg,
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.lg,
+        AppSpacing.sm,
+        AppSpacing.lg,
+        AppSpacing.lg,
+      ),
+      child: ListView(
+        controller: controller,
+        children: [
+          Text(
+            '当天任务 · ${YikeDateUtils.formatYmd(selectedDay)}',
+            style: AppTypography.h2(context),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          Text(
+            showInteractionHint
+                ? '移动端可快速查看当天安排；桌面端支持常驻查看。'
+                : '在这里查看选中日期的任务详情与处理状态。',
+            style: AppTypography.bodySecondary(context),
+          ),
+          const SizedBox(height: AppSpacing.lg),
+          if (!taskState.isLoadingTasks && taskState.errorMessage == null) ...[
+            TaskFilterBar(
+              filter: filter,
+              counts: counts,
+              onChanged: (next) {
+                ref.read(reviewTaskFilterProvider.notifier).state = next;
+              },
             ),
-            child: ListView(
-              controller: controller,
-              children: [
-                Text(
-                  '当天任务 · ${YikeDateUtils.formatYmd(selectedDay)}',
-                  style: AppTypography.h2(context),
-                ),
-                const SizedBox(height: AppSpacing.sm),
-                Text(
-                  '左滑/右滑可在首页完成与跳过；此处支持点击按钮操作。',
-                  style: AppTypography.bodySecondary(context),
-                ),
-                const SizedBox(height: AppSpacing.lg),
-                if (!taskState.isLoadingTasks && taskState.errorMessage == null) ...[
-                  TaskFilterBar(
-                    filter: filter,
-                    counts: counts,
-                    onChanged: (next) {
-                      ref.read(reviewTaskFilterProvider.notifier).state = next;
-                    },
-                  ),
-                  const SizedBox(height: AppSpacing.lg),
-                ],
-                if (taskState.isLoadingTasks) ...[
-                  const Center(
-                    child: Padding(
-                      padding: EdgeInsets.all(24),
-                      child: CircularProgressIndicator(),
-                    ),
-                  ),
-                ] else if (taskState.errorMessage != null) ...[
-                  ErrorCard(message: taskState.errorMessage!),
-                ] else if (taskState.selectedDayTasks.isEmpty) ...[
-                  GlassCard(
-                    child: Padding(
-                      padding: const EdgeInsets.all(AppSpacing.xl),
-                      child: Column(
-                        children: [
-                          Icon(
-                            Icons.event_busy,
-                            size: 48,
-                            color: secondaryText,
-                          ),
-                          const SizedBox(height: AppSpacing.md),
-                          Text(
-                            '当天暂无复习任务',
-                            style: AppTypography.bodySecondary(context),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ] else if (filteredTasks.isEmpty) ...[
-                  GlassCard(
-                    child: Padding(
-                      padding: const EdgeInsets.all(AppSpacing.xl),
-                      child: Column(
-                        children: [
-                          Icon(
-                            Icons.filter_alt_off,
-                            size: 48,
-                            color: secondaryText,
-                          ),
-                          const SizedBox(height: AppSpacing.md),
-                          Text(
-                            '当前筛选下暂无任务',
-                            style: AppTypography.bodySecondary(context),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ] else ...[
-                  for (final task in filteredTasks) ...[
-                    _TaskCard(
-                      task: task,
-                      onComplete: task.status == ReviewTaskStatus.pending
-                          ? () async {
-                              await notifier.completeTask(task.taskId);
-                              if (context.mounted) {
-                                HapticUtils.lightImpact(
-                                  context,
-                                  enabledByUser: hapticEnabled,
-                                );
-                                if (undoSnackbarEnabled) {
-                                  showUndoSnack(
-                                    text: '任务已完成',
-                                    taskId: task.taskId,
-                                  );
-                                } else {
-                                  showSnack('任务已完成');
-                                }
-                              }
-                            }
-                          : null,
-                      onSkip: task.status == ReviewTaskStatus.pending
-                          ? () async {
-                              await notifier.skipTask(task.taskId);
-                              if (context.mounted) {
-                                HapticUtils.lightImpact(
-                                  context,
-                                  enabledByUser: hapticEnabled,
-                                );
-                                if (undoSnackbarEnabled) {
-                                  showUndoSnack(
-                                    text: '任务已跳过',
-                                    taskId: task.taskId,
-                                  );
-                                } else {
-                                  showSnack('任务已跳过');
-                                }
-                              }
-                            }
-                          : null,
-                    ),
+            const SizedBox(height: AppSpacing.lg),
+          ],
+          if (taskState.isLoadingTasks) ...[
+            const Center(
+              child: Padding(
+                padding: EdgeInsets.all(24),
+                child: CircularProgressIndicator(),
+              ),
+            ),
+          ] else if (taskState.errorMessage != null) ...[
+            ErrorCard(message: taskState.errorMessage!),
+          ] else if (taskState.selectedDayTasks.isEmpty) ...[
+            GlassCard(
+              child: Padding(
+                padding: const EdgeInsets.all(AppSpacing.xl),
+                child: Column(
+                  children: [
+                    Icon(Icons.event_busy, size: 48, color: secondaryText),
                     const SizedBox(height: AppSpacing.md),
+                    Text(
+                      '当天暂无复习任务',
+                      style: AppTypography.bodySecondary(context),
+                    ),
                   ],
-                ],
-                const SizedBox(height: 16),
-              ],
+                ),
+              ),
             ),
-          );
-        },
+          ] else if (filteredTasks.isEmpty) ...[
+            GlassCard(
+              child: Padding(
+                padding: const EdgeInsets.all(AppSpacing.xl),
+                child: Column(
+                  children: [
+                    Icon(Icons.filter_alt_off, size: 48, color: secondaryText),
+                    const SizedBox(height: AppSpacing.md),
+                    Text(
+                      '当前筛选下暂无任务',
+                      style: AppTypography.bodySecondary(context),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ] else ...[
+            for (final task in filteredTasks) ...[
+              _TaskCard(
+                task: task,
+                onComplete: task.status == ReviewTaskStatus.pending
+                    ? () async {
+                        await notifier.completeTask(task.taskId);
+                        if (context.mounted) {
+                          HapticUtils.lightImpact(
+                            context,
+                            enabledByUser: hapticEnabled,
+                          );
+                          if (undoSnackbarEnabled) {
+                            showUndoSnack(text: '任务已完成', taskId: task.taskId);
+                          } else {
+                            showSnack('任务已完成');
+                          }
+                        }
+                      }
+                    : null,
+                onSkip: task.status == ReviewTaskStatus.pending
+                    ? () async {
+                        await notifier.skipTask(task.taskId);
+                        if (context.mounted) {
+                          HapticUtils.lightImpact(
+                            context,
+                            enabledByUser: hapticEnabled,
+                          );
+                          if (undoSnackbarEnabled) {
+                            showUndoSnack(text: '任务已跳过', taskId: task.taskId);
+                          } else {
+                            showSnack('任务已跳过');
+                          }
+                        }
+                      }
+                    : null,
+              ),
+              const SizedBox(height: AppSpacing.md),
+            ],
+          ],
+          const SizedBox(height: 16),
+        ],
       ),
     );
   }

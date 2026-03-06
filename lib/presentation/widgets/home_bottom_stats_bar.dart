@@ -33,7 +33,9 @@ class HomeBottomStatsBar extends ConsumerWidget {
     );
     final hapticEnabled = ref.watch(hapticFeedbackEnabledProvider);
 
-    final rateText = isLoading ? '加载中…' : '${(weekRate * 100).toStringAsFixed(0)}%';
+    final rateText = isLoading
+        ? '加载中…'
+        : '${(weekRate * 100).toStringAsFixed(0)}%';
     final streakText = isLoading ? '—' : '$streakDays 天';
 
     return Semantics(
@@ -48,16 +50,14 @@ class HomeBottomStatsBar extends ConsumerWidget {
                 width: 44,
                 height: 44,
                 decoration: BoxDecoration(
-                  color: Theme.of(context)
-                      .colorScheme
-                      .primary
-                      .withValues(alpha: 0.12),
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.primary.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(14),
                   border: Border.all(
-                    color: Theme.of(context)
-                        .colorScheme
-                        .primary
-                        .withValues(alpha: 0.30),
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.primary.withValues(alpha: 0.30),
                   ),
                 ),
                 child: Icon(
@@ -70,7 +70,12 @@ class HomeBottomStatsBar extends ConsumerWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('统计摘要', style: AppTypography.h2(context), maxLines: 1, overflow: TextOverflow.ellipsis),
+                    Text(
+                      '统计摘要',
+                      style: AppTypography.h2(context),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                     const SizedBox(height: 4),
                     Text(
                       '本周完成率 $rateText · 连续打卡 $streakText',
@@ -85,9 +90,12 @@ class HomeBottomStatsBar extends ConsumerWidget {
               FilledButton(
                 onPressed: () {
                   // 触觉反馈：按钮点击轻反馈（桌面端会被工具类禁用）。
-                  HapticUtils.lightImpact(context, enabledByUser: hapticEnabled);
-                  // 统计页已作为独立 Tab 提供，直接跳转。
-                  context.go('/statistics');
+                  HapticUtils.lightImpact(
+                    context,
+                    enabledByUser: hapticEnabled,
+                  );
+                  // 统计页已调整为次级入口，保留独立页面访问。
+                  context.push('/statistics');
                 },
                 child: const Text('查看'),
               ),
@@ -98,4 +106,3 @@ class HomeBottomStatsBar extends ConsumerWidget {
     );
   }
 }
-

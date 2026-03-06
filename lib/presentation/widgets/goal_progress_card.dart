@@ -103,8 +103,9 @@ class _GoalProgressCardState extends ConsumerState<GoalProgressCard> {
             if (_celebrationText != null) ...[
               CompletionAnimation(
                 play: _playCelebrationFade,
-                enabled: !(MediaQuery.of(context).disableAnimations ||
-                    MediaQuery.of(context).accessibleNavigation),
+                enabled:
+                    !(MediaQuery.of(context).disableAnimations ||
+                        MediaQuery.of(context).accessibleNavigation),
                 onCompleted: () {
                   if (!mounted) return;
                   setState(() {
@@ -138,7 +139,7 @@ class _GoalProgressCardState extends ConsumerState<GoalProgressCard> {
                         ),
                       ),
                       TextButton(
-                        onPressed: () => context.go('/statistics'),
+                        onPressed: () => context.push('/statistics'),
                         child: const Text('查看'),
                       ),
                     ],
@@ -220,7 +221,9 @@ class _GoalRow extends StatelessWidget {
                 color: ringColor,
               ),
               Icon(
-                item.achieved ? Icons.celebration_outlined : Icons.flag_outlined,
+                item.achieved
+                    ? Icons.celebration_outlined
+                    : Icons.flag_outlined,
                 size: 18,
                 color: ringColor,
               ),
@@ -244,15 +247,14 @@ class _GoalRow extends StatelessWidget {
           children: [
             Text(
               '$percent%',
-              style: TextStyle(
-                fontWeight: FontWeight.w700,
-                color: ringColor,
-              ),
+              style: TextStyle(fontWeight: FontWeight.w700, color: ringColor),
             ),
             const SizedBox(height: 2),
             Text(
               '${item.currentText} · ${item.targetText}',
-              style: AppTypography.bodySecondary(context).copyWith(fontSize: 11),
+              style: AppTypography.bodySecondary(
+                context,
+              ).copyWith(fontSize: 11),
               textAlign: TextAlign.right,
             ),
           ],

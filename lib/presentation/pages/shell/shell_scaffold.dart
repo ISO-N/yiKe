@@ -1,4 +1,4 @@
-/// 文件用途：底部导航壳层（Home/Calendar/Settings），承载子路由页面。
+/// 文件用途：底部导航壳层（今日/计划/专注/我的），承载子路由页面。
 /// 作者：Codex
 /// 创建日期：2026-02-25
 library;
@@ -32,9 +32,8 @@ class _ShellScaffoldState extends State<ShellScaffold> {
   final PageStorageBucket _bucket = PageStorageBucket();
 
   int _locationToIndex(String location) {
-    if (location.startsWith('/settings')) return 4;
-    if (location.startsWith('/pomodoro')) return 3;
-    if (location.startsWith('/statistics')) return 2;
+    if (location.startsWith('/settings')) return 3;
+    if (location.startsWith('/pomodoro')) return 2;
     if (location.startsWith('/calendar')) return 1;
     return 0;
   }
@@ -48,12 +47,9 @@ class _ShellScaffoldState extends State<ShellScaffold> {
         context.go('/calendar');
         return;
       case 2:
-        context.go('/statistics');
-        return;
-      case 3:
         context.go('/pomodoro');
         return;
-      case 4:
+      case 3:
         context.go('/settings');
         return;
     }
@@ -65,11 +61,10 @@ class _ShellScaffoldState extends State<ShellScaffold> {
       context,
     ).routeInformationProvider.value.uri.toString();
     final currentIndex = _locationToIndex(location);
-    final shouldShowFab =
-        !location.startsWith('/settings') && !location.startsWith('/pomodoro');
+    final shouldShowFab = !location.startsWith('/settings');
     return Scaffold(
       body: PageStorage(bucket: _bucket, child: widget.child),
-      // 交互规范：录入入口由 Shell 层统一提供；设置页不显示 FAB。
+      // 交互规范：录入入口由 Shell 层统一提供；“我的”页不显示 FAB。
       floatingActionButton: shouldShowFab ? const ShellFAB() : null,
       bottomNavigationBar: NavigationBar(
         selectedIndex: currentIndex,
@@ -83,12 +78,7 @@ class _ShellScaffoldState extends State<ShellScaffold> {
           NavigationDestination(
             icon: Icon(Icons.calendar_month_outlined),
             selectedIcon: Icon(Icons.calendar_month),
-            label: AppStrings.calendar,
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.bar_chart_outlined),
-            selectedIcon: Icon(Icons.bar_chart),
-            label: AppStrings.statistics,
+            label: AppStrings.plan,
           ),
           NavigationDestination(
             icon: Icon(Icons.timer_outlined),
@@ -96,9 +86,9 @@ class _ShellScaffoldState extends State<ShellScaffold> {
             label: AppStrings.pomodoro,
           ),
           NavigationDestination(
-            icon: Icon(Icons.settings_outlined),
-            selectedIcon: Icon(Icons.settings),
-            label: AppStrings.settings,
+            icon: Icon(Icons.person_outline),
+            selectedIcon: Icon(Icons.person),
+            label: AppStrings.mine,
           ),
         ],
       ),
