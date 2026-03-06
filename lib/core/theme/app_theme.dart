@@ -7,6 +7,7 @@ library;
 import 'package:flutter/material.dart';
 
 import '../constants/app_colors.dart';
+import '../constants/app_visual_tokens.dart';
 
 class AppTheme {
   AppTheme._();
@@ -29,6 +30,14 @@ class AppTheme {
       useMaterial3: true,
       colorScheme: colorScheme,
       scaffoldBackgroundColor: AppColors.background,
+      cardTheme: CardThemeData(
+        color: AppColors.backgroundElevated,
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppRadii.card),
+          side: const BorderSide(color: AppColors.divider, width: 1),
+        ),
+      ),
       textTheme: const TextTheme(
         headlineLarge: TextStyle(color: AppColors.textPrimary),
         headlineMedium: TextStyle(color: AppColors.textPrimary),
@@ -47,25 +56,47 @@ class AppTheme {
         elevation: 0,
         centerTitle: true,
       ),
+      navigationBarTheme: NavigationBarThemeData(
+        backgroundColor: AppColors.backgroundElevated.withValues(alpha: 0.96),
+        indicatorColor: colorScheme.primary.withValues(alpha: 0.14),
+        labelTextStyle: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.selected)) {
+            return TextStyle(
+              color: colorScheme.primary,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+            );
+          }
+          return const TextStyle(color: AppColors.textSecondary, fontSize: 12);
+        }),
+        iconTheme: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.selected)) {
+            return IconThemeData(color: colorScheme.primary);
+          }
+          return const IconThemeData(color: AppColors.textSecondary);
+        }),
+      ),
       snackBarTheme: SnackBarThemeData(
         backgroundColor: AppColors.primaryDark,
         contentTextStyle: const TextStyle(color: Colors.white),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppRadii.soft),
+        ),
         behavior: SnackBarBehavior.floating,
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: AppColors.glassSurface,
+        fillColor: AppColors.backgroundElevated.withValues(alpha: 0.92),
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: AppColors.glassBorder),
+          borderRadius: BorderRadius.circular(AppRadii.input),
+          borderSide: const BorderSide(color: AppColors.divider),
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: AppColors.glassBorder),
+          borderRadius: BorderRadius.circular(AppRadii.input),
+          borderSide: const BorderSide(color: AppColors.divider),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(AppRadii.input),
           borderSide: BorderSide(color: colorScheme.primary, width: 1.5),
         ),
       ),
@@ -112,7 +143,7 @@ class AppTheme {
         color: surface,
         elevation: 0,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(AppRadii.card),
           side: const BorderSide(color: AppColors.darkGlassBorder, width: 1),
         ),
       ),
@@ -120,15 +151,15 @@ class AppTheme {
         filled: true,
         fillColor: surface,
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(AppRadii.input),
           borderSide: const BorderSide(color: AppColors.darkGlassBorder),
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(AppRadii.input),
           borderSide: const BorderSide(color: AppColors.darkGlassBorder),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(AppRadii.input),
           borderSide: BorderSide(color: colorScheme.primary, width: 1.5),
         ),
         labelStyle: const TextStyle(color: AppColors.darkTextSecondary),
@@ -175,19 +206,25 @@ class AppTheme {
         backgroundColor: surface,
         modalBackgroundColor: surface,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          borderRadius: BorderRadius.vertical(
+            top: Radius.circular(AppRadii.card),
+          ),
         ),
       ),
 
       /// 对话框主题。
       dialogTheme: DialogThemeData(
         backgroundColor: surface,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppRadii.card),
+        ),
       ),
       snackBarTheme: SnackBarThemeData(
         backgroundColor: surface,
         contentTextStyle: const TextStyle(color: AppColors.darkTextPrimary),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppRadii.soft),
+        ),
         behavior: SnackBarBehavior.floating,
       ),
     );

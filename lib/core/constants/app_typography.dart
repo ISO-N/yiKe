@@ -9,6 +9,16 @@ import 'package:flutter/material.dart';
 class AppTypography {
   AppTypography._();
 
+  /// 展示级数字或大标题。
+  static TextStyle display(BuildContext context) {
+    final base = Theme.of(context).textTheme.headlineLarge;
+    return (base ?? const TextStyle()).copyWith(
+      fontSize: 32,
+      fontWeight: FontWeight.w800,
+      height: 1.1,
+    );
+  }
+
   /// 一级标题。
   static TextStyle h1(BuildContext context) {
     final base = Theme.of(context).textTheme.headlineSmall;
@@ -29,6 +39,16 @@ class AppTypography {
     );
   }
 
+  /// 区块标题。
+  static TextStyle title(BuildContext context) {
+    final base = Theme.of(context).textTheme.titleMedium;
+    return (base ?? const TextStyle()).copyWith(
+      fontSize: 16,
+      fontWeight: FontWeight.w600,
+      height: 1.3,
+    );
+  }
+
   /// 正文。
   static TextStyle body(BuildContext context) {
     final base = Theme.of(context).textTheme.bodyMedium;
@@ -46,6 +66,16 @@ class AppTypography {
       fontSize: 13,
       fontWeight: FontWeight.w400,
       height: 1.4,
+    );
+  }
+
+  /// 元信息文本（标签、说明、时间等）。
+  static TextStyle meta(BuildContext context) {
+    final base = Theme.of(context).textTheme.bodySmall;
+    return (base ?? const TextStyle()).copyWith(
+      fontSize: 12,
+      fontWeight: FontWeight.w500,
+      height: 1.3,
     );
   }
 }

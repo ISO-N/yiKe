@@ -10,9 +10,11 @@ class AppStrings {
   static const String today = '今日';
   static const String todayReview = '今日复习';
   static const String calendar = '日历';
+  static const String plan = '计划';
   static const String statistics = '统计';
   static const String pomodoro = '专注';
   static const String help = '帮助';
+  static const String mine = '我的';
   static const String tasks = '任务';
   static const String input = '录入';
   static const String settings = '设置';

@@ -6,6 +6,7 @@ library;
 import 'package:flutter/material.dart';
 
 import '../../core/constants/app_colors.dart';
+import '../../core/constants/app_visual_tokens.dart';
 
 /// 渐变背景容器。
 ///
@@ -23,7 +24,7 @@ class GradientBackground extends StatelessWidget {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return Container(
+    return DecoratedBox(
       decoration: BoxDecoration(
         gradient: isDark
             ? const LinearGradient(
@@ -36,16 +37,43 @@ class GradientBackground extends StatelessWidget {
                 ],
               )
             : const LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
                 colors: [
-                  Color(0xFFE6FFFB),
+                  Color(0xFFF4FFFD),
                   AppColors.background,
-                  Color(0xFFFFF7ED),
+                  AppColors.backgroundMuted,
                 ],
               ),
       ),
-      child: child,
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          IgnorePointer(
+            child: Padding(
+              padding: const EdgeInsets.all(AppLayoutTokens.pagePadding),
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: RadialGradient(
+                    center: Alignment.topLeft,
+                    radius: 1.1,
+                    colors: isDark
+                        ? [
+                            AppColors.primaryLight.withValues(alpha: 0.10),
+                            Colors.transparent,
+                          ]
+                        : [
+                            AppColors.primary.withValues(alpha: 0.08),
+                            Colors.transparent,
+                          ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+          child,
+        ],
+      ),
     );
   }
 }
