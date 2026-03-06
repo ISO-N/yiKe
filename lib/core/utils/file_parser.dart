@@ -91,6 +91,40 @@ class FileParser {
     throw ArgumentError('不支持的文件格式：$ext');
   }
 
+  /// 解析粘贴导入内容。
+  ///
+  /// 说明：
+  /// - 若包含 Markdown 标题行，则按 Markdown 规则解析
+  /// - 否则按 TXT 规则解析（每行一个标题）
+  /// - 仅保留包含有效字符（中文/英文/数字）的条目，避免“只有标点符号”被误识别为内容
+  static List<ParsedItem> parsePastedContent(String content) {
+    final normalized = content.replaceAll('\r\n', '\n').replaceAll('\r', '\n');
+    if (normalized.trim().isEmpty) return const [];
+
+    final looksLikeMarkdown = normalized
+        .split('\n')
+        .any((line) => RegExp(r'^\s*#+\s+').hasMatch(line));
+    final parsed = looksLikeMarkdown
+        ? parseMarkdownContent(normalized)
+        : parseTxtContent(normalized);
+
+    return parsed.where((item) => _hasMeaningfulContent(item)).toList();
+  }
+
+  /// 解析粘贴的纯文本内容。
+  ///
+  /// 说明：暴露该方法便于 UI 直接复用 TXT 解析规则。
+  static List<ParsedItem> parseTxtContent(String content) {
+    return _parseTxt(content);
+  }
+
+  /// 解析粘贴的 Markdown 内容。
+  ///
+  /// 说明：暴露该方法便于 UI 直接复用 Markdown 解析规则。
+  static List<ParsedItem> parseMarkdownContent(String content) {
+    return _parseMarkdown(content);
+  }
+
   static String _lowerExt(String filePath) {
     final idx = filePath.lastIndexOf('.');
     if (idx < 0) return '';
@@ -365,5 +399,21 @@ class FileParser {
       return t.substring(1).trimLeft();
     }
     return t;
+  }
+
+  /// 判断条目是否包含可识别的有效内容。
+  ///
+  /// 说明：
+  /// - 用于粘贴导入场景，避免“!!!”“……”这类纯标点被当作标题
+  /// - 只要求标题、描述、子任务、标签中任意一处包含中文/英文/数字即可
+  static bool _hasMeaningfulContent(ParsedItem item) {
+    final pattern = RegExp(r'[A-Za-z0-9\u4E00-\u9FFF]');
+    if (pattern.hasMatch(item.title)) return true;
+    if (item.description != null && pattern.hasMatch(item.description!)) {
+      return true;
+    }
+    if (item.subtasks.any(pattern.hasMatch)) return true;
+    if (item.tags.any(pattern.hasMatch)) return true;
+    return false;
   }
 }

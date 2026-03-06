@@ -25,23 +25,45 @@ class ImportPreviewPage extends ConsumerStatefulWidget {
   ///
   /// 返回值：页面 Widget。
   /// 异常：无。
-  const ImportPreviewPage({super.key});
+  const ImportPreviewPage({
+    super.key,
+    this.autoPickFileOnOpen = false,
+  });
+
+  /// 是否在页面打开后立即弹出文件选择器。
+  ///
+  /// 说明：
+  /// - 默认关闭，避免用户进入后立即被文件选择器打断，影响“粘贴导入”使用体验
+  /// - 测试场景也可借此禁用平台文件选择器
+  final bool autoPickFileOnOpen;
 
   @override
   ConsumerState<ImportPreviewPage> createState() => _ImportPreviewPageState();
 }
 
-class _ImportPreviewPageState extends ConsumerState<ImportPreviewPage> {
+class _ImportPreviewPageState extends ConsumerState<ImportPreviewPage>
+    with SingleTickerProviderStateMixin {
   bool _loading = false;
-  String? _filePath;
+  String? _sourceSummary;
   String? _error;
   List<_PreviewItem> _items = const [];
+  late final TabController _tabController;
+  late final TextEditingController _pasteController;
 
   @override
   void initState() {
     super.initState();
-    // v2.1：进入页面后提示用户选择文件。
-    WidgetsBinding.instance.addPostFrameCallback((_) => _pickFile());
+    _tabController = TabController(length: 2, vsync: this);
+    _tabController.addListener(() {
+      if (!_tabController.indexIsChanging && mounted) {
+        setState(() {});
+      }
+    });
+    _pasteController = TextEditingController();
+
+    if (widget.autoPickFileOnOpen) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _pickFile());
+    }
   }
 
   Future<void> _pickFile() async {
@@ -68,7 +90,7 @@ class _ImportPreviewPageState extends ConsumerState<ImportPreviewPage> {
       if (parsed.isEmpty) {
         setState(() {
           _loading = false;
-          _filePath = path;
+          _sourceSummary = path.split(RegExp(r'[\\/]')).last;
           _items = const [];
           _error = '未识别到有效内容，请检查文件格式或内容是否为空。';
         });
@@ -77,7 +99,7 @@ class _ImportPreviewPageState extends ConsumerState<ImportPreviewPage> {
 
       setState(() {
         _loading = false;
-        _filePath = path;
+        _sourceSummary = path.split(RegExp(r'[\\/]')).last;
         _items = parsed
             .map((e) => _PreviewItem(item: e, selected: e.isValid))
             .toList();
@@ -85,6 +107,54 @@ class _ImportPreviewPageState extends ConsumerState<ImportPreviewPage> {
     } catch (e) {
       setState(() {
         _loading = false;
+        _error = '解析失败：$e';
+      });
+    }
+  }
+
+  Future<void> _parsePastedContent() async {
+    if (_loading) return;
+
+    final raw = _pasteController.text;
+    if (raw.trim().isEmpty) {
+      setState(() {
+        _sourceSummary = '粘贴内容';
+        _items = const [];
+        _error = '请输入内容';
+      });
+      return;
+    }
+
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+
+    try {
+      final parsed = FileParser.parsePastedContent(raw);
+      if (!mounted) return;
+      if (parsed.isEmpty) {
+        setState(() {
+          _loading = false;
+          _sourceSummary = '粘贴内容';
+          _items = const [];
+          _error = '未识别到有效内容';
+        });
+        return;
+      }
+
+      setState(() {
+        _loading = false;
+        _sourceSummary = '粘贴内容';
+        _items = parsed
+            .map((e) => _PreviewItem(item: e, selected: e.isValid))
+            .toList();
+      });
+    } catch (e) {
+      setState(() {
+        _loading = false;
+        _sourceSummary = '粘贴内容';
+        _items = const [];
         _error = '解析失败：$e';
       });
     }
@@ -346,6 +416,7 @@ class _ImportPreviewPageState extends ConsumerState<ImportPreviewPage> {
   @override
   Widget build(BuildContext context) {
     final selectedCount = _items.where((e) => e.selected).length;
+    final isPasteTab = _tabController.index == 1;
 
     return Scaffold(
       appBar: AppBar(
@@ -387,12 +458,33 @@ class _ImportPreviewPageState extends ConsumerState<ImportPreviewPage> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      TabBar(
+                        controller: _tabController,
+                        tabs: const [
+                          Tab(text: '文件选择'),
+                          Tab(text: '粘贴导入'),
+                        ],
+                      ),
+                      const SizedBox(height: AppSpacing.md),
+                      SizedBox(
+                        height: 160,
+                        child: TabBarView(
+                          controller: _tabController,
+                          children: [
+                            _buildFileImportPanel(),
+                            _buildPasteImportPanel(),
+                          ],
+                        ),
+                      ),
+                      const Divider(height: AppSpacing.xl),
                       Text('导入预览', style: AppTypography.h2(context)),
                       const SizedBox(height: AppSpacing.sm),
                       Text(
-                        _filePath == null
-                            ? '请选择 TXT/CSV/Markdown 文件进行导入'
-                            : '文件：${_filePath!.split(RegExp(r'[\\/]')).last}',
+                        _sourceSummary == null
+                            ? (isPasteTab
+                                  ? '请在上方输入 Markdown 或纯文本内容并点击解析'
+                                  : '请选择 TXT/CSV/Markdown 文件进行导入')
+                            : '来源：$_sourceSummary',
                         style: AppTypography.bodySecondary(context),
                       ),
                       if (_error != null) ...[
@@ -431,7 +523,7 @@ class _ImportPreviewPageState extends ConsumerState<ImportPreviewPage> {
                 child: _loading
                     ? const Center(child: CircularProgressIndicator())
                     : _items.isEmpty
-                    ? const _EmptyHint()
+                    ? _EmptyHint(isPasteTab: isPasteTab)
                     : ListView.separated(
                         itemCount: _items.length,
                         separatorBuilder: (context, index) =>
@@ -514,16 +606,78 @@ class _ImportPreviewPageState extends ConsumerState<ImportPreviewPage> {
       ),
     );
   }
+
+  /// 构建文件导入面板。
+  Widget _buildFileImportPanel() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          '选择本地 TXT / CSV / Markdown 文件，解析后会直接复用下方预览、编辑和导入流程。',
+          style: AppTypography.bodySecondary(context),
+        ),
+        const Spacer(),
+        FilledButton.icon(
+          onPressed: _loading ? null : _pickFile,
+          icon: const Icon(Icons.folder_open),
+          label: const Text('选择文件'),
+        ),
+      ],
+    );
+  }
+
+  /// 构建粘贴导入面板。
+  Widget _buildPasteImportPanel() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          child: TextField(
+            key: const Key('paste_import_text_field'),
+            controller: _pasteController,
+            expands: true,
+            minLines: null,
+            maxLines: null,
+            textAlignVertical: TextAlignVertical.top,
+            decoration: const InputDecoration(
+              hintText: '支持 Markdown 标题分段，或纯文本每行一个标题',
+              border: OutlineInputBorder(),
+            ),
+          ),
+        ),
+        const SizedBox(height: AppSpacing.md),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: FilledButton.icon(
+            key: const Key('paste_import_parse_button'),
+            onPressed: _loading ? null : _parsePastedContent,
+            icon: const Icon(Icons.auto_awesome),
+            label: const Text('解析'),
+          ),
+        ),
+      ],
+    );
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    _pasteController.dispose();
+    super.dispose();
+  }
 }
 
 class _EmptyHint extends StatelessWidget {
-  const _EmptyHint();
+  const _EmptyHint({required this.isPasteTab});
+
+  /// 是否处于粘贴导入页签。
+  final bool isPasteTab;
 
   @override
   Widget build(BuildContext context) {
     return Center(
       child: Text(
-        '暂无导入内容\n点击右上角文件按钮选择文件',
+        isPasteTab ? '暂无导入内容\n粘贴内容后点击“解析”' : '暂无导入内容\n点击“选择文件”开始导入',
         style: AppTypography.bodySecondary(context),
         textAlign: TextAlign.center,
       ),

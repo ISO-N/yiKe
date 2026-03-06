@@ -83,11 +83,32 @@ void main() {
     expect(items[1].subtasks, isEmpty);
   });
 
+  test('parsePastedContent: 可自动识别 Markdown 与纯文本', () {
+    final markdown = FileParser.parsePastedContent(
+      '# 标题一\n'
+      '描述一\n'
+      '- 子任务A\n',
+    );
+    final plainText = FileParser.parsePastedContent('条目一\n条目二\n');
+
+    expect(markdown.length, 1);
+    expect(markdown.single.title, '标题一');
+    expect(markdown.single.description, '描述一');
+    expect(markdown.single.subtasks, ['子任务A']);
+
+    expect(plainText.map((e) => e.title).toList(), ['条目一', '条目二']);
+  });
+
+  test('parsePastedContent: 纯标点内容会被视为无效', () {
+    final items = FileParser.parsePastedContent('!!!\n……\n---');
+    expect(items, isEmpty);
+  });
+
   test('parseFile: 不支持的扩展名会抛 ArgumentError', () async {
     final file = File('${tempDir.path}${Platform.pathSeparator}items.json');
     await file.writeAsString('[]');
 
-    expect(() => FileParser.parseFile(file.path), throwsArgumentError);
+    await expectLater(FileParser.parseFile(file.path), throwsArgumentError);
   });
 
   test(
