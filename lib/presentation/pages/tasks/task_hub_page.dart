@@ -13,6 +13,7 @@ import '../../providers/ui_preferences_provider.dart';
 import '../../widgets/gradient_background.dart';
 import '../../widgets/task_filter_bar.dart';
 import '../../widgets/yike_refresh_indicator.dart';
+import '../home/widgets/home_time_filter_bar.dart';
 import 'widgets/task_hub_timeline_list.dart';
 
 /// 任务中心页面。
@@ -77,6 +78,20 @@ class _TaskHubPageState extends ConsumerState<TaskHubPage> {
                     0,
                   ),
                   sliver: SliverToBoxAdapter(
+                    child: HomeTimeFilterBar(
+                      filter: state.timeFilter,
+                      onChanged: (next) => notifier.setTimeFilter(next),
+                    ),
+                  ),
+                ),
+                const SliverToBoxAdapter(
+                  child: SizedBox(height: AppSpacing.lg),
+                ),
+                SliverPadding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.lg,
+                  ),
+                  sliver: SliverToBoxAdapter(
                     child: TaskFilterBar(
                       filter: state.filter,
                       counts: state.counts,
@@ -84,9 +99,13 @@ class _TaskHubPageState extends ConsumerState<TaskHubPage> {
                     ),
                   ),
                 ),
-                const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.lg)),
+                const SliverToBoxAdapter(
+                  child: SizedBox(height: AppSpacing.lg),
+                ),
                 SliverPadding(
-                  padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.lg,
+                  ),
                   sliver: TaskHubTimelineSliver(
                     state: state,
                     notifier: notifier,
