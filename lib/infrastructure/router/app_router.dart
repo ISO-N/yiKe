@@ -14,6 +14,7 @@ import '../../presentation/pages/help/help_page.dart';
 import '../../presentation/pages/input/input_page.dart';
 import '../../presentation/pages/input/import_preview_page.dart';
 import '../../presentation/pages/input/templates_page.dart';
+import '../../presentation/pages/pomodoro/pomodoro_page.dart';
 import '../../presentation/pages/debug/mock_data_generator_page.dart';
 import '../../presentation/pages/statistics/statistics_page.dart';
 import '../../presentation/pages/learning_item/learning_item_detail_page.dart';
@@ -22,6 +23,7 @@ import '../../presentation/pages/tasks/task_detail_sheet.dart';
 import '../../presentation/pages/settings/export_page.dart';
 import '../../presentation/pages/settings/backup_page.dart';
 import '../../presentation/pages/settings/goal_settings_page.dart';
+import '../../presentation/pages/settings/pomodoro_settings_page.dart';
 import '../../presentation/pages/settings/theme_settings_page.dart';
 import '../../presentation/pages/settings/settings_page.dart';
 import '../../presentation/pages/settings/sync_settings_page.dart';
@@ -66,6 +68,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             path: '/settings',
             pageBuilder: (context, state) =>
                 const NoTransitionPage(child: SettingsPage()),
+          ),
+          GoRoute(
+            path: '/pomodoro',
+            pageBuilder: (context, state) =>
+                const NoTransitionPage(child: PomodoroPage()),
           ),
         ],
       ),
@@ -176,6 +183,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: '/settings/theme',
         pageBuilder: (context, state) {
           return const MaterialPage(child: ThemeSettingsPage());
+        },
+      ),
+      GoRoute(
+        path: '/settings/pomodoro',
+        pageBuilder: (context, state) {
+          return const MaterialPage(child: PomodoroSettingsPage());
         },
       ),
       GoRoute(

@@ -32,7 +32,8 @@ class _ShellScaffoldState extends State<ShellScaffold> {
   final PageStorageBucket _bucket = PageStorageBucket();
 
   int _locationToIndex(String location) {
-    if (location.startsWith('/settings')) return 3;
+    if (location.startsWith('/settings')) return 4;
+    if (location.startsWith('/pomodoro')) return 3;
     if (location.startsWith('/statistics')) return 2;
     if (location.startsWith('/calendar')) return 1;
     return 0;
@@ -50,6 +51,9 @@ class _ShellScaffoldState extends State<ShellScaffold> {
         context.go('/statistics');
         return;
       case 3:
+        context.go('/pomodoro');
+        return;
+      case 4:
         context.go('/settings');
         return;
     }
@@ -61,7 +65,8 @@ class _ShellScaffoldState extends State<ShellScaffold> {
       context,
     ).routeInformationProvider.value.uri.toString();
     final currentIndex = _locationToIndex(location);
-    final shouldShowFab = !location.startsWith('/settings');
+    final shouldShowFab =
+        !location.startsWith('/settings') && !location.startsWith('/pomodoro');
     return Scaffold(
       body: PageStorage(bucket: _bucket, child: widget.child),
       // 交互规范：录入入口由 Shell 层统一提供；设置页不显示 FAB。
@@ -84,6 +89,11 @@ class _ShellScaffoldState extends State<ShellScaffold> {
             icon: Icon(Icons.bar_chart_outlined),
             selectedIcon: Icon(Icons.bar_chart),
             label: AppStrings.statistics,
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.timer_outlined),
+            selectedIcon: Icon(Icons.timer),
+            label: AppStrings.pomodoro,
           ),
           NavigationDestination(
             icon: Icon(Icons.settings_outlined),

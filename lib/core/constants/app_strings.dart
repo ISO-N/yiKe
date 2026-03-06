@@ -11,6 +11,7 @@ class AppStrings {
   static const String todayReview = '今日复习';
   static const String calendar = '日历';
   static const String statistics = '统计';
+  static const String pomodoro = '专注';
   static const String help = '帮助';
   static const String tasks = '任务';
   static const String input = '录入';

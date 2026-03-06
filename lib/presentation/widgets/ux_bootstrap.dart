@@ -15,6 +15,7 @@ import '../../di/providers.dart';
 import '../../domain/entities/task_day_stats.dart';
 import '../../infrastructure/notification/notification_service.dart';
 import '../../infrastructure/preload/app_preload_service.dart';
+import '../providers/pomodoro_provider.dart';
 
 /// UX 启动器：包裹在应用根部即可。
 ///
@@ -30,7 +31,8 @@ class UxBootstrap extends ConsumerStatefulWidget {
   ConsumerState<UxBootstrap> createState() => _UxBootstrapState();
 }
 
-class _UxBootstrapState extends ConsumerState<UxBootstrap> {
+class _UxBootstrapState extends ConsumerState<UxBootstrap>
+    with WidgetsBindingObserver {
   static StreamSubscription<String>? _tapSub;
   bool _checkedStartupNotifications = false;
 
@@ -41,12 +43,41 @@ class _UxBootstrapState extends ConsumerState<UxBootstrap> {
     const isFlutterTest = bool.fromEnvironment('FLUTTER_TEST');
     if (isFlutterTest) return;
 
+    WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       _ensureNotificationTapBound();
+      // 关键逻辑：应用启动时主动创建番茄钟 Provider，确保即使用户尚未进入页面也能恢复计时状态。
+      ref.read(pomodoroProvider.notifier);
       AppPreloadService.ensureStarted(context);
       _checkAndSendStartupNotifications();
     });
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (!mounted) return;
+
+    switch (state) {
+      case AppLifecycleState.resumed:
+        unawaited(
+          ref.read(pomodoroProvider.notifier).handleAppVisibilityChanged(
+                isForeground: true,
+              ),
+        );
+        break;
+      case AppLifecycleState.paused:
+      case AppLifecycleState.detached:
+      case AppLifecycleState.hidden:
+        unawaited(
+          ref.read(pomodoroProvider.notifier).handleAppVisibilityChanged(
+                isForeground: false,
+              ),
+        );
+        break;
+      case AppLifecycleState.inactive:
+        break;
+    }
   }
 
   void _ensureNotificationTapBound() {
@@ -201,6 +232,12 @@ class _UxBootstrapState extends ConsumerState<UxBootstrap> {
 
   TaskDayStats _emptyDayStats() {
     return const TaskDayStats(pendingCount: 0, doneCount: 0, skippedCount: 0);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
   }
 
   @override
