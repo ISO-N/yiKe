@@ -5,17 +5,14 @@
 
 import 'dart:ui';
 
-import 'package:drift/native.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:yike/app.dart';
-import 'package:yike/data/database/database.dart';
-import 'package:yike/di/providers.dart';
 import 'package:yike/presentation/widgets/search_bar.dart';
 import 'package:yike/presentation/widgets/shortcut_hint.dart';
+
+import '../helpers/app_harness.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -25,16 +22,7 @@ void main() {
         const FakeAccessibilityFeatures(disableAnimations: true);
     addTearDown(tester.platformDispatcher.clearAccessibilityFeaturesTestValue);
 
-    final db = AppDatabase(NativeDatabase.memory());
-    addTearDown(() async => db.close());
-
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [appDatabaseProvider.overrideWithValue(db)],
-        child: const YiKeApp(),
-      ),
-    );
-    await tester.pumpAndSettle();
+    await pumpYiKeApp(tester);
 
     final app = tester.widget<MaterialApp>(find.byType(MaterialApp));
     expect(app.themeAnimationDuration, Duration.zero);

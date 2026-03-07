@@ -3,73 +3,17 @@
 // 作者：Codex
 // 创建日期：2026-03-06
 
-import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:go_router/go_router.dart';
-
-import 'package:yike/data/database/database.dart';
-import 'package:yike/di/providers.dart';
-import 'package:yike/presentation/pages/calendar/calendar_page.dart';
-import 'package:yike/presentation/pages/home/home_page.dart';
-import 'package:yike/presentation/pages/pomodoro/pomodoro_page.dart';
-import 'package:yike/presentation/pages/settings/settings_page.dart';
-import 'package:yike/presentation/pages/shell/shell_scaffold.dart';
-import 'package:yike/presentation/pages/statistics/statistics_page.dart';
 import 'package:yike/presentation/widgets/semantic_panels.dart';
+
+import '../helpers/app_harness.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   Future<void> pumpApp(WidgetTester tester, {required Size size}) async {
-    final db = AppDatabase(NativeDatabase.memory());
-    addTearDown(() async => db.close());
-    final mediaQuery = MediaQueryData(size: size);
-    Widget wrap(Widget child) => MediaQuery(data: mediaQuery, child: child);
-    final router = GoRouter(
-      initialLocation: '/home',
-      routes: [
-        ShellRoute(
-          builder: (context, state, child) => wrap(ShellScaffold(child: child)),
-          routes: [
-            GoRoute(
-              path: '/home',
-              pageBuilder: (context, state) =>
-                  NoTransitionPage(child: wrap(const HomePage())),
-            ),
-            GoRoute(
-              path: '/calendar',
-              pageBuilder: (context, state) =>
-                  NoTransitionPage(child: wrap(const CalendarPage())),
-            ),
-            GoRoute(
-              path: '/pomodoro',
-              pageBuilder: (context, state) =>
-                  NoTransitionPage(child: wrap(const PomodoroPage())),
-            ),
-            GoRoute(
-              path: '/settings',
-              pageBuilder: (context, state) =>
-                  NoTransitionPage(child: wrap(const SettingsPage())),
-            ),
-          ],
-        ),
-        GoRoute(
-          path: '/statistics',
-          pageBuilder: (context, state) =>
-              MaterialPage(child: wrap(const StatisticsPage())),
-        ),
-      ],
-    );
-
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [appDatabaseProvider.overrideWithValue(db)],
-        child: MaterialApp.router(routerConfig: router),
-      ),
-    );
-    await tester.pumpAndSettle();
+    await pumpYiKeApp(tester, size: size);
   }
 
   testWidgets('主路径导航与统计次级入口可访问', (tester) async {
