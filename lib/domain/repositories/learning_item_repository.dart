@@ -4,6 +4,7 @@
 library;
 
 import '../entities/learning_item.dart';
+import '../entities/tag_usage_stat.dart';
 
 /// 学习内容仓储接口。
 abstract class LearningItemRepository {
@@ -51,6 +52,17 @@ abstract class LearningItemRepository {
 
   /// 获取所有标签（去重）。
   Future<List<String>> getAllTags();
+
+  /// 获取标签使用排行（用于录入页快捷标签与全部标签页）。
+  ///
+  /// 说明：
+  /// - 按近 7 天使用次数、累计次数与最近使用时间排序
+  /// - [recentSince] 为“近 7 天”统计起点（包含）
+  /// - [limit] 为空时返回全部
+  Future<List<TagUsageStatEntity>> getTagUsageRanking({
+    required DateTime recentSince,
+    int? limit,
+  });
 
   /// F7：获取标签分布（用于统计饼图）。
   ///

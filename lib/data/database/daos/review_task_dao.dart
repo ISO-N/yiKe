@@ -459,7 +459,7 @@ WHERE li.is_deleted = 0
     );
   }
 
-  /// 按“发生时间”倒序获取任务时间线分页数据（用于任务中心）。
+  /// 按“发生时间”正序获取任务时间线分页数据（用于任务中心）。
   ///
   /// 说明：
   /// - occurredAt 使用落地列 occurred_at（v10 性能优化），由应用层在写入口维护
@@ -490,60 +490,55 @@ WHERE li.is_deleted = 0
       variables.add(Variable<DateTime>(scheduledDateOnOrAfter));
     }
 
-    final cursorWhere = StringBuffer();
-    final cursorVars = <Variable>[];
     if (cursorOccurredAt != null && cursorTaskId != null) {
-      cursorWhere.write(
-        'WHERE (t.occurred_at > ? OR (t.occurred_at = ? AND t."rt.id" > ?))',
+      where.write(
+        ' AND (rt.occurred_at > ? OR (rt.occurred_at = ? AND rt.id > ?))',
       );
-      cursorVars.add(Variable<DateTime>(cursorOccurredAt));
-      cursorVars.add(Variable<DateTime>(cursorOccurredAt));
-      cursorVars.add(Variable<int>(cursorTaskId));
+      variables.add(Variable<DateTime>(cursorOccurredAt));
+      variables.add(Variable<DateTime>(cursorOccurredAt));
+      variables.add(Variable<int>(cursorTaskId));
     }
 
     final sql =
         '''
- SELECT * FROM (
-  SELECT
-    rt.id AS "rt.id",
-    rt.uuid AS "rt.uuid",
-    rt.learning_item_id AS "rt.learning_item_id",
-    rt.review_round AS "rt.review_round",
-    rt.scheduled_date AS "rt.scheduled_date",
-    rt.occurred_at AS "rt.occurred_at",
-    rt.status AS "rt.status",
-    rt.completed_at AS "rt.completed_at",
-    rt.skipped_at AS "rt.skipped_at",
-    rt.created_at AS "rt.created_at",
-    rt.updated_at AS "rt.updated_at",
-    rt.is_mock_data AS "rt.is_mock_data",
+SELECT
+  rt.id AS "rt.id",
+  rt.uuid AS "rt.uuid",
+  rt.learning_item_id AS "rt.learning_item_id",
+  rt.review_round AS "rt.review_round",
+  rt.scheduled_date AS "rt.scheduled_date",
+  rt.occurred_at AS "rt.occurred_at",
+  rt.status AS "rt.status",
+  rt.completed_at AS "rt.completed_at",
+  rt.skipped_at AS "rt.skipped_at",
+  rt.created_at AS "rt.created_at",
+  rt.updated_at AS "rt.updated_at",
+  rt.is_mock_data AS "rt.is_mock_data",
 
-    li.id AS "li.id",
-    li.uuid AS "li.uuid",
-    li.title AS "li.title",
-    li.note AS "li.note",
-     li.tags AS "li.tags",
-     li.learning_date AS "li.learning_date",
-     li.created_at AS "li.created_at",
-     li.updated_at AS "li.updated_at",
-     li.is_deleted AS "li.is_deleted",
-     li.deleted_at AS "li.deleted_at",
-     li.is_mock_data AS "li.is_mock_data",
+  li.id AS "li.id",
+  li.uuid AS "li.uuid",
+  li.title AS "li.title",
+  li.note AS "li.note",
+  li.tags AS "li.tags",
+  li.learning_date AS "li.learning_date",
+  li.created_at AS "li.created_at",
+  li.updated_at AS "li.updated_at",
+  li.is_deleted AS "li.is_deleted",
+  li.deleted_at AS "li.deleted_at",
+  li.is_mock_data AS "li.is_mock_data",
 
-     rt.occurred_at AS occurred_at
-   FROM review_tasks rt
-   INNER JOIN learning_items li ON li.id = rt.learning_item_id
-   WHERE li.is_deleted = 0 AND ${where.toString()}
- ) t
- ${cursorWhere.toString()}
- ORDER BY t.occurred_at ASC, t."rt.id" ASC
- LIMIT ?
- ''';
+  rt.occurred_at AS occurred_at
+FROM review_tasks rt
+INNER JOIN learning_items li ON li.id = rt.learning_item_id
+WHERE li.is_deleted = 0 AND ${where.toString()}
+ORDER BY rt.occurred_at ASC, rt.id ASC
+LIMIT ?
+''';
 
     final rows = await db
         .customSelect(
           sql,
-          variables: [...variables, ...cursorVars, Variable<int>(limit)],
+          variables: [...variables, Variable<int>(limit)],
           readsFrom: {db.reviewTasks, db.learningItems},
         )
         .get();

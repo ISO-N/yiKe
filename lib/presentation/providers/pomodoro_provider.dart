@@ -29,7 +29,7 @@ final pomodoroPhaseNotificationSenderProvider =
     Provider<PomodoroPhaseNotificationSender>((ref) {
       return (phase) async {
         if (phase == PomodoroPhase.work) {
-          await NotificationService.instance.showReviewNotification(
+          await NotificationService.instance.showPomodoroNotification(
             id: 301,
             title: '专注时间到！',
             body: '休息一下吧~',
@@ -37,7 +37,7 @@ final pomodoroPhaseNotificationSenderProvider =
           );
           return;
         }
-        await NotificationService.instance.showReviewNotification(
+        await NotificationService.instance.showPomodoroNotification(
           id: 302,
           title: '休息结束！',
           body: '准备好继续了吗？',
@@ -377,7 +377,11 @@ class PomodoroNotifier extends StateNotifier<PomodoroState> {
         now: _now(),
         notifyOnTransition: true,
       );
-      _startTicker();
+      if (state.isRunning) {
+        _startTicker();
+      } else {
+        _stopTicker();
+      }
       await _persistState();
       return;
     }
@@ -444,6 +448,9 @@ class PomodoroNotifier extends StateNotifier<PomodoroState> {
         now: _now(),
         notifyOnTransition: notifyOnTransition,
       );
+      if (!state.isRunning) {
+        _stopTicker();
+      }
       await _persistState();
     } finally {
       _isSynchronizing = false;
@@ -469,7 +476,8 @@ class PomodoroNotifier extends StateNotifier<PomodoroState> {
     var current = source;
     PomodoroPhase? lastFinishedPhase;
 
-    while (elapsed >= current.currentPhaseTotalSeconds &&
+    while (current.isRunning &&
+        elapsed >= current.currentPhaseTotalSeconds &&
         current.currentPhaseTotalSeconds > 0) {
       elapsed -= current.currentPhaseTotalSeconds;
       lastFinishedPhase = current.phase;
@@ -482,6 +490,24 @@ class PomodoroNotifier extends StateNotifier<PomodoroState> {
         current,
         finishedAt: finishedAt,
       );
+      if (!current.isRunning) {
+        elapsed = 0;
+        break;
+      }
+    }
+
+    if (!current.isRunning) {
+      final idleState = current.copyWith(
+        elapsedSecondsBeforeRun: 0,
+        lastResumedAt: null,
+        phaseStartedAt: null,
+        remainingSeconds: current.currentPhaseTotalSeconds,
+        errorMessage: null,
+      );
+      if (notifyOnTransition && lastFinishedPhase != null) {
+        await _phaseNotificationSender(lastFinishedPhase);
+      }
+      return idleState;
     }
 
     final phaseStartedAt = current.phaseStartedAt == null
@@ -533,12 +559,18 @@ class PomodoroNotifier extends StateNotifier<PomodoroState> {
       completedRounds: completedRounds,
       settings: current.settings,
     );
+    final shouldAutoStart = _shouldAutoStartNextPhase(
+      nextPhase: nextPhase,
+      settings: current.settings,
+    );
     return _buildNextPhaseState(
       current: current,
       nextPhase: nextPhase,
       completedRounds: completedRounds,
-      phaseStart: finishedAt,
-      status: PomodoroRunStatus.running,
+      phaseStart: shouldAutoStart ? finishedAt : null,
+      status: shouldAutoStart
+          ? PomodoroRunStatus.running
+          : PomodoroRunStatus.idle,
     );
   }
 
@@ -565,6 +597,18 @@ class PomodoroNotifier extends StateNotifier<PomodoroState> {
       lastResumedAt: status == PomodoroRunStatus.running ? phaseStart : null,
       errorMessage: null,
     );
+  }
+
+  /// 根据下一阶段判断是否自动继续。
+  bool _shouldAutoStartNextPhase({
+    required PomodoroPhase nextPhase,
+    required PomodoroSettingsEntity settings,
+  }) {
+    return switch (nextPhase) {
+      PomodoroPhase.work => settings.autoStartWork,
+      PomodoroPhase.shortBreak || PomodoroPhase.longBreak =>
+        settings.autoStartBreak,
+    };
   }
 
   /// 启动定时器。

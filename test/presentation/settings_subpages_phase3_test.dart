@@ -134,6 +134,9 @@ void main() {
       await tester.pump(const Duration(milliseconds: 400));
       // 保存后列表应刷新为新的分钟数（并弹出 SnackBar）。
       await pumpUntilVisible(tester, find.text('30 分钟'));
+
+      expect(find.text('专注结束后自动开始休息'), findsOneWidget);
+      expect(find.text('休息结束后自动开始专注'), findsOneWidget);
     });
   });
 }

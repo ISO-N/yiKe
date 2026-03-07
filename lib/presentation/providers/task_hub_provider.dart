@@ -282,13 +282,19 @@ class TaskHubNotifier extends StateNotifier<TaskHubState> {
         limit: 20,
       );
 
-      final mergedItems = [...state.items, ...page.items];
+      final mergedItems = _mergeUniqueItems(state.items, page.items);
+      final hasAdvanced = mergedItems.length > state.items.length;
+      final shouldClearCursor =
+          !hasAdvanced ||
+          page.nextCursor == null ||
+          _isSameCursor(cursor, page.nextCursor);
       final rows = _buildTimelineRows(mergedItems);
       state = state.copyWith(
         isLoadingMore: false,
         items: mergedItems,
         timelineRows: rows,
-        nextCursor: page.nextCursor,
+        nextCursor: shouldClearCursor ? null : page.nextCursor,
+        clearCursor: shouldClearCursor,
       );
     } catch (e) {
       state = state.copyWith(isLoadingMore: false, errorMessage: e.toString());
@@ -419,6 +425,31 @@ class TaskHubNotifier extends StateNotifier<TaskHubState> {
     }
 
     return rows;
+  }
+
+  /// 合并分页结果并按 taskId 去重，避免游标边界异常时产生重复行。
+  List<ReviewTaskTimelineItemEntity> _mergeUniqueItems(
+    List<ReviewTaskTimelineItemEntity> existing,
+    List<ReviewTaskTimelineItemEntity> incoming,
+  ) {
+    if (incoming.isEmpty) return existing;
+
+    final seenTaskIds = existing.map((item) => item.task.taskId).toSet();
+    final merged = [...existing];
+    for (final item in incoming) {
+      if (!seenTaskIds.add(item.task.taskId)) continue;
+      merged.add(item);
+    }
+    return merged;
+  }
+
+  /// 判断分页游标是否真正前进，避免仓储层异常时造成无限分页。
+  bool _isSameCursor(
+    TaskTimelineCursorEntity left,
+    TaskTimelineCursorEntity? right,
+  ) {
+    if (right == null) return false;
+    return left.taskId == right.taskId && left.occurredAt == right.occurredAt;
   }
 }
 

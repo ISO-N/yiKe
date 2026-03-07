@@ -28,6 +28,15 @@ class NotificationService {
   /// Android 通知渠道描述。
   static const String _androidChannelDescription = '复习任务提醒通知';
 
+  /// Android 番茄钟通知渠道 ID。
+  static const String _androidPomodoroChannelId = 'pomodoro_phase_v2';
+
+  /// Android 番茄钟通知渠道名称。
+  static const String _androidPomodoroChannelName = '番茄钟提醒';
+
+  /// Android 番茄钟通知渠道描述。
+  static const String _androidPomodoroChannelDescription = '番茄钟阶段切换提醒通知';
+
   /// Windows 桌面端通知使用的 appName（用于创建/匹配通知快捷方式）。
   ///
   /// 说明：
@@ -72,6 +81,29 @@ class NotificationService {
       _androidChannelName,
       description: _androidChannelDescription,
       importance: Importance.high,
+    );
+    await android.createNotificationChannel(channel);
+  }
+
+  /// 确保 Android 番茄钟通知渠道已创建。
+  ///
+  /// 说明：
+  /// - 使用独立渠道，避免复用旧的复习提醒渠道后沿用无声配置
+  /// - v2 渠道名带版本号，确保历史静音渠道不会影响本次修复
+  Future<void> _ensureAndroidPomodoroChannelCreated() async {
+    if (kIsWeb || !Platform.isAndroid) return;
+    final android = _plugin
+        .resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin
+        >();
+    if (android == null) return;
+
+    const channel = AndroidNotificationChannel(
+      _androidPomodoroChannelId,
+      _androidPomodoroChannelName,
+      description: _androidPomodoroChannelDescription,
+      importance: Importance.high,
+      playSound: true,
     );
     await android.createNotificationChannel(channel);
   }
@@ -162,6 +194,7 @@ class NotificationService {
           ?.requestNotificationsPermission();
       // Android：确保渠道存在（避免“计划通知触发但系统不展示”的边缘情况）。
       await _ensureAndroidChannelCreated();
+      await _ensureAndroidPomodoroChannelCreated();
 
       // iOS/macOS 权限请求（若平台不支持则忽略）。
       await _plugin
@@ -262,6 +295,60 @@ class NotificationService {
       channelDescription: _androidChannelDescription,
       importance: Importance.high,
       priority: Priority.high,
+    );
+    const darwinDetails = DarwinNotificationDetails(
+      presentAlert: true,
+      presentSound: true,
+      presentBadge: true,
+    );
+
+    await _plugin.show(
+      id,
+      title,
+      body,
+      const NotificationDetails(android: androidDetails, iOS: darwinDetails),
+      payload: payloadRoute,
+    );
+  }
+
+  /// 发送番茄钟阶段提醒通知。
+  ///
+  /// 参数：
+  /// - [id] 通知 ID
+  /// - [title] 标题
+  /// - [body] 内容
+  Future<void> showPomodoroNotification({
+    required int id,
+    required String title,
+    required String body,
+    String? payloadRoute,
+  }) async {
+    if (!kIsWeb && Platform.isWindows) {
+      try {
+        await _ensureWindowsNotifierSetup();
+        await localNotifier.notify(
+          LocalNotification(
+            identifier: 'pomodoro_$id',
+            title: title,
+            body: body,
+          ),
+        );
+      } catch (e, st) {
+        debugPrint('Windows 番茄钟通知发送失败：$e\n$st');
+      }
+      return;
+    }
+
+    await initialize();
+    await _ensureAndroidPomodoroChannelCreated();
+
+    const androidDetails = AndroidNotificationDetails(
+      _androidPomodoroChannelId,
+      _androidPomodoroChannelName,
+      channelDescription: _androidPomodoroChannelDescription,
+      importance: Importance.high,
+      priority: Priority.high,
+      playSound: true,
     );
     const darwinDetails = DarwinNotificationDetails(
       presentAlert: true,

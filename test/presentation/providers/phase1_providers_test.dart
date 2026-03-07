@@ -378,5 +378,51 @@ void main() {
         ReviewTaskStatus.skipped,
       );
     });
+
+    test('今天后 + 全部 在跨页加载时不会重复任务且会正确结束分页', () async {
+      final today = startOfDay(DateTime.now());
+      final tomorrow = today.add(const Duration(days: 1));
+
+      for (var index = 0; index < 25; index++) {
+        final scheduledDate = tomorrow.add(Duration(days: index));
+        final learningItemId = await insertLearningItem(
+          title: '未来任务 $index',
+          learningDate: scheduledDate,
+          tags: <String>['未来'],
+        );
+        await insertReviewTask(
+          learningItemId: learningItemId,
+          reviewRound: 1,
+          scheduledDate: scheduledDate,
+          status: ReviewTaskStatus.pending,
+        );
+      }
+
+      final notifier = container.read(taskHubProvider.notifier);
+      await waitFor(() => !container.read(taskHubProvider).isLoading);
+
+      await notifier.setTimeFilter(HomeTimeFilter.afterToday);
+      await waitFor(() => !container.read(taskHubProvider).isLoading);
+
+      var state = container.read(taskHubProvider);
+      expect(state.items.length, 20);
+      expect(state.nextCursor, isNotNull);
+
+      await notifier.loadMore();
+      await waitFor(() => !container.read(taskHubProvider).isLoadingMore);
+
+      state = container.read(taskHubProvider);
+      final taskIds = state.items.map((item) => item.task.taskId).toList();
+      expect(taskIds.length, 25);
+      expect(taskIds.toSet().length, 25);
+      expect(state.nextCursor, isNull);
+
+      await notifier.loadMore();
+      await waitFor(() => !container.read(taskHubProvider).isLoadingMore);
+
+      final finalState = container.read(taskHubProvider);
+      expect(finalState.items.map((item) => item.task.taskId).toSet().length, 25);
+      expect(finalState.nextCursor, isNull);
+    });
   });
 }

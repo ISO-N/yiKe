@@ -7,6 +7,7 @@ import 'package:yike/domain/entities/learning_item.dart';
 import 'package:yike/domain/entities/review_config.dart';
 import 'package:yike/domain/entities/review_task.dart';
 import 'package:yike/domain/entities/learning_subtask.dart';
+import 'package:yike/domain/entities/tag_usage_stat.dart';
 import 'package:yike/domain/entities/task_day_stats.dart';
 import 'package:yike/domain/entities/task_timeline.dart';
 import 'package:yike/domain/repositories/learning_item_repository.dart';
@@ -32,6 +33,12 @@ class _FakeLearningItemRepository implements LearningItemRepository {
 
   @override
   Future<List<String>> getAllTags() => throw UnimplementedError();
+
+  @override
+  Future<List<TagUsageStatEntity>> getTagUsageRanking({
+    required DateTime recentSince,
+    int? limit,
+  }) => throw UnimplementedError();
 
   @override
   Future<Map<String, int>> getTagDistribution() => throw UnimplementedError();

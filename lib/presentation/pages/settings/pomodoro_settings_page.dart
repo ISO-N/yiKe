@@ -213,6 +213,24 @@ class PomodoroSettingsPage extends ConsumerWidget {
                         await save(settings.copyWith(longBreakInterval: value));
                       },
                     ),
+                    const Divider(height: 1),
+                    SwitchListTile(
+                      title: const Text('专注结束后自动开始休息'),
+                      subtitle: const Text('关闭后，专注结束只切换阶段，不自动开始倒计时'),
+                      value: settings.autoStartBreak,
+                      onChanged: (value) async {
+                        await save(settings.copyWith(autoStartBreak: value));
+                      },
+                    ),
+                    const Divider(height: 1),
+                    SwitchListTile(
+                      title: const Text('休息结束后自动开始专注'),
+                      subtitle: const Text('关闭后，休息结束停留在下一轮专注，等待手动开始'),
+                      value: settings.autoStartWork,
+                      onChanged: (value) async {
+                        await save(settings.copyWith(autoStartWork: value));
+                      },
+                    ),
                   ],
                 ),
               ),

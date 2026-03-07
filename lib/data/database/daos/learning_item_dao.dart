@@ -7,6 +7,7 @@ import 'dart:convert';
 
 import 'package:drift/drift.dart';
 
+import '../../../domain/entities/tag_usage_stat.dart';
 import '../database.dart';
 
 /// 学习内容 DAO。
@@ -307,6 +308,66 @@ LIMIT ?
     }
     final list = set.toList()..sort();
     return list;
+  }
+
+  /// 获取标签使用排行（用于录入页快捷标签与全部标签页）。
+  ///
+  /// 排序规则：
+  /// - 近 7 天使用次数降序
+  /// - 累计使用次数降序
+  /// - 最近使用时间降序
+  /// - 标签名升序
+  Future<List<TagUsageStatEntity>> getTagUsageRanking({
+    required DateTime recentSince,
+    int? limit,
+  }) async {
+    final query = db.selectOnly(db.learningItems)
+      ..addColumns([db.learningItems.tags, db.learningItems.createdAt]);
+    query.where(db.learningItems.isDeleted.equals(false));
+    final rows = await query.get();
+
+    final recentCounts = <String, int>{};
+    final totalCounts = <String, int>{};
+    final lastUsedMap = <String, DateTime>{};
+
+    for (final row in rows) {
+      final tagsJson = row.read(db.learningItems.tags) ?? '[]';
+      final createdAt = row.read(db.learningItems.createdAt) ?? DateTime.now();
+      final tags = _parseTags(tagsJson).toSet();
+
+      for (final tag in tags) {
+        totalCounts[tag] = (totalCounts[tag] ?? 0) + 1;
+        if (!createdAt.isBefore(recentSince)) {
+          recentCounts[tag] = (recentCounts[tag] ?? 0) + 1;
+        }
+        final lastUsed = lastUsedMap[tag];
+        if (lastUsed == null || createdAt.isAfter(lastUsed)) {
+          lastUsedMap[tag] = createdAt;
+        }
+      }
+    }
+
+    final ranked = totalCounts.keys.map((tag) {
+      return TagUsageStatEntity(
+        tag: tag,
+        recentUseCount: recentCounts[tag] ?? 0,
+        totalUseCount: totalCounts[tag] ?? 0,
+        lastUsedAt: lastUsedMap[tag] ?? recentSince,
+      );
+    }).toList()
+      ..sort((left, right) {
+        final recent = right.recentUseCount.compareTo(left.recentUseCount);
+        if (recent != 0) return recent;
+        final total = right.totalUseCount.compareTo(left.totalUseCount);
+        if (total != 0) return total;
+        final lastUsed = right.lastUsedAt.compareTo(left.lastUsedAt);
+        if (lastUsed != 0) return lastUsed;
+        return left.tag.compareTo(right.tag);
+      });
+
+    if (limit == null) return ranked;
+    final safeLimit = limit.clamp(0, ranked.length).toInt();
+    return ranked.take(safeLimit).toList();
   }
 
   /// F7：获取各标签的学习内容数量（用于饼图）。

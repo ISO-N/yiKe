@@ -9,6 +9,7 @@ import 'package:permission_handler_platform_interface/permission_handler_platfor
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:yike/data/database/database.dart';
 import 'package:yike/di/providers.dart';
+import 'package:yike/domain/entities/learning_item.dart';
 import 'package:yike/domain/entities/review_interval_config.dart';
 import 'package:yike/domain/usecases/create_learning_item_usecase.dart';
 import 'package:yike/domain/usecases/manage_topic_usecase.dart';
@@ -17,6 +18,7 @@ import 'package:yike/presentation/providers/review_intervals_provider.dart';
 import 'package:yike/presentation/providers/templates_provider.dart';
 
 import '../helpers/test_database.dart';
+import '../helpers/test_uuid.dart';
 
 void main() {
   late AppDatabase db;
@@ -78,7 +80,7 @@ void main() {
         find.widgetWithText(TextField, '描述（选填）'),
         '记录 Provider 与状态流转',
       );
-      await tester.tap(find.text('新增').first);
+      await tester.tap(find.widgetWithText(OutlinedButton, '新增子任务'));
       await tester.pumpAndSettle();
       await tester.enterText(
         find.widgetWithText(TextField, '输入子任务内容'),
@@ -128,7 +130,7 @@ void main() {
       final descriptionField = find.widgetWithText(TextField, '描述（选填）');
       await tester.enterText(titleField, '模板化录入');
       await tester.enterText(descriptionField, '用于保存模板');
-      await tester.tap(find.text('新增').first);
+      await tester.tap(find.widgetWithText(OutlinedButton, '新增子任务'));
       await tester.pumpAndSettle();
       await tester.enterText(
         find.widgetWithText(TextField, '输入子任务内容'),
@@ -157,6 +159,91 @@ void main() {
 
       expect(find.text('模板化录入'), findsOneWidget);
       expect(find.textContaining('整理模板内容'), findsWidgets);
+    });
+
+    testWidgets('快捷标签支持切换，且可通过更多页面选择全部标签', (tester) async {
+      final seedContainer = ProviderContainer(
+        overrides: <Override>[appDatabaseProvider.overrideWithValue(db)],
+      );
+      addTearDown(seedContainer.dispose);
+      final repo = seedContainer.read(learningItemRepositoryProvider);
+      await repo.create(
+        LearningItemEntity(
+          uuid: testUuid(1),
+          title: '标签种子 1',
+          description: null,
+          note: null,
+          tags: const <String>['数学', '英语'],
+          learningDate: DateTime(2026, 3, 7),
+          createdAt: DateTime(2026, 3, 7, 10),
+          updatedAt: DateTime(2026, 3, 7, 10),
+          isDeleted: false,
+          deletedAt: null,
+        ),
+      );
+      await repo.create(
+        LearningItemEntity(
+          uuid: testUuid(2),
+          title: '标签种子 2',
+          description: null,
+          note: null,
+          tags: const <String>['数学'],
+          learningDate: DateTime(2026, 3, 6),
+          createdAt: DateTime(2026, 3, 6, 9),
+          updatedAt: DateTime(2026, 3, 6, 9),
+          isDeleted: false,
+          deletedAt: null,
+        ),
+      );
+      await repo.create(
+        LearningItemEntity(
+          uuid: testUuid(3),
+          title: '标签种子 3',
+          description: null,
+          note: null,
+          tags: const <String>['物理'],
+          learningDate: DateTime(2026, 3, 5),
+          createdAt: DateTime(2026, 3, 5, 9),
+          updatedAt: DateTime(2026, 3, 5, 9),
+          isDeleted: false,
+          deletedAt: null,
+        ),
+      );
+
+      await pumpPage(tester);
+
+      expect(find.text('快捷标签'), findsOneWidget);
+      expect(find.text('更多'), findsOneWidget);
+      final quickMathTag = find.widgetWithText(FilterChip, '数学');
+      expect(quickMathTag, findsOneWidget);
+
+      await tester.tap(quickMathTag);
+      await tester.pumpAndSettle();
+      var tagField = tester.widget<TextFormField>(
+        find.widgetWithText(TextFormField, '标签（选填，用逗号分隔）'),
+      );
+      expect(tagField.controller?.text, contains('数学'));
+
+      await tester.tap(quickMathTag);
+      await tester.pumpAndSettle();
+      tagField = tester.widget<TextFormField>(
+        find.widgetWithText(TextFormField, '标签（选填，用逗号分隔）'),
+      );
+      expect(tagField.controller?.text, isNot(contains('数学')));
+
+      await tester.tap(find.text('更多'));
+      await tester.pumpAndSettle();
+      expect(find.text('全部标签'), findsOneWidget);
+
+      await tester.tap(find.widgetWithText(CheckboxListTile, '英语'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('完成'));
+      await tester.pumpAndSettle();
+
+      tagField = tester.widget<TextFormField>(
+        find.widgetWithText(TextFormField, '标签（选填，用逗号分隔）'),
+      );
+      expect(tagField.controller?.text, contains('英语'));
     });
 
     testWidgets('支持调整复习计划并保存配置', (tester) async {
@@ -225,7 +312,7 @@ void main() {
       final descriptionField = find.widgetWithText(TextField, '描述（选填）');
       await tester.enterText(titleField, '覆盖模板标题');
       await tester.enterText(descriptionField, '第一次描述');
-      await tester.tap(find.text('新增').first);
+      await tester.tap(find.widgetWithText(OutlinedButton, '新增子任务'));
       await tester.pumpAndSettle();
       await tester.enterText(
         find.widgetWithText(TextField, '输入子任务内容'),

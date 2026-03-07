@@ -81,6 +81,8 @@ void main() {
         shortBreakMinutes: 8,
         longBreakMinutes: 20,
         longBreakInterval: 3,
+        autoStartBreak: false,
+        autoStartWork: true,
       ),
     );
 
@@ -113,5 +115,7 @@ void main() {
     expect(pomodoroSettings.shortBreakMinutes, 8);
     expect(pomodoroSettings.longBreakMinutes, 20);
     expect(pomodoroSettings.longBreakInterval, 3);
+    expect(pomodoroSettings.autoStartBreak, isFalse);
+    expect(pomodoroSettings.autoStartWork, isTrue);
   });
 }

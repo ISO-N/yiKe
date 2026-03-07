@@ -51,6 +51,8 @@ void main() {
         shortBreakMinutes: 0,
         longBreakMinutes: 200,
         longBreakInterval: -1,
+        autoStartBreak: false,
+        autoStartWork: false,
       ),
     );
 
@@ -59,5 +61,7 @@ void main() {
     expect(settings.shortBreakMinutes, 1);
     expect(settings.longBreakMinutes, 120);
     expect(settings.longBreakInterval, 1);
+    expect(settings.autoStartBreak, isFalse);
+    expect(settings.autoStartWork, isFalse);
   });
 }

@@ -16,6 +16,7 @@ import '../../../core/utils/note_migration_parser.dart';
 import '../../../di/providers.dart';
 import '../../../domain/entities/learning_topic.dart';
 import '../../../domain/entities/review_interval_config.dart';
+import '../../../domain/entities/tag_usage_stat.dart';
 import '../../../domain/usecases/create_learning_item_usecase.dart';
 import '../../../domain/usecases/manage_template_usecase.dart';
 import '../../../domain/usecases/manage_topic_usecase.dart';
@@ -28,6 +29,7 @@ import '../../widgets/shortcut_actions_scope.dart';
 import '../../widgets/speech_input_field.dart';
 import 'draft_learning_item.dart';
 import 'import_preview_page.dart';
+import 'input_tags_page.dart';
 import 'ocr_result_page.dart';
 import 'templates_page.dart';
 
@@ -50,7 +52,7 @@ class _InputPageState extends ConsumerState<InputPage> {
   bool _hasUnsavedReviewIntervalsChanges = false;
   final List<_DraftItemControllers> _items = [];
   int _activeIndex = 0;
-  late final Future<List<String>> _availableTagsFuture;
+  late final Future<List<TagUsageStatEntity>> _tagUsageFuture;
   Map<int, LearningTopicEntity> _topicCache = {};
 
   @override
@@ -58,9 +60,9 @@ class _InputPageState extends ConsumerState<InputPage> {
     super.initState();
     // v1.0 MVP：默认提供一条输入项。
     _items.add(_DraftItemControllers());
-    _availableTagsFuture = ref
+    _tagUsageFuture = ref
         .read(learningItemRepositoryProvider)
-        .getAllTags();
+        .getTagUsageRanking(recentSince: _recentTagsSince());
     _warmupTopics();
   }
 
@@ -224,6 +226,14 @@ class _InputPageState extends ConsumerState<InputPage> {
         .where((e) => e.isNotEmpty)
         .toSet()
         .toList();
+  }
+
+  /// 计算“近 7 天标签使用次数”的起始时间（按自然日包含今天）。
+  DateTime _recentTagsSince() {
+    final now = DateTime.now();
+    return DateTime(now.year, now.month, now.day).subtract(
+      const Duration(days: 6),
+    );
   }
 
   /// 将“描述 + 子任务列表”拼接成模板的 notePattern（渐进式迁移）。
@@ -477,6 +487,7 @@ class _InputPageState extends ConsumerState<InputPage> {
                               const SizedBox(height: AppSpacing.md),
                               TextFormField(
                                 controller: controllers.tags,
+                                onChanged: (_) => setState(() {}),
                                 decoration: const InputDecoration(
                                   labelText: '标签（选填，用逗号分隔）',
                                   hintText: '例如：Java, 面试',
@@ -494,11 +505,12 @@ class _InputPageState extends ConsumerState<InputPage> {
                                 onTap: _saving ? null : () => _pickTopic(index),
                               ),
                               const SizedBox(height: AppSpacing.sm),
-                              FutureBuilder<List<String>>(
-                                future: _availableTagsFuture,
+                              FutureBuilder<List<TagUsageStatEntity>>(
+                                future: _tagUsageFuture,
                                 builder: (context, snapshot) {
                                   final tags =
-                                      snapshot.data ?? const <String>[];
+                                      snapshot.data ??
+                                      const <TagUsageStatEntity>[];
                                   if (tags.isEmpty) {
                                     return Text(
                                       '还没有标签，创建一个吧',
@@ -507,20 +519,55 @@ class _InputPageState extends ConsumerState<InputPage> {
                                       ),
                                     );
                                   }
-                                  return Wrap(
-                                    spacing: 6,
-                                    runSpacing: 6,
-                                    children: tags.take(12).map((t) {
-                                      return ActionChip(
-                                        label: Text(t),
-                                        onPressed: _saving
-                                            ? null
-                                            : () => _appendTag(
-                                                controllers.tags,
-                                                t,
-                                              ),
-                                      );
-                                    }).toList(),
+                                  final selectedTags = _parseTags(
+                                    controllers.tags.text,
+                                  );
+                                  return Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        children: [
+                                          Text(
+                                            '快捷标签',
+                                            style: AppTypography.bodySecondary(
+                                              context,
+                                            ),
+                                          ),
+                                          const Spacer(),
+                                          TextButton(
+                                            onPressed: _saving
+                                                ? null
+                                                : () => _openAllTagsPage(
+                                                    controllers.tags,
+                                                    tags: tags,
+                                                  ),
+                                            child: const Text('更多'),
+                                          ),
+                                        ],
+                                      ),
+                                      Wrap(
+                                        spacing: 6,
+                                        runSpacing: 6,
+                                        children: tags.take(3).map((entry) {
+                                          return FilterChip(
+                                            label: Text(entry.tag),
+                                            selected: selectedTags.contains(
+                                              entry.tag,
+                                            ),
+                                            onSelected: _saving
+                                                ? null
+                                                : (_) {
+                                                    _toggleTag(
+                                                      controllers.tags,
+                                                      entry.tag,
+                                                    );
+                                                    setState(() {});
+                                                  },
+                                          );
+                                        }).toList(),
+                                      ),
+                                    ],
                                   );
                                 },
                               ),
@@ -601,11 +648,39 @@ class _InputPageState extends ConsumerState<InputPage> {
     Navigator.of(context).pop();
   }
 
-  void _appendTag(TextEditingController controller, String tag) {
+  void _setTags(TextEditingController controller, List<String> tags) {
+    controller.text = tags.join(', ');
+  }
+
+  void _toggleTag(TextEditingController controller, String tag) {
     final current = _parseTags(controller.text);
-    if (current.contains(tag)) return;
-    current.add(tag);
-    controller.text = current.join(', ');
+    if (current.contains(tag)) {
+      _setTags(
+        controller,
+        current.where((item) => item != tag).toList(),
+      );
+      return;
+    }
+    _setTags(controller, [...current, tag]);
+  }
+
+  Future<void> _openAllTagsPage(
+    TextEditingController controller, {
+    required List<TagUsageStatEntity> tags,
+  }) async {
+    final picked = await Navigator.of(context).push<List<String>>(
+      MaterialPageRoute(
+        builder: (_) => InputTagsPage(
+          tags: tags,
+          initialSelectedTags: _parseTags(controller.text),
+        ),
+        fullscreenDialog: true,
+      ),
+    );
+    if (picked == null) return;
+    _setTags(controller, picked);
+    if (!mounted) return;
+    setState(() {});
   }
 
   String? _topicName(int? topicId) {
@@ -1108,31 +1183,12 @@ class _SubtasksEditor extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            Expanded(
-              child: Text(
-                '子任务（选填）',
-                style: AppTypography.h2(context).copyWith(fontSize: 14),
-              ),
-            ),
-            OutlinedButton.icon(
-              onPressed:
-                  enabled
-                      ? () {
-                        controllers.addSubtask();
-                        onChanged();
-                      }
-                      : null,
-              icon: const Icon(Icons.add, size: 18),
-              label: const Text('新增'),
-            ),
-          ],
+        Text(
+          '子任务（选填）',
+          style: AppTypography.h2(context).copyWith(fontSize: 14),
         ),
         const SizedBox(height: AppSpacing.sm),
-        if (list.isEmpty)
-          Text('（无）', style: AppTypography.bodySecondary(context))
-        else
+        if (list.isNotEmpty)
           ReorderableListView.builder(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
@@ -1191,6 +1247,35 @@ class _SubtasksEditor extends StatelessWidget {
               );
             },
           ),
+        if (list.isEmpty)
+          OutlinedButton.icon(
+            onPressed:
+                enabled
+                    ? () {
+                        controllers.addSubtask();
+                        onChanged();
+                      }
+                    : null,
+            icon: const Icon(Icons.add, size: 18),
+            label: const Text('新增子任务'),
+          )
+        else ...[
+          const SizedBox(height: AppSpacing.sm),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: OutlinedButton.icon(
+              onPressed:
+                  enabled
+                      ? () {
+                          controllers.addSubtask();
+                          onChanged();
+                        }
+                      : null,
+              icon: const Icon(Icons.add, size: 18),
+              label: const Text('新增子任务'),
+            ),
+          ),
+        ],
       ],
     );
   }

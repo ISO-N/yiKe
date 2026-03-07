@@ -216,6 +216,55 @@ void main() {
     expect(dist['c'], 1);
   });
 
+  test('getTagUsageRanking 按近 7 天次数、累计次数与最近使用时间排序', () async {
+    final recentSince = DateTime(2026, 3, 2);
+    await dao.insertLearningItem(
+      LearningItemsCompanion.insert(
+        uuid: drift.Value(testUuid(uuidSeed++)),
+        title: 'I1',
+        tags: drift.Value(jsonEncode(['数学', '英语'])),
+        learningDate: DateTime(2026, 3, 7),
+        createdAt: drift.Value(DateTime(2026, 3, 7, 10)),
+      ),
+    );
+    await dao.insertLearningItem(
+      LearningItemsCompanion.insert(
+        uuid: drift.Value(testUuid(uuidSeed++)),
+        title: 'I2',
+        tags: drift.Value(jsonEncode(['数学'])),
+        learningDate: DateTime(2026, 3, 6),
+        createdAt: drift.Value(DateTime(2026, 3, 6, 8)),
+      ),
+    );
+    await dao.insertLearningItem(
+      LearningItemsCompanion.insert(
+        uuid: drift.Value(testUuid(uuidSeed++)),
+        title: 'I3',
+        tags: drift.Value(jsonEncode(['英语'])),
+        learningDate: DateTime(2026, 2, 20),
+        createdAt: drift.Value(DateTime(2026, 2, 20, 9)),
+      ),
+    );
+    await dao.insertLearningItem(
+      LearningItemsCompanion.insert(
+        uuid: drift.Value(testUuid(uuidSeed++)),
+        title: 'I4',
+        tags: drift.Value(jsonEncode(['物理'])),
+        learningDate: DateTime(2026, 3, 5),
+        createdAt: drift.Value(DateTime(2026, 3, 5, 12)),
+      ),
+    );
+
+    final ranked = await dao.getTagUsageRanking(recentSince: recentSince);
+    expect(ranked.map((entry) => entry.tag).toList(), <String>['数学', '英语', '物理']);
+    expect(ranked.first.recentUseCount, 2);
+    expect(ranked.first.totalUseCount, 2);
+    expect(ranked[1].recentUseCount, 1);
+    expect(ranked[1].totalUseCount, 2);
+    expect(ranked.last.recentUseCount, 1);
+    expect(ranked.last.totalUseCount, 1);
+  });
+
   test('searchLearningItems: keyword 为空时返回空列表', () async {
     final rows = await dao.searchLearningItems(keyword: '   ');
     expect(rows, isEmpty);

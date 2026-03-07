@@ -9,6 +9,7 @@ import 'package:drift/drift.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../domain/entities/learning_item.dart';
+import '../../domain/entities/tag_usage_stat.dart';
 import '../../domain/repositories/learning_item_repository.dart';
 import '../sync/sync_log_writer.dart';
 import '../database/daos/learning_item_dao.dart';
@@ -126,6 +127,14 @@ class LearningItemRepositoryImpl implements LearningItemRepository {
   @override
   Future<List<String>> getAllTags() {
     return dao.getAllTags();
+  }
+
+  @override
+  Future<List<TagUsageStatEntity>> getTagUsageRanking({
+    required DateTime recentSince,
+    int? limit,
+  }) {
+    return dao.getTagUsageRanking(recentSince: recentSince, limit: limit);
   }
 
   @override

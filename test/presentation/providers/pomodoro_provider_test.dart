@@ -202,6 +202,8 @@ void main() {
         shortBreakMinutes: 1,
         longBreakMinutes: 1,
         longBreakInterval: 2,
+        autoStartBreak: true,
+        autoStartWork: true,
       ),
     );
 
@@ -227,5 +229,63 @@ void main() {
     final state = container.read(pomodoroProvider);
     expect(state.status, PomodoroRunStatus.running);
     expect(state.remainingSeconds, lessThan(state.currentPhaseTotalSeconds));
+  });
+
+  test('专注结束后关闭自动休息时，会停在休息阶段等待手动开始', () async {
+    settingsRepository = _FakePomodoroSettingsRepository(
+      PomodoroSettingsEntity.defaults.copyWith(autoStartBreak: false),
+    );
+    SharedPreferences.setMockInitialValues({
+      'pomodoro_timer.phase': 'work',
+      'pomodoro_timer.status': 'running',
+      'pomodoro_timer.current_phase_total_seconds': 1500,
+      'pomodoro_timer.remaining_seconds': 1500,
+      'pomodoro_timer.completed_rounds': 0,
+      'pomodoro_timer.elapsed_seconds_before_run': 0,
+      'pomodoro_timer.phase_started_at_ms':
+          fakeNow.subtract(const Duration(minutes: 25)).millisecondsSinceEpoch,
+      'pomodoro_timer.last_resumed_at_ms':
+          fakeNow.subtract(const Duration(minutes: 25)).millisecondsSinceEpoch,
+    });
+
+    final container = createContainer();
+    addTearDown(container.dispose);
+    container.read(pomodoroProvider.notifier);
+    await settle();
+
+    final state = container.read(pomodoroProvider);
+    expect(state.phase, PomodoroPhase.shortBreak);
+    expect(state.status, PomodoroRunStatus.idle);
+    expect(state.remainingSeconds, 300);
+    expect(notifications, [PomodoroPhase.work]);
+  });
+
+  test('休息结束后关闭自动专注时，会停在工作阶段等待手动开始', () async {
+    settingsRepository = _FakePomodoroSettingsRepository(
+      PomodoroSettingsEntity.defaults.copyWith(autoStartWork: false),
+    );
+    SharedPreferences.setMockInitialValues({
+      'pomodoro_timer.phase': 'shortBreak',
+      'pomodoro_timer.status': 'running',
+      'pomodoro_timer.current_phase_total_seconds': 300,
+      'pomodoro_timer.remaining_seconds': 300,
+      'pomodoro_timer.completed_rounds': 1,
+      'pomodoro_timer.elapsed_seconds_before_run': 0,
+      'pomodoro_timer.phase_started_at_ms':
+          fakeNow.subtract(const Duration(minutes: 5)).millisecondsSinceEpoch,
+      'pomodoro_timer.last_resumed_at_ms':
+          fakeNow.subtract(const Duration(minutes: 5)).millisecondsSinceEpoch,
+    });
+
+    final container = createContainer();
+    addTearDown(container.dispose);
+    container.read(pomodoroProvider.notifier);
+    await settle();
+
+    final state = container.read(pomodoroProvider);
+    expect(state.phase, PomodoroPhase.work);
+    expect(state.status, PomodoroRunStatus.idle);
+    expect(state.remainingSeconds, 1500);
+    expect(notifications, [PomodoroPhase.shortBreak]);
   });
 }

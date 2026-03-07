@@ -87,6 +87,19 @@ void main() {
       expect(notifiedBodies.single['body'], '请尽快处理逾期任务');
     });
 
+    test('showPomodoroNotification 会使用独立标识发送番茄提醒', () async {
+      await NotificationService.instance.showPomodoroNotification(
+        id: 31,
+        title: '专注时间到！',
+        body: '休息一下吧~',
+        payloadRoute: '/pomodoro',
+      );
+
+      expect(notifierCalls, containsAll(<String>['setup', 'notify']));
+      expect(notifiedBodies.last['identifier'], 'pomodoro_31');
+      expect(notifiedBodies.last['title'], '专注时间到！');
+    });
+
     test('scheduleDailyReviewReminder 在 Windows 下会创建前台定时提醒', () {
       fakeAsync((async) {
         final now = DateTime.now();

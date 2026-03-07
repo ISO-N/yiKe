@@ -11,6 +11,8 @@ class PomodoroSettingsEntity {
     required this.shortBreakMinutes,
     required this.longBreakMinutes,
     required this.longBreakInterval,
+    required this.autoStartBreak,
+    required this.autoStartWork,
   });
 
   /// 工作阶段时长（分钟）。
@@ -25,12 +27,20 @@ class PomodoroSettingsEntity {
   /// 长休息触发间隔轮数。
   final int longBreakInterval;
 
+  /// 专注结束后是否自动开始休息阶段。
+  final bool autoStartBreak;
+
+  /// 休息结束后是否自动开始下一轮专注。
+  final bool autoStartWork;
+
   /// 默认配置。
   static const PomodoroSettingsEntity defaults = PomodoroSettingsEntity(
     workMinutes: 25,
     shortBreakMinutes: 5,
     longBreakMinutes: 15,
     longBreakInterval: 4,
+    autoStartBreak: true,
+    autoStartWork: true,
   );
 
   /// 复制并生成新配置。
@@ -39,12 +49,16 @@ class PomodoroSettingsEntity {
     int? shortBreakMinutes,
     int? longBreakMinutes,
     int? longBreakInterval,
+    bool? autoStartBreak,
+    bool? autoStartWork,
   }) {
     return PomodoroSettingsEntity(
       workMinutes: workMinutes ?? this.workMinutes,
       shortBreakMinutes: shortBreakMinutes ?? this.shortBreakMinutes,
       longBreakMinutes: longBreakMinutes ?? this.longBreakMinutes,
       longBreakInterval: longBreakInterval ?? this.longBreakInterval,
+      autoStartBreak: autoStartBreak ?? this.autoStartBreak,
+      autoStartWork: autoStartWork ?? this.autoStartWork,
     );
   }
 }

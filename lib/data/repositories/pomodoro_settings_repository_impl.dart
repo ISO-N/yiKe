@@ -34,6 +34,8 @@ class PomodoroSettingsRepositoryImpl implements PomodoroSettingsRepository {
   static const String _keyShortBreakMinutes = 'pomodoro_short_break_minutes';
   static const String _keyLongBreakMinutes = 'pomodoro_long_break_minutes';
   static const String _keyLongBreakInterval = 'pomodoro_long_break_interval';
+  static const String _keyAutoStartBreak = 'pomodoro_auto_start_break';
+  static const String _keyAutoStartWork = 'pomodoro_auto_start_work';
 
   @override
   Future<PomodoroSettingsEntity> getSettings() async {
@@ -52,6 +54,14 @@ class PomodoroSettingsRepositoryImpl implements PomodoroSettingsRepository {
         _keyLongBreakInterval,
         defaults.longBreakInterval,
       ),
+      autoStartBreak: await _getBoolOrDefault(
+        _keyAutoStartBreak,
+        defaults.autoStartBreak,
+      ),
+      autoStartWork: await _getBoolOrDefault(
+        _keyAutoStartWork,
+        defaults.autoStartWork,
+      ),
     );
   }
 
@@ -63,6 +73,8 @@ class PomodoroSettingsRepositoryImpl implements PomodoroSettingsRepository {
       shortBreakMinutes: settings.shortBreakMinutes.clamp(1, 60).toInt(),
       longBreakMinutes: settings.longBreakMinutes.clamp(1, 120).toInt(),
       longBreakInterval: settings.longBreakInterval.clamp(1, 12).toInt(),
+      autoStartBreak: settings.autoStartBreak,
+      autoStartWork: settings.autoStartWork,
     );
 
     await dao.upsertValues({
@@ -75,6 +87,12 @@ class PomodoroSettingsRepositoryImpl implements PomodoroSettingsRepository {
       ),
       _keyLongBreakInterval: await _crypto.encrypt(
         jsonEncode(normalized.longBreakInterval),
+      ),
+      _keyAutoStartBreak: await _crypto.encrypt(
+        jsonEncode(normalized.autoStartBreak),
+      ),
+      _keyAutoStartWork: await _crypto.encrypt(
+        jsonEncode(normalized.autoStartWork),
       ),
     });
   }
@@ -89,6 +107,24 @@ class PomodoroSettingsRepositoryImpl implements PomodoroSettingsRepository {
       if (decoded is int) return decoded;
       if (decoded is num) return decoded.toInt();
       return int.tryParse(decoded.toString()) ?? defaultValue;
+    } catch (_) {
+      return defaultValue;
+    }
+  }
+
+  /// 读取一个 bool 设置，读取失败时返回默认值。
+  Future<bool> _getBoolOrDefault(String key, bool defaultValue) async {
+    try {
+      final stored = await dao.getValue(key);
+      if (stored == null) return defaultValue;
+      final decrypted = await _crypto.decrypt(stored);
+      final decoded = jsonDecode(decrypted);
+      if (decoded is bool) return decoded;
+      if (decoded is String) {
+        if (decoded == 'true') return true;
+        if (decoded == 'false') return false;
+      }
+      return defaultValue;
     } catch (_) {
       return defaultValue;
     }
