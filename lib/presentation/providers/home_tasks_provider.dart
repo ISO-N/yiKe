@@ -151,6 +151,8 @@ class HomeTasksNotifier extends StateNotifier<HomeTasksState> {
   /// 返回值：Future（无返回值）。
   /// 异常：异常会捕获并写入 [HomeTasksState.errorMessage]。
   Future<void> load() async {
+    // 说明：Provider 被 invalidate/dispose 后，异步任务仍可能回调，此处统一用 mounted 防止“已释放后写 state”。
+    if (!mounted) return;
     state = state.copyWith(isLoading: true, errorMessage: null);
     try {
       final useCase = _ref.read(getHomeTasksUseCaseProvider);
@@ -162,8 +164,11 @@ class HomeTasksNotifier extends StateNotifier<HomeTasksState> {
       final skippedFuture = skippedUseCase.execute();
 
       final result = await resultFuture;
+      if (!mounted) return;
       final todayCompleted = await completedFuture;
+      if (!mounted) return;
       final todaySkipped = await skippedFuture;
+      if (!mounted) return;
 
       // v1.1.0：空状态分层所需的“全库学习内容数量”（仅在待复习列表为空时查询）。
       int learningItemCount = state.learningItemCount;
@@ -181,6 +186,7 @@ class HomeTasksNotifier extends StateNotifier<HomeTasksState> {
         // v2.1：按主题筛选任务。
         final topicRepo = _ref.read(learningTopicRepositoryProvider);
         final itemIds = (await topicRepo.getItemIdsByTopicId(topicId)).toSet();
+        if (!mounted) return;
 
         pendingToday = result.todayPending
             .where((t) => itemIds.contains(t.learningItemId))
@@ -198,6 +204,7 @@ class HomeTasksNotifier extends StateNotifier<HomeTasksState> {
         // 进度统计：重新按主题口径统计今日完成率（done/(done+pending)）。
         final repo = _ref.read(reviewTaskRepositoryProvider);
         final all = await repo.getTasksByDate(DateTime.now());
+        if (!mounted) return;
         final filtered = all.where((t) => itemIds.contains(t.learningItemId));
         final completedCount = filtered
             .where((t) => t.status == ReviewTaskStatus.done)
@@ -217,6 +224,7 @@ class HomeTasksNotifier extends StateNotifier<HomeTasksState> {
         learningItemCount = await _ref
             .read(learningItemDaoProvider)
             .getLearningItemCount();
+        if (!mounted) return;
       }
 
       // v1.1.0：复习间隔预览增强（策略 A：批量查询下一轮计划日期）。
@@ -239,6 +247,7 @@ class HomeTasksNotifier extends StateNotifier<HomeTasksState> {
         // 口径：下一轮是否启用，按“复习间隔配置”判断（下一轮禁用时 UI 必须隐藏预览行）。
         final settingsRepo = _ref.read(settingsRepositoryProvider);
         final configs = await settingsRepo.getReviewIntervalConfigs();
+        if (!mounted) return;
         final maxConfiguredRound = configs.fold<int>(
           0,
           (max, c) => c.round > max ? c.round : max,
@@ -269,6 +278,7 @@ class HomeTasksNotifier extends StateNotifier<HomeTasksState> {
           final fetched = await dao.getScheduledDatesByLearningItemAndRounds(
             targets,
           );
+          if (!mounted) return;
           for (final e in targets.entries) {
             // 若未命中，按 spec 视为“无下一轮任务”（已完成全部轮次）。
             nextScheduledDate[e.key] = fetched[e.key];
@@ -277,6 +287,7 @@ class HomeTasksNotifier extends StateNotifier<HomeTasksState> {
       }
 
       // 统一落盘 state（避免中途 setState 导致 UI 抖动）。
+      if (!mounted) return;
       state = state.copyWith(
         isLoading: false,
         todayPending: pendingToday,
@@ -294,6 +305,7 @@ class HomeTasksNotifier extends StateNotifier<HomeTasksState> {
       // 同步桌面小组件数据（v1.0 Android 展示）。
       await _syncWidget();
     } catch (e) {
+      if (!mounted) return;
       state = state.copyWith(isLoading: false, errorMessage: e.toString());
     }
   }

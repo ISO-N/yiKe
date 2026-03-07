@@ -45,22 +45,28 @@ class SettingsNotifier extends StateNotifier<SettingsState> {
 
   /// 加载设置。
   Future<void> load() async {
+    if (!mounted) return;
     state = state.copyWith(isLoading: true, errorMessage: null);
     try {
       final settings = await _repository.getSettings();
+      if (!mounted) return;
       state = state.copyWith(isLoading: false, settings: settings);
     } catch (e) {
+      if (!mounted) return;
       state = state.copyWith(isLoading: false, errorMessage: e.toString());
     }
   }
 
   /// 保存设置（整体覆盖）。
   Future<void> save(AppSettingsEntity settings) async {
+    if (!mounted) return;
     state = state.copyWith(isLoading: true, errorMessage: null);
     try {
       await _repository.saveSettings(settings);
+      if (!mounted) return;
       state = state.copyWith(isLoading: false, settings: settings);
     } catch (e) {
+      if (!mounted) return;
       state = state.copyWith(isLoading: false, errorMessage: e.toString());
     }
   }

@@ -103,11 +103,14 @@ class CalendarNotifier extends StateNotifier<CalendarState> {
     try {
       final useCase = _ref.read(getCalendarTasksUseCaseProvider);
       final result = await useCase.execute(year: year, month: month);
+      // Provider 可能在 await 期间被 invalidate；此时直接退出，避免 dispose 后回写状态。
+      if (!mounted) return;
       state = state.copyWith(
         monthStats: result.dayStats,
         isLoadingMonth: false,
       );
     } catch (e) {
+      if (!mounted) return;
       state = state.copyWith(isLoadingMonth: false, errorMessage: e.toString());
     }
   }
@@ -123,8 +126,10 @@ class CalendarNotifier extends StateNotifier<CalendarState> {
     try {
       final useCase = _ref.read(getCalendarTasksUseCaseProvider);
       final tasks = await useCase.getTasksByDate(selected);
+      if (!mounted) return;
       state = state.copyWith(selectedDayTasks: tasks, isLoadingTasks: false);
     } catch (e) {
+      if (!mounted) return;
       state = state.copyWith(isLoadingTasks: false, errorMessage: e.toString());
     }
   }
@@ -133,8 +138,10 @@ class CalendarNotifier extends StateNotifier<CalendarState> {
   Future<void> completeTask(int taskId) async {
     try {
       await _ref.read(completeReviewTaskUseCaseProvider).execute(taskId);
+      if (!mounted) return;
       await _refreshAfterStatusChanged();
     } catch (e) {
+      if (!mounted) return;
       state = state.copyWith(errorMessage: e.toString());
     }
   }
@@ -143,8 +150,10 @@ class CalendarNotifier extends StateNotifier<CalendarState> {
   Future<void> skipTask(int taskId) async {
     try {
       await _ref.read(skipReviewTaskUseCaseProvider).execute(taskId);
+      if (!mounted) return;
       await _refreshAfterStatusChanged();
     } catch (e) {
+      if (!mounted) return;
       state = state.copyWith(errorMessage: e.toString());
     }
   }
@@ -153,8 +162,10 @@ class CalendarNotifier extends StateNotifier<CalendarState> {
   Future<void> undoTaskStatus(int taskId) async {
     try {
       await _ref.read(undoTaskStatusUseCaseProvider).execute(taskId);
+      if (!mounted) return;
       await _refreshAfterStatusChanged();
     } catch (e) {
+      if (!mounted) return;
       state = state.copyWith(errorMessage: e.toString());
     }
   }

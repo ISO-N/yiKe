@@ -33,8 +33,17 @@ import '../../presentation/pages/shell/shell_scaffold.dart';
 
 /// App 路由 Provider。
 final appRouterProvider = Provider<GoRouter>((ref) {
+  return createAppRouter();
+});
+
+/// 创建应用路由实例。
+///
+/// 说明：
+/// - 生产环境默认从 `/home` 启动
+/// - 测试环境可传入自定义 [initialLocation]，以便复用真实路由定义验证深链与分支行为
+GoRouter createAppRouter({String initialLocation = '/home'}) {
   return GoRouter(
-    initialLocation: '/home',
+    initialLocation: initialLocation,
     routes: [
       ShellRoute(
         builder: (context, state, child) {
@@ -239,7 +248,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
     ],
   );
-});
+}
 
 Page<dynamic> _dialogPageIfDesktop(
   BuildContext context,

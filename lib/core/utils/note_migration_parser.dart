@@ -93,8 +93,8 @@ class NoteMigrationParser {
     final t = line.trimLeft();
     if (t.isEmpty) return false;
     if (t.startsWith('-') || t.startsWith('*') || t.startsWith('•')) return true;
-    if (RegExp(r'^\\d+[\\.|\\)]\\s+').hasMatch(t)) return true;
-    if (RegExp(r'^[①②③④⑤⑥⑦⑧⑨⑩]\\s*').hasMatch(t)) return true;
+    if (RegExp(r'^\d+[.)]\s+').hasMatch(t)) return true;
+    if (RegExp(r'^[①②③④⑤⑥⑦⑧⑨⑩]\s*').hasMatch(t)) return true;
     return false;
   }
 
@@ -104,11 +104,11 @@ class NoteMigrationParser {
       t = t.substring(1).trimLeft();
       return t;
     }
-    final m1 = RegExp(r'^(\\d+)([\\.|\\)])\\s+(.*)$').firstMatch(t);
+    final m1 = RegExp(r'^(\d+)([.)])\s+(.*)$').firstMatch(t);
     if (m1 != null) {
       return (m1.group(3) ?? '').trimLeft();
     }
-    final m2 = RegExp(r'^([①②③④⑤⑥⑦⑧⑨⑩])\\s*(.*)$').firstMatch(t);
+    final m2 = RegExp(r'^([①②③④⑤⑥⑦⑧⑨⑩])\s*(.*)$').firstMatch(t);
     if (m2 != null) {
       return (m2.group(2) ?? '').trimLeft();
     }

@@ -17,6 +17,73 @@ import '../../infrastructure/notification/notification_service.dart';
 import '../../infrastructure/preload/app_preload_service.dart';
 import '../providers/pomodoro_provider.dart';
 
+/// UX 启动器是否启用。
+///
+/// 说明：
+/// - 默认在 `flutter test` 中关闭，避免应用级 Widget 测试被启动副作用污染
+/// - 需要验证启动逻辑时，可在测试里 override 为 `true`
+final uxBootstrapEnabledProvider = Provider<bool>((ref) {
+  const isFlutterTest = bool.fromEnvironment('FLUTTER_TEST');
+  return !isFlutterTest;
+});
+
+/// UX 启动器当前时间提供器。
+///
+/// 说明：用于在测试中稳定控制“启动通知”计算时间。
+final uxBootstrapNowProvider = Provider<DateTime Function()>(
+  (ref) => DateTime.now,
+);
+
+/// UX 启动器通知点击流提供器。
+///
+/// 说明：默认接入通知服务的 payload 路由流，测试中可注入受控 Stream。
+final uxBootstrapNotificationTapStreamProvider = Provider<Stream<String>>(
+  (ref) => NotificationService.instance.onTapRouteStream,
+);
+
+/// UX 启动器通知发送器。
+///
+/// 说明：统一封装通知发送调用，便于在测试中记录发送内容。
+final uxBootstrapShowNotificationProvider =
+    Provider<
+      Future<void> Function({
+        required int id,
+        required String title,
+        required String body,
+        String? payloadRoute,
+      })
+    >((ref) {
+      return ({
+        required int id,
+        required String title,
+        required String body,
+        String? payloadRoute,
+      }) {
+        return NotificationService.instance.showReviewNotification(
+          id: id,
+          title: title,
+          body: body,
+          payloadRoute: payloadRoute,
+        );
+      };
+    });
+
+/// UX 启动器预加载启动器。
+///
+/// 说明：默认使用生产预加载服务，测试中可替换为轻量回调。
+final uxBootstrapPreloadStarterProvider =
+    Provider<void Function(BuildContext)>((ref) {
+      return AppPreloadService.ensureStarted;
+    });
+
+/// UX 启动器导航执行器。
+///
+/// 说明：默认通过 GoRouter 导航，测试中可替换为受控实现。
+final uxBootstrapNavigateProvider =
+    Provider<void Function(BuildContext context, String route)>((ref) {
+      return (context, route) => GoRouter.of(context).go(route);
+    });
+
 /// UX 启动器：包裹在应用根部即可。
 ///
 /// 说明：
@@ -26,6 +93,11 @@ class UxBootstrap extends ConsumerStatefulWidget {
   const UxBootstrap({super.key, required this.child});
 
   final Widget child;
+
+  /// 测试辅助：重置静态点击订阅，避免跨用例串扰。
+  static Future<void> debugResetForTest() {
+    return _UxBootstrapState.debugResetForTest();
+  }
 
   @override
   ConsumerState<UxBootstrap> createState() => _UxBootstrapState();
@@ -40,8 +112,7 @@ class _UxBootstrapState extends ConsumerState<UxBootstrap>
   void initState() {
     super.initState();
 
-    const isFlutterTest = bool.fromEnvironment('FLUTTER_TEST');
-    if (isFlutterTest) return;
+    if (!ref.read(uxBootstrapEnabledProvider)) return;
 
     WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -49,7 +120,7 @@ class _UxBootstrapState extends ConsumerState<UxBootstrap>
       _ensureNotificationTapBound();
       // 关键逻辑：应用启动时主动创建番茄钟 Provider，确保即使用户尚未进入页面也能恢复计时状态。
       ref.read(pomodoroProvider.notifier);
-      AppPreloadService.ensureStarted(context);
+      ref.read(uxBootstrapPreloadStarterProvider)(context);
       _checkAndSendStartupNotifications();
     });
   }
@@ -84,7 +155,7 @@ class _UxBootstrapState extends ConsumerState<UxBootstrap>
     // 关键逻辑：通知点击监听只需要绑定一次，避免多次订阅导致重复导航。
     if (_tapSub != null) return;
 
-    _tapSub = NotificationService.instance.onTapRouteStream.listen((route) {
+    _tapSub = ref.read(uxBootstrapNotificationTapStreamProvider).listen((route) {
       final r = route.trim();
       if (r.isEmpty) return;
       if (!mounted) return;
@@ -93,7 +164,7 @@ class _UxBootstrapState extends ConsumerState<UxBootstrap>
       if (!r.startsWith('/')) return;
 
       try {
-        GoRouter.of(context).go(r);
+        ref.read(uxBootstrapNavigateProvider)(context, r);
       } catch (_) {
         // 导航失败不影响后续通知处理。
       }
@@ -108,11 +179,12 @@ class _UxBootstrapState extends ConsumerState<UxBootstrap>
     final goalRepo = ref.read(goalSettingsRepositoryProvider);
     final reviewRepo = ref.read(reviewTaskRepositoryProvider);
     final dedup = ref.read(notificationDedupStoreProvider);
+    final now = ref.read(uxBootstrapNowProvider)();
+    final showNotification = ref.read(uxBootstrapShowNotificationProvider);
 
     final settings = await settingsRepo.getSettings();
     if (!settings.notificationsEnabled) return;
 
-    final now = DateTime.now();
     final nowTime = TimeOfDay.fromDateTime(now);
     final dndStart = TimeUtils.parseHHmm(settings.doNotDisturbStart);
     final dndEnd = TimeUtils.parseHHmm(settings.doNotDisturbEnd);
@@ -131,7 +203,7 @@ class _UxBootstrapState extends ConsumerState<UxBootstrap>
           overdue.where((t) => t.scheduledDate.isBefore(threshold)).toList();
 
       if (hardOverdue.isNotEmpty) {
-        await NotificationService.instance.showReviewNotification(
+        await showNotification(
           id: 21,
           title: '任务逾期提醒',
           body: '你有 ${hardOverdue.length} 条任务已逾期超过 3 天，建议优先处理。',
@@ -186,7 +258,7 @@ class _UxBootstrapState extends ConsumerState<UxBootstrap>
 
       if (achieved.isNotEmpty) {
         final summary = achieved.join('、');
-        await NotificationService.instance.showReviewNotification(
+        await showNotification(
           id: 22,
           title: '目标达成',
           body: '已达成：$summary。打开统计页查看进度详情。',
@@ -207,7 +279,7 @@ class _UxBootstrapState extends ConsumerState<UxBootstrap>
         final canSendByTtl =
             lastSentAt == null || now.difference(lastSentAt) >= const Duration(hours: 24);
         if (reached > lastMilestone && canSendByTtl) {
-          await NotificationService.instance.showReviewNotification(
+          await showNotification(
             id: 23,
             title: '打卡里程碑',
             body: '连续打卡 $reached 天，继续保持。',
@@ -228,6 +300,12 @@ class _UxBootstrapState extends ConsumerState<UxBootstrap>
       if (streakDays >= m) reached = m;
     }
     return reached;
+  }
+
+  /// 测试辅助：释放静态点击订阅。
+  static Future<void> debugResetForTest() async {
+    await _tapSub?.cancel();
+    _tapSub = null;
   }
 
   TaskDayStats _emptyDayStats() {

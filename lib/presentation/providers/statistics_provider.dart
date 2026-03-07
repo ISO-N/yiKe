@@ -86,6 +86,8 @@ class StatisticsNotifier extends StateNotifier<StatisticsState> {
     try {
       final useCase = _ref.read(getStatisticsUseCaseProvider);
       final result = await useCase.execute();
+      // Provider 可能在 await 期间被刷新销毁；此时不再回写旧实例状态。
+      if (!mounted) return;
       state = state.copyWith(
         isLoading: false,
         consecutiveCompletedDays: result.consecutiveCompletedDays,
@@ -96,6 +98,7 @@ class StatisticsNotifier extends StateNotifier<StatisticsState> {
         tagDistribution: result.tagDistribution,
       );
     } catch (e) {
+      if (!mounted) return;
       state = state.copyWith(isLoading: false, errorMessage: e.toString());
     }
   }
