@@ -14,17 +14,15 @@ import '../../domain/entities/task_day_stats.dart';
 class CalendarState {
   /// 构造函数。
   const CalendarState({
-    required this.focusedMonth,
     required this.selectedDay,
     required this.monthStats,
     required this.selectedDayTasks,
+    required this.loadedMonth,
+    required this.hasLoadedMonth,
     required this.isLoadingMonth,
     required this.isLoadingTasks,
     this.errorMessage,
   });
-
-  /// 当前聚焦月份（用于 TableCalendar 翻页与标题展示）。
-  final DateTime focusedMonth;
 
   /// 当前选中日期（可为空）。
   final DateTime? selectedDay;
@@ -34,6 +32,12 @@ class CalendarState {
 
   /// 选中日期的任务列表（含学习内容）。
   final List<ReviewTaskViewEntity> selectedDayTasks;
+
+  /// 最近一次成功加载完成的月份；为空表示尚未拿到任何月份数据。
+  final DateTime? loadedMonth;
+
+  /// 是否至少成功加载过一次月份数据。
+  final bool hasLoadedMonth;
 
   /// 月份数据加载中。
   final bool isLoadingMonth;
@@ -46,12 +50,13 @@ class CalendarState {
 
   factory CalendarState.initial() {
     final now = DateTime.now();
-    final focused = DateTime(now.year, now.month, 1);
+    final initialMonth = DateTime(now.year, now.month, 1);
     return CalendarState(
-      focusedMonth: focused,
       selectedDay: null,
       monthStats: const {},
       selectedDayTasks: const [],
+      loadedMonth: initialMonth,
+      hasLoadedMonth: false,
       isLoadingMonth: true,
       isLoadingTasks: false,
       errorMessage: null,
@@ -59,20 +64,23 @@ class CalendarState {
   }
 
   CalendarState copyWith({
-    DateTime? focusedMonth,
     DateTime? selectedDay,
     bool clearSelectedDay = false,
     Map<DateTime, TaskDayStats>? monthStats,
     List<ReviewTaskViewEntity>? selectedDayTasks,
+    DateTime? loadedMonth,
+    bool clearLoadedMonth = false,
+    bool? hasLoadedMonth,
     bool? isLoadingMonth,
     bool? isLoadingTasks,
     String? errorMessage,
   }) {
     return CalendarState(
-      focusedMonth: focusedMonth ?? this.focusedMonth,
       selectedDay: clearSelectedDay ? null : (selectedDay ?? this.selectedDay),
       monthStats: monthStats ?? this.monthStats,
       selectedDayTasks: selectedDayTasks ?? this.selectedDayTasks,
+      loadedMonth: clearLoadedMonth ? null : (loadedMonth ?? this.loadedMonth),
+      hasLoadedMonth: hasLoadedMonth ?? this.hasLoadedMonth,
       isLoadingMonth: isLoadingMonth ?? this.isLoadingMonth,
       isLoadingTasks: isLoadingTasks ?? this.isLoadingTasks,
       errorMessage: errorMessage,
@@ -85,18 +93,23 @@ class CalendarNotifier extends StateNotifier<CalendarState> {
   /// 构造函数。
   CalendarNotifier(this._ref) : super(CalendarState.initial()) {
     // 首次创建时加载当月数据。
-    loadMonth(state.focusedMonth.year, state.focusedMonth.month);
+    final month = state.loadedMonth ?? DateTime.now();
+    loadMonth(month.year, month.month);
   }
 
   final Ref _ref;
+  int _monthLoadToken = 0;
 
   /// 加载月份数据（用于日历圆点标记）。
   ///
   /// 异常：异常会捕获并写入 [CalendarState.errorMessage]。
-  Future<void> loadMonth(int year, int month) async {
-    final focused = DateTime(year, month, 1);
+  Future<void> loadMonth(
+    int year,
+    int month,
+  ) async {
+    final targetMonth = DateTime(year, month, 1);
+    final requestToken = ++_monthLoadToken;
     state = state.copyWith(
-      focusedMonth: focused,
       isLoadingMonth: true,
       errorMessage: null,
     );
@@ -104,14 +117,20 @@ class CalendarNotifier extends StateNotifier<CalendarState> {
       final useCase = _ref.read(getCalendarTasksUseCaseProvider);
       final result = await useCase.execute(year: year, month: month);
       // Provider 可能在 await 期间被 invalidate；此时直接退出，避免 dispose 后回写状态。
-      if (!mounted) return;
+      if (!mounted || requestToken != _monthLoadToken) return;
       state = state.copyWith(
         monthStats: result.dayStats,
+        loadedMonth: targetMonth,
+        hasLoadedMonth: true,
         isLoadingMonth: false,
       );
     } catch (e) {
-      if (!mounted) return;
-      state = state.copyWith(isLoadingMonth: false, errorMessage: e.toString());
+      if (!mounted || requestToken != _monthLoadToken) return;
+      state = state.copyWith(
+        hasLoadedMonth: true,
+        isLoadingMonth: false,
+        errorMessage: e.toString(),
+      );
     }
   }
 
@@ -172,7 +191,8 @@ class CalendarNotifier extends StateNotifier<CalendarState> {
 
   Future<void> _refreshAfterStatusChanged() async {
     final selected = state.selectedDay;
-    await loadMonth(state.focusedMonth.year, state.focusedMonth.month);
+    final month = state.loadedMonth ?? DateTime.now();
+    await loadMonth(month.year, month.month);
     if (selected != null) {
       await selectDay(selected);
     }

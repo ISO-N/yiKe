@@ -40,6 +40,29 @@ class CalendarPage extends ConsumerStatefulWidget {
 class _CalendarPageState extends ConsumerState<CalendarPage> {
   // 当日任务 Sheet 打开状态：避免重复叠加弹出。
   bool _isDaySheetOpen = false;
+  late DateTime _visibleMonth;
+
+  @override
+  void initState() {
+    super.initState();
+    final now = DateTime.now();
+    _visibleMonth = DateTime(now.year, now.month, 1);
+  }
+
+  /// 处理月历翻页。
+  ///
+  /// 说明：
+  /// - 页面本地只维护当前可视月份，避免 Provider 反向控制月历翻页
+  /// - 月份数据加载仍交给 Provider，保证业务状态来源单一
+  void _handleMonthChanged(DateTime targetMonth) {
+    setState(() {
+      _visibleMonth = DateTime(targetMonth.year, targetMonth.month, 1);
+    });
+    ref.read(calendarProvider.notifier).loadMonth(
+      _visibleMonth.year,
+      _visibleMonth.month,
+    );
+  }
 
   Future<void> _openDayTaskListSheet(DateTime day) async {
     // 若当日任务 Sheet 已打开，先关闭再重新打开（允许用户切换日期）。
@@ -68,10 +91,11 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
     final state = ref.watch(
       calendarProvider.select(
         (s) => (
-          focusedMonth: s.focusedMonth,
           selectedDay: s.selectedDay,
           monthStats: s.monthStats,
+          loadedMonth: s.loadedMonth,
           selectedDayTasks: s.selectedDayTasks,
+          hasLoadedMonth: s.hasLoadedMonth,
           isLoadingMonth: s.isLoadingMonth,
           isLoadingTasks: s.isLoadingTasks,
           errorMessage: s.errorMessage,
@@ -102,13 +126,14 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
             ),
             const SizedBox(height: AppSpacing.lg),
             CalendarGrid(
-              focusedMonth: state.focusedMonth,
+              initialMonth: _visibleMonth,
               selectedDay: state.selectedDay,
+              loadedMonth: state.loadedMonth,
               dayStats: state.monthStats,
+              hasLoadedMonth: state.hasLoadedMonth,
               isLoading: state.isLoadingMonth,
               skeletonStrategy: skeletonStrategy,
-              onPageChanged: (focused) =>
-                  notifier.loadMonth(focused.year, focused.month),
+              onMonthChanged: _handleMonthChanged,
               onDaySelected: (day) async {
                 await notifier.selectDay(day);
                 if (!context.mounted || isDesktop) return;
@@ -129,8 +154,8 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
             onPressed: state.isLoadingMonth
                 ? null
                 : () => notifier.loadMonth(
-                    state.focusedMonth.year,
-                    state.focusedMonth.month,
+                    _visibleMonth.year,
+                    _visibleMonth.month,
                   ),
             icon: const Icon(Icons.refresh),
           ),
