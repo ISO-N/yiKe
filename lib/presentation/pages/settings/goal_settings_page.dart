@@ -42,7 +42,9 @@ class GoalSettingsPage extends ConsumerWidget {
       required int max,
       required String hint,
     }) async {
-      final controller = TextEditingController(text: initial.toString());
+      // 说明：这里避免显式持有并 dispose TextEditingController，
+      // 防止在 Dialog 关闭动画期间出现“controller 已 dispose 但 TextField 仍在渲染”的断言。
+      var valueText = initial.toString();
       final result = await showDialog<int>(
         context: context,
         builder: (context) {
@@ -53,11 +55,12 @@ class GoalSettingsPage extends ConsumerWidget {
               children: [
                 Text(hint, style: AppTypography.bodySecondary(context)),
                 const SizedBox(height: 12),
-                TextField(
-                  controller: controller,
+                TextFormField(
+                  initialValue: valueText,
                   autofocus: true,
                   keyboardType: TextInputType.number,
                   inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                  onChanged: (v) => valueText = v,
                   decoration: InputDecoration(
                     border: const OutlineInputBorder(),
                     helperText: '范围：$min ~ $max',
@@ -72,7 +75,7 @@ class GoalSettingsPage extends ConsumerWidget {
               ),
               FilledButton(
                 onPressed: () {
-                  final v = int.tryParse(controller.text.trim());
+                  final v = int.tryParse(valueText.trim());
                   if (v == null || v < min || v > max) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(content: Text('请输入有效范围内的数字')),
@@ -87,7 +90,6 @@ class GoalSettingsPage extends ConsumerWidget {
           );
         },
       );
-      controller.dispose();
       return result;
     }
 

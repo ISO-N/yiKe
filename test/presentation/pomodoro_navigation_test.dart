@@ -2,27 +2,13 @@
 // 作者：Codex
 // 创建日期：2026-03-06
 
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'package:yike/app.dart';
-import 'package:yike/di/providers.dart';
 
-import '../helpers/test_database.dart';
+import '../helpers/app_harness.dart';
 
 void main() {
   testWidgets('点击底部导航“专注”后可进入番茄钟页面', (tester) async {
-    SharedPreferences.setMockInitialValues({});
-    final db = createInMemoryDatabase();
-    addTearDown(db.close);
-
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [appDatabaseProvider.overrideWithValue(db)],
-        child: const YiKeApp(),
-      ),
-    );
-    await tester.pumpAndSettle();
+    await pumpYiKeApp(tester);
 
     expect(find.text('专注'), findsOneWidget);
     await tester.tap(find.text('专注'));

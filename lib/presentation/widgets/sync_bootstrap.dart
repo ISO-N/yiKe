@@ -8,6 +8,17 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../providers/sync_provider.dart';
 
+/// 判断当前是否处于 widget_test / 单元测试环境。
+///
+/// 说明：
+/// - `bool.fromEnvironment('FLUTTER_TEST')` 在部分运行方式下可能不稳定
+/// - 使用 assert 注入的方式可在 Debug/Test 下稳定生效，且 Release 会被树摇优化
+bool _isInTestEnv() {
+  var inTest = false;
+  assert(inTest = true);
+  return inTest;
+}
+
 /// 同步启动器：包裹在应用根部即可。
 class SyncBootstrap extends ConsumerStatefulWidget {
   const SyncBootstrap({super.key, required this.child});
@@ -22,8 +33,7 @@ class _SyncBootstrapState extends ConsumerState<SyncBootstrap> {
   @override
   void initState() {
     super.initState();
-    const isFlutterTest = bool.fromEnvironment('FLUTTER_TEST');
-    if (isFlutterTest) return;
+    if (_isInTestEnv()) return;
 
     // 关键逻辑：在首帧后初始化，避免阻塞 MaterialApp/router 的构建。
     WidgetsBinding.instance.addPostFrameCallback((_) {

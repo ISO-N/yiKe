@@ -7,14 +7,31 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:yike/data/database/database.dart';
 import 'package:yike/di/providers.dart';
+import 'package:yike/domain/entities/pomodoro_settings.dart';
+import 'package:yike/domain/repositories/pomodoro_settings_repository.dart';
 import 'package:yike/presentation/providers/pomodoro_provider.dart';
 
 import '../../helpers/test_database.dart';
+
+class _FakePomodoroSettingsRepository implements PomodoroSettingsRepository {
+  _FakePomodoroSettingsRepository(this._settings);
+
+  PomodoroSettingsEntity _settings;
+
+  @override
+  Future<PomodoroSettingsEntity> getSettings() async => _settings;
+
+  @override
+  Future<void> saveSettings(PomodoroSettingsEntity settings) async {
+    _settings = settings;
+  }
+}
 
 void main() {
   late AppDatabase db;
   late DateTime fakeNow;
   late List<PomodoroPhase> notifications;
+  late _FakePomodoroSettingsRepository settingsRepository;
 
   Future<void> settle() async {
     await Future<void>.delayed(Duration.zero);
@@ -25,6 +42,7 @@ void main() {
     return ProviderContainer(
       overrides: [
         appDatabaseProvider.overrideWithValue(db),
+        pomodoroSettingsRepositoryProvider.overrideWithValue(settingsRepository),
         pomodoroClockProvider.overrideWithValue(() => fakeNow),
         pomodoroPhaseNotificationSenderProvider.overrideWithValue((phase) async {
           notifications.add(phase);
@@ -37,6 +55,9 @@ void main() {
     db = createInMemoryDatabase();
     fakeNow = DateTime(2026, 3, 6, 10, 0, 0);
     notifications = <PomodoroPhase>[];
+    settingsRepository = _FakePomodoroSettingsRepository(
+      PomodoroSettingsEntity.defaults,
+    );
     SharedPreferences.setMockInitialValues({});
   });
 
@@ -117,5 +138,94 @@ void main() {
     expect(state.completedRounds, 1);
     expect(state.remainingSeconds, 1500);
     expect(notifications, [PomodoroPhase.shortBreak]);
+  });
+
+  test('start/pause/resume/reset 支持状态切换与剩余时间同步', () async {
+    final container = createContainer();
+    addTearDown(container.dispose);
+    final notifier = container.read(pomodoroProvider.notifier);
+    await settle();
+
+    await notifier.start();
+    var state = container.read(pomodoroProvider);
+    expect(state.status, PomodoroRunStatus.running);
+    expect(state.phase, PomodoroPhase.work);
+
+    // 模拟运行 90 秒后暂停：pause 内部会先同步时钟再切到 paused。
+    fakeNow = fakeNow.add(const Duration(seconds: 90));
+    await notifier.pause();
+    state = container.read(pomodoroProvider);
+    expect(state.status, PomodoroRunStatus.paused);
+    expect(state.remainingSeconds, lessThan(state.currentPhaseTotalSeconds));
+
+    // 恢复后继续运行。
+    fakeNow = fakeNow.add(const Duration(seconds: 10));
+    await notifier.resume();
+    state = container.read(pomodoroProvider);
+    expect(state.status, PomodoroRunStatus.running);
+
+    // 重置会回到 idle 且清空 startedAt/resumedAt。
+    await notifier.reset();
+    state = container.read(pomodoroProvider);
+    expect(state.status, PomodoroRunStatus.idle);
+    expect(state.phaseStartedAt, isNull);
+    expect(state.lastResumedAt, isNull);
+  });
+
+  test('skip 会切换到下一阶段并回到 idle', () async {
+    final container = createContainer();
+    addTearDown(container.dispose);
+    final notifier = container.read(pomodoroProvider.notifier);
+    await settle();
+
+    await notifier.start();
+    await notifier.skip();
+
+    final state = container.read(pomodoroProvider);
+    expect(state.status, PomodoroRunStatus.idle);
+    // 说明：work 被手动跳过后应进入休息阶段（短休息或长休息，取决于 completedRounds）。
+    expect(state.phase, isNot(PomodoroPhase.work));
+    expect(state.phaseStartedAt, isNull);
+    expect(state.lastResumedAt, isNull);
+  });
+
+  test('refreshSettings 在 idle 且未开始时会同步刷新当前阶段时长', () async {
+    final container = createContainer();
+    addTearDown(container.dispose);
+    final notifier = container.read(pomodoroProvider.notifier);
+    await settle();
+
+    // 将默认 workMinutes 改为 1 分钟，验证 refreshSettings 会同步更新 currentPhaseTotalSeconds。
+    await settingsRepository.saveSettings(
+      PomodoroSettingsEntity(
+        workMinutes: 1,
+        shortBreakMinutes: 1,
+        longBreakMinutes: 1,
+        longBreakInterval: 2,
+      ),
+    );
+
+    await notifier.refreshSettings();
+    final state = container.read(pomodoroProvider);
+    expect(state.currentPhaseTotalSeconds, 60);
+    expect(state.remainingSeconds, 60);
+  });
+
+  test('handleAppVisibilityChanged 前后台切换会触发 restore/persist 分支', () async {
+    final container = createContainer();
+    addTearDown(container.dispose);
+    final notifier = container.read(pomodoroProvider.notifier);
+    await settle();
+
+    await notifier.start();
+    fakeNow = fakeNow.add(const Duration(seconds: 30));
+    await notifier.handleAppVisibilityChanged(isForeground: false);
+
+    // 前台恢复会调用 restore：由于仍处于 running，会同步剩余时间。
+    fakeNow = fakeNow.add(const Duration(seconds: 20));
+    await notifier.handleAppVisibilityChanged(isForeground: true);
+    final state = container.read(pomodoroProvider);
+    expect(state.status, PomodoroRunStatus.running);
+    expect(state.remainingSeconds, lessThan(state.currentPhaseTotalSeconds));
   });
 }

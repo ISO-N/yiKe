@@ -1,6 +1,6 @@
 # 忆刻（YiKe）— 技术设计
 
-> 统一沉淀架构、数据模型与关键技术方案 | 最后更新：2026-03-05
+> 统一沉淀架构、数据模型与关键技术方案 | 最后更新：2026-03-07
 
 ---
 
@@ -294,6 +294,49 @@ lib/
 - **单元测试**：复习算法、导入解析、同步冲突策略
 - **Widget 测试**：空/加载/错误/筛选/搜索状态
 - **集成测试**：局域网发现、配对、双向同步、多设备
+
+### 13.1 覆盖率门禁（阶段化）
+
+本项目覆盖率门禁只统计 `lib/` 下的手写业务代码，并排除少量自动生成文件（例如 `*.g.dart`）与 Drift 表 DSL 定义文件（见 `tool/coverage_config.json` 的 `exclusions` 说明）。
+
+**常用命令：**
+
+- 生成覆盖率：`flutter test --coverage`
+- 输出覆盖率统计 + 执行阶段门禁：`dart run tool/coverage_gate.dart --phase phase3 --enforce`
+
+**阶段阈值（最终验收 Phase 3）：**
+
+| 指标 | 阈值 |
+|------|------|
+| overall | >=80% |
+| core | >=92% |
+| domain | >=92% |
+| data | >=80% |
+| presentation | >=70% |
+| infrastructure | >=60% |
+
+### 13.2 主链路回归矩阵（摘要）
+
+以下用例作为“高价值主链路”长期回归基线（文件名仅作索引，具体断言以测试内容为准）：
+
+- **创建学习内容 → 生成任务 → 首页/日历可见**：`test/presentation/phase2_app_journey_integration_test.dart`
+- **完成/跳过/撤销任务 → 首页/日历/统计刷新**：`test/presentation/phase2_app_journey_integration_test.dart`
+- **粘贴导入 → 预览 → 导入成功**：`test/presentation/import_preview_page_paste_test.dart`
+- **导出/备份/恢复 → 数据一致且去重**：`test/backup/phase2_data_safety_integration_test.dart`
+- **主题/目标/番茄钟/偏好持久化**：`test/presentation/phase2_settings_persistence_integration_test.dart`
+- **生产路由关键入口与兼容深链**：`test/presentation/app_router_integration_test.dart`
+
+### 13.3 排除项与测试债务（阶段评审）
+
+**当前覆盖率统计排除项（必须保持最小化）：**
+
+- `lib/**/*.g.dart`：自动生成代码，不作为手写业务代码质量依据
+- `lib/data/database/tables/*.dart`：Drift 表 DSL 定义文件（运行态不以逐行语句执行，且直接实例化会触发 Drift 保护异常）
+
+**已知测试债务（后续可继续补齐，但不阻塞当前 Phase 3 门禁）：**
+
+- `ImportPreviewPage` 的“文件导入成功/空文件”路径在 `widget_test` 下存在不稳定 I/O 卡住风险，建议后续改造为可注入解析器后再补齐（避免用低价值 mock 强刷覆盖率）
+- `ocr_service` 等强插件依赖能力，如需提升覆盖率应优先补服务级测试并统一 MethodChannel 替身，避免引入脆弱端到端测试
 
 ---
 

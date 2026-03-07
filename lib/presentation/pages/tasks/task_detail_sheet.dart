@@ -634,7 +634,6 @@ class _EditBasicInfoSheetState extends ConsumerState<_EditBasicInfoSheet> {
 
   Future<void> _pickTopics() async {
     if (widget.readOnly) return;
-    final topics = _allTopics;
     final selected = {..._selectedTopicIds};
     final searchController = TextEditingController();
 
@@ -645,8 +644,8 @@ class _EditBasicInfoSheetState extends ConsumerState<_EditBasicInfoSheet> {
           builder: (context, setLocal) {
             final keyword = searchController.text.trim();
             final filtered = keyword.isEmpty
-                ? topics
-                : topics.where((e) => e.name.contains(keyword)).toList();
+                ? _allTopics
+                : _allTopics.where((e) => e.name.contains(keyword)).toList();
 
             return AlertDialog(
               title: const Text('选择主题（可多选）'),

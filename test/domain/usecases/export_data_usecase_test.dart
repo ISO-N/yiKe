@@ -143,4 +143,78 @@ void main() {
       PathProviderPlatform.instance = original;
     }
   });
+
+  test('preview 与 execute 会处理空选择、空数据与 CSV 转义', () async {
+    final tmp = await Directory.systemTemp.createTemp('yike_export_test_');
+    final original = PathProviderPlatform.instance;
+    PathProviderPlatform.instance = _FakePathProviderPlatform(tmp.path);
+
+    try {
+      await expectLater(
+        useCase.preview(
+          const ExportParams(
+            format: ExportFormat.json,
+            includeItems: false,
+            includeTasks: false,
+          ),
+        ),
+        throwsA(isA<ExportException>()),
+      );
+
+      await expectLater(
+        useCase.execute(
+          const ExportParams(
+            format: ExportFormat.csv,
+            includeItems: true,
+            includeTasks: false,
+          ),
+        ),
+        throwsA(isA<ExportException>()),
+      );
+
+      final itemId = await db.into(db.learningItems).insert(
+        LearningItemsCompanion.insert(
+          title: 'T,1',
+          description: const drift.Value('含有"引号"'),
+          note: const drift.Value('原始备注'),
+          tags: drift.Value(jsonEncode(<String>['a,b', 'c'])),
+          learningDate: DateTime(2026, 2, 25),
+          createdAt: drift.Value(DateTime(2026, 2, 25, 9)),
+        ),
+      );
+      await db.into(db.learningSubtasks).insert(
+        LearningSubtasksCompanion.insert(
+          learningItemId: itemId,
+          content: '第一行\n第二行',
+          sortOrder: const drift.Value(0),
+          createdAt: DateTime(2026, 2, 25, 10),
+        ),
+      );
+
+      final preview = await useCase.preview(
+        const ExportParams(
+          format: ExportFormat.csv,
+          includeItems: true,
+          includeTasks: false,
+        ),
+      );
+      final result = await useCase.execute(
+        const ExportParams(
+          format: ExportFormat.csv,
+          includeItems: true,
+          includeTasks: false,
+        ),
+      );
+
+      expect(preview.itemCount, 1);
+      expect(preview.taskCount, 0);
+      final content = await result.file.readAsString();
+      expect(content, contains('"T,1"'));
+      expect(content, contains('"含有""引号"""'));
+      expect(content, contains('"第一行\n第二行"'));
+      expect(content, contains('"a,b;c"'));
+    } finally {
+      PathProviderPlatform.instance = original;
+    }
+  });
 }

@@ -108,6 +108,11 @@ dev_dependencies:
   # rules and activating additional ones.
   flutter_lints: ^6.0.0
 
+  # 测试依赖：部分测试需要使用平台接口与时间控制工具（避免依赖传递导致 lint 报警）。
+  fake_async: ^1.3.3
+  permission_handler_platform_interface: ^4.3.0
+  share_plus_platform_interface: ^3.4.0
+
   # Drift / JSON 等代码生成
   build_runner: ^2.4.12
   drift_dev: ^2.16.0

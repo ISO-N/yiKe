@@ -32,4 +32,35 @@ void main() {
     expect(c1, startsWith('sha256:'));
     expect(c1, c2);
   });
+
+  test('formatLocalIsoWithOffset、checksum 结果与取消令牌行为保持稳定', () async {
+    final localIso = BackupUtils.formatLocalIsoWithOffset(
+      DateTime(2026, 3, 7, 9, 8, 7),
+    );
+    expect(localIso, contains('2026-03-07T09:08:07'));
+    expect(RegExp(r'[+-]\d{2}:\d{2}$').hasMatch(localIso), isTrue);
+
+    final result = await BackupUtils.computeChecksumForDataInIsolate(
+      <String, dynamic>{
+        'reviewTasks': <Map<String, dynamic>>[
+          <String, dynamic>{'uuid': 'b', 'status': 'pending'},
+          <String, dynamic>{'uuid': 'a', 'status': 'done'},
+        ],
+        'settings': <String, dynamic>{'theme': 'dark'},
+      },
+    );
+    expect(result.canonicalJson, contains('"uuid":"a"'));
+    expect(result.canonicalJson, contains('"uuid":"b"'));
+    expect(result.checksum, startsWith('sha256:'));
+    expect(
+      result.payloadSize,
+      BackupUtils.utf8BytesLength(result.canonicalJson),
+    );
+
+    final token = BackupCancelToken();
+    expect(token.isCanceled, isFalse);
+    token.cancel();
+    expect(token.isCanceled, isTrue);
+    expect(() => token.throwIfCanceled(), throwsA(isA<BackupCanceledException>()));
+  });
 }

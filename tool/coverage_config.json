@@ -1,0 +1,54 @@
+{
+  "trackedRoots": [
+    "lib/"
+  ],
+  "layers": {
+    "core": "lib/core/",
+    "domain": "lib/domain/",
+    "data": "lib/data/",
+    "presentation": "lib/presentation/",
+    "infrastructure": "lib/infrastructure/"
+  },
+  "exclusions": [
+    {
+      "glob": "lib/**/*.g.dart",
+      "reason": "自动生成代码，不作为手写业务代码覆盖率质量依据"
+    },
+    {
+      "glob": "lib/data/database/tables/*.dart",
+      "reason": "Drift 表 DSL 定义文件：主要用于代码生成与 schema 约束声明，运行时不会以“逐行语句”方式执行，且直接实例化会触发 Drift 的运行时保护异常，因此不纳入覆盖率门禁口径"
+    }
+  ],
+  "phases": {
+    "phase1": {
+      "overall": 55,
+      "layers": {
+        "core": 85,
+        "domain": 85,
+        "data": 60,
+        "presentation": 35,
+        "infrastructure": 35
+      }
+    },
+    "phase2": {
+      "overall": 75,
+      "layers": {
+        "core": 90,
+        "domain": 90,
+        "data": 75,
+        "presentation": 60,
+        "infrastructure": 55
+      }
+    },
+    "phase3": {
+      "overall": 80,
+      "layers": {
+        "core": 92,
+        "domain": 92,
+        "data": 80,
+        "presentation": 70,
+        "infrastructure": 60
+      }
+    }
+  }
+}
