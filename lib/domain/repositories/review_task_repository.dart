@@ -117,7 +117,7 @@ abstract class ReviewTaskRepository {
   Future<(int all, int pending, int done, int skipped)>
   getGlobalTaskStatusCounts();
 
-  /// 按“发生时间”倒序获取任务时间线分页数据（用于任务中心）。
+  /// 按“发生时间”正序获取任务时间线分页数据（用于任务中心）。
   ///
   /// 参数：
   /// - [status] 状态筛选；为空表示全部

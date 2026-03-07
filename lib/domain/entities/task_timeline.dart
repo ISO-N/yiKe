@@ -1,4 +1,4 @@
-/// 文件用途：领域实体 - 任务时间线分页与游标（用于任务中心按“发生时间”倒序展示）。
+/// 文件用途：领域实体 - 任务时间线分页与游标（用于任务中心按“发生时间”正序展示）。
 /// 作者：Codex
 /// 创建日期：2026-02-28
 library;
@@ -45,7 +45,7 @@ class TaskTimelinePageEntity {
     required this.nextCursor,
   });
 
-  /// 当前页条目（已按发生时间倒序排列）。
+  /// 当前页条目（已按发生时间正序排列）。
   final List<ReviewTaskTimelineItemEntity> items;
 
   /// 下一页游标；为空表示没有更多数据。
