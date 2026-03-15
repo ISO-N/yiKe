@@ -704,9 +704,7 @@ private fun YikeBottomNavigation(
         tonalElevation = 3.dp,
         shadowElevation = 6.dp,
         color = MaterialTheme.colorScheme.surface.copy(alpha = 0.8f),
-        modifier = modifier
-            .fillMaxWidth()
-            .yikeGlassBlur(radius = 26f),
+        modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(22.dp)
     ) {
         Row(
