@@ -78,13 +78,7 @@ fun SettingsScreen(
         currentDestination = YikePrimaryDestination.SETTINGS,
         title = "设置",
         subtitle = "在这里管理提醒、备份以及应用的全局状态。",
-        onNavigate = { destination ->
-            when (destination) {
-                YikePrimaryDestination.HOME -> onOpenHome()
-                YikePrimaryDestination.DECKS -> onOpenDeckList()
-                YikePrimaryDestination.SETTINGS -> Unit
-            }
-        }
+        showNavigationChrome = false
     ) { padding ->
         SettingsContent(
             uiState = uiState,

@@ -55,13 +55,7 @@ fun HomeScreen(
         currentDestination = YikePrimaryDestination.HOME,
         title = buildHomeTitle(uiState),
         subtitle = buildHomeSubtitle(uiState),
-        onNavigate = { destination ->
-            when (destination) {
-                YikePrimaryDestination.HOME -> Unit
-                YikePrimaryDestination.DECKS -> onOpenDeckList()
-                YikePrimaryDestination.SETTINGS -> onOpenSettings()
-            }
-        }
+        showNavigationChrome = false
     ) { padding ->
         HomeContent(
             uiState = uiState,

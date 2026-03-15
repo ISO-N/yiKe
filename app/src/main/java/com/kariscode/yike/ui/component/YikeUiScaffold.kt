@@ -107,15 +107,13 @@ fun YikePrimaryScaffold(
     currentDestination: YikePrimaryDestination,
     title: String,
     subtitle: String,
-    onNavigate: (YikePrimaryDestination) -> Unit,
+    onNavigate: ((YikePrimaryDestination) -> Unit)? = null,
+    showNavigationChrome: Boolean = true,
     floatingActionButton: @Composable (() -> Unit)? = null,
     content: @Composable (PaddingValues) -> Unit
 ) {
-    val navigationBarPadding = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
-    val contentBottomPadding = navigationBarPadding + 88.dp
-    val navigationBottomOffset = navigationBarPadding + 2.dp
-    val bottomGlassHeight = navigationBarPadding + 68.dp
-    val fabBottomPadding = navigationBarPadding + 76.dp
+    val contentBottomPadding = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 88.dp
+    val fabBottomPadding = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 76.dp
 
     YikeScreenBackground {
         Box(modifier = Modifier.fillMaxSize()) {
@@ -139,21 +137,13 @@ fun YikePrimaryScaffold(
                 }
             }
 
-            YikeBottomGlassLayer(
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .fillMaxWidth()
-                    .height(bottomGlassHeight)
-            )
-
-            YikeBottomNavigation(
-                currentDestination = currentDestination,
-                onNavigate = onNavigate,
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .padding(horizontal = 16.dp)
-                    .padding(bottom = navigationBottomOffset)
-            )
+            if (showNavigationChrome && onNavigate != null) {
+                YikePrimaryNavigationChrome(
+                    currentDestination = currentDestination,
+                    onNavigate = onNavigate,
+                    modifier = Modifier.align(Alignment.BottomCenter)
+                )
+            }
 
             if (floatingActionButton != null) {
                 Box(
@@ -165,6 +155,38 @@ fun YikePrimaryScaffold(
                 }
             }
         }
+    }
+}
+
+/**
+ * 一级导航被提升成共享壳层，是为了让底部导航在一级页面切换时保持静止，
+ * 只让内容区发生位移，而不是每个目的地各自带着一份导航一起滑来滑去。
+ */
+@Composable
+fun YikePrimaryNavigationChrome(
+    currentDestination: YikePrimaryDestination,
+    onNavigate: (YikePrimaryDestination) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val navigationBarPadding = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+    val navigationBottomOffset = navigationBarPadding + 2.dp
+    val bottomGlassHeight = navigationBarPadding + 68.dp
+
+    Box(modifier = modifier.fillMaxSize()) {
+        YikeBottomGlassLayer(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth()
+                .height(bottomGlassHeight)
+        )
+        YikeBottomNavigation(
+            currentDestination = currentDestination,
+            onNavigate = onNavigate,
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(horizontal = 16.dp)
+                .padding(bottom = navigationBottomOffset)
+        )
     }
 }
 
