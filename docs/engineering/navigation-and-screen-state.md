@@ -64,6 +64,8 @@ debug
 - 首页作为总入口。
 - 内容管理与复习流彼此独立。
 - 设置页只承载全局能力，不承载内容管理。
+- 已落地实现中，`home`、`deck_list`、`settings` 共享一级导航壳；
+  `card_list`、`question_editor`、`review_queue`、`review_card`、`backup_restore` 保持流内导航，不展示底部导航。
 
 ---
 
@@ -252,6 +254,7 @@ isLoading: Boolean
 title: String
 description: String
 questions: List<QuestionDraftUiModel>
+hasUnsavedChanges: Boolean
 isSaving: Boolean
 canSave: Boolean
 error: EditorError?
@@ -509,7 +512,7 @@ error: BackupRestoreError?
 
 - 路由参数可恢复
 - 页面可根据 ID 重新加载数据
-- 编辑页的未保存草稿如暂不支持完整恢复，应明确接受该限制
+- 编辑页当前会显式提示 `hasUnsavedChanges`，但仍不保证进程被杀后的草稿完整恢复，应接受这一限制并在交互上提示用户及时保存
 
 复习页建议：
 
