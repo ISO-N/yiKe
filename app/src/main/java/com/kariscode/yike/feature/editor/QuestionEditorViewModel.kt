@@ -13,6 +13,8 @@ import com.kariscode.yike.domain.repository.CardRepository
 import com.kariscode.yike.domain.repository.QuestionRepository
 import com.kariscode.yike.domain.scheduler.InitialDueAtCalculator
 import java.util.UUID
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -240,14 +242,17 @@ class QuestionEditorViewModel(
     private suspend fun reloadFromStorage() {
         _uiState.update { it.copy(isLoading = true) }
 
-        val card = cardRepository.findById(cardId)
+        val (card, questions) = coroutineScope {
+            val cardDeferred = async { cardRepository.findById(cardId) }
+            val questionsDeferred = async { questionRepository.listByCard(cardId) }
+            cardDeferred.await() to questionsDeferred.await()
+        }
         if (card == null) {
             _uiState.update { it.copy(isLoading = false, errorMessage = "卡片不存在") }
             return
         }
         loadedCard = card
 
-        val questions = questionRepository.listByCard(cardId)
         loadedQuestionsById = questions.associateBy { it.id }
 
         _uiState.update {
