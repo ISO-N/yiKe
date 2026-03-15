@@ -29,8 +29,11 @@ class OfflineDeckRepository(
     /**
      * 通过数据库聚合流提供统计信息，能让列表页在数据变更时稳定刷新且避免 N+1 查询。
      */
-    override fun observeActiveDeckSummaries(): Flow<List<DeckSummary>> =
-        deckDao.observeActiveDeckSummaries(activeStatus = QuestionEntity.STATUS_ACTIVE)
+    override fun observeActiveDeckSummaries(nowEpochMillis: Long): Flow<List<DeckSummary>> =
+        deckDao.observeActiveDeckSummaries(
+            activeStatus = QuestionEntity.STATUS_ACTIVE,
+            nowEpochMillis = nowEpochMillis
+        )
             .map { list -> list.map(::toDeckSummary) }
 
     /**
@@ -81,6 +84,7 @@ class OfflineDeckRepository(
             updatedAt = row.updatedAt
         ),
         cardCount = row.cardCount,
-        questionCount = row.questionCount
+        questionCount = row.questionCount,
+        dueQuestionCount = row.dueQuestionCount
     )
 }

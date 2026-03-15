@@ -6,6 +6,7 @@ package com.kariscode.yike.domain.model
  */
 data class CardSummary(
     val card: Card,
-    val questionCount: Int
+    val questionCount: Int,
+    val dueQuestionCount: Int
 )
 

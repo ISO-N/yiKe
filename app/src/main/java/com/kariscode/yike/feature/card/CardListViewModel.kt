@@ -38,7 +38,8 @@ data class CardListUiState(
     val items: List<CardSummary>,
     val editor: CardEditorDraft?,
     val pendingDelete: CardSummary?,
-    val message: String?
+    val message: String?,
+    val errorMessage: String?
 )
 
 /**
@@ -59,7 +60,8 @@ class CardListViewModel(
             items = emptyList(),
             editor = null,
             pendingDelete = null,
-            message = null
+            message = null,
+            errorMessage = null
         )
     )
     val uiState: StateFlow<CardListUiState> = _uiState.asStateFlow()
@@ -77,12 +79,25 @@ class CardListViewModel(
          * 订阅聚合流以保持列表统计实时更新，避免在新增问题后仍显示旧的 questionCount。
          */
         viewModelScope.launch {
-            cardRepository.observeActiveCardSummaries(deckId)
+            val now = timeProvider.nowEpochMillis()
+            cardRepository.observeActiveCardSummaries(deckId, now)
                 .catch { throwable ->
-                    _uiState.update { it.copy(isLoading = false, message = throwable.message ?: "加载失败") }
+                    _uiState.update {
+                        it.copy(
+                            isLoading = false,
+                            message = null,
+                            errorMessage = throwable.message ?: "加载失败"
+                        )
+                    }
                 }
                 .collect { items ->
-                    _uiState.update { it.copy(isLoading = false, items = items, message = null) }
+                    _uiState.update {
+                        it.copy(
+                            isLoading = false,
+                            items = items,
+                            errorMessage = null
+                        )
+                    }
                 }
         }
     }
@@ -92,7 +107,11 @@ class CardListViewModel(
      */
     fun onCreateCardClick() {
         _uiState.update {
-            it.copy(editor = CardEditorDraft(cardId = null, title = "", description = "", validationMessage = null))
+            it.copy(
+                editor = CardEditorDraft(cardId = null, title = "", description = "", validationMessage = null),
+                message = null,
+                errorMessage = null
+            )
         }
     }
 
@@ -107,7 +126,9 @@ class CardListViewModel(
                     title = item.card.title,
                     description = item.card.description,
                     validationMessage = null
-                )
+                ),
+                message = null,
+                errorMessage = null
             )
         }
     }
@@ -136,7 +157,7 @@ class CardListViewModel(
      * 关闭编辑器直接丢弃草稿，明确“未保存不落库”的交互语义。
      */
     fun onDismissEditor() {
-        _uiState.update { it.copy(editor = null) }
+        _uiState.update { it.copy(editor = null, errorMessage = null) }
     }
 
     /**
@@ -172,7 +193,7 @@ class CardListViewModel(
                 )
             }
             cardRepository.upsert(card)
-            _uiState.update { it.copy(editor = null, message = "已保存") }
+            _uiState.update { it.copy(editor = null, message = "卡片已保存", errorMessage = null) }
         }
     }
 
@@ -190,14 +211,14 @@ class CardListViewModel(
      * 删除需要先进入确认态，避免在列表交互中误触造成不可逆的数据丢失。
      */
     fun onDeleteCardClick(item: CardSummary) {
-        _uiState.update { it.copy(pendingDelete = item) }
+        _uiState.update { it.copy(pendingDelete = item, errorMessage = null) }
     }
 
     /**
      * 退出确认态可以避免误触删除，符合高风险操作需要二次确认的原则。
      */
     fun onDismissDelete() {
-        _uiState.update { it.copy(pendingDelete = null) }
+        _uiState.update { it.copy(pendingDelete = null, errorMessage = null) }
     }
 
     /**
@@ -207,7 +228,7 @@ class CardListViewModel(
         val pending = _uiState.value.pendingDelete ?: return
         viewModelScope.launch {
             cardRepository.delete(pending.card.id)
-            _uiState.update { it.copy(pendingDelete = null, message = "已删除") }
+            _uiState.update { it.copy(pendingDelete = null, message = "卡片已删除", errorMessage = null) }
         }
     }
 

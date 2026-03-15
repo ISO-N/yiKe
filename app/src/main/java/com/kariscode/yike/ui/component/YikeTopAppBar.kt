@@ -1,10 +1,15 @@
 package com.kariscode.yike.ui.component
 
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.unit.dp
 
 /**
  * Material3 的 TopAppBar 目前仍处于实验 API，集中封装能把 opt-in 控制在单点，
@@ -14,14 +19,35 @@ import androidx.compose.runtime.Composable
 @Composable
 fun YikeTopAppBar(
     title: String,
-    navigationAction: NavigationAction? = null
+    subtitle: String? = null,
+    navigationAction: NavigationAction? = null,
+    actionText: String? = null,
+    onActionClick: (() -> Unit)? = null
 ) {
     TopAppBar(
-        title = { Text(title) },
+        title = {
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(text = title)
+                if (!subtitle.isNullOrBlank()) {
+                    Text(
+                        text = subtitle,
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+        },
         navigationIcon = {
             if (navigationAction != null) {
                 IconButton(onClick = navigationAction.onClick) {
                     Text(navigationAction.label)
+                }
+            }
+        },
+        actions = {
+            if (!actionText.isNullOrBlank() && onActionClick != null) {
+                TextButton(onClick = onActionClick) {
+                    Text(actionText)
                 }
             }
         }

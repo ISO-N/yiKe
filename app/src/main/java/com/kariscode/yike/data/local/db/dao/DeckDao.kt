@@ -19,7 +19,8 @@ data class DeckSummaryRow(
     val createdAt: Long,
     val updatedAt: Long,
     val cardCount: Int,
-    val questionCount: Int
+    val questionCount: Int,
+    val dueQuestionCount: Int
 )
 
 /**
@@ -63,7 +64,8 @@ interface DeckDao {
             d.createdAt AS createdAt,
             d.updatedAt AS updatedAt,
             COUNT(DISTINCT c.id) AS cardCount,
-            COUNT(DISTINCT q.id) AS questionCount
+            COUNT(DISTINCT q.id) AS questionCount,
+            COUNT(DISTINCT CASE WHEN q.dueAt <= :nowEpochMillis THEN q.id END) AS dueQuestionCount
         FROM deck d
         LEFT JOIN card c ON c.deckId = d.id AND c.archived = 0
         LEFT JOIN question q ON q.cardId = c.id AND q.status = :activeStatus
@@ -72,7 +74,7 @@ interface DeckDao {
         ORDER BY d.sortOrder ASC, d.createdAt ASC
         """
     )
-    fun observeActiveDeckSummaries(activeStatus: String): Flow<List<DeckSummaryRow>>
+    fun observeActiveDeckSummaries(activeStatus: String, nowEpochMillis: Long): Flow<List<DeckSummaryRow>>
 
     @Query("SELECT * FROM deck WHERE id = :deckId LIMIT 1")
     suspend fun findById(deckId: String): DeckEntity?

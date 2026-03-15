@@ -19,7 +19,8 @@ data class CardSummaryRow(
     val sortOrder: Int,
     val createdAt: Long,
     val updatedAt: Long,
-    val questionCount: Int
+    val questionCount: Int,
+    val dueQuestionCount: Int
 )
 
 /**
@@ -55,7 +56,8 @@ interface CardDao {
             c.sortOrder AS sortOrder,
             c.createdAt AS createdAt,
             c.updatedAt AS updatedAt,
-            COUNT(DISTINCT q.id) AS questionCount
+            COUNT(DISTINCT q.id) AS questionCount,
+            COUNT(DISTINCT CASE WHEN q.dueAt <= :nowEpochMillis THEN q.id END) AS dueQuestionCount
         FROM card c
         LEFT JOIN question q ON q.cardId = c.id AND q.status = :activeStatus
         WHERE c.deckId = :deckId AND c.archived = 0
@@ -63,7 +65,11 @@ interface CardDao {
         ORDER BY c.sortOrder ASC, c.createdAt ASC
         """
     )
-    fun observeActiveCardSummaries(deckId: String, activeStatus: String): Flow<List<CardSummaryRow>>
+    fun observeActiveCardSummaries(
+        deckId: String,
+        activeStatus: String,
+        nowEpochMillis: Long
+    ): Flow<List<CardSummaryRow>>
 
     @Query("SELECT * FROM card WHERE id = :cardId LIMIT 1")
     suspend fun findById(cardId: String): CardEntity?

@@ -8,6 +8,7 @@ package com.kariscode.yike.domain.model
 data class DeckSummary(
     val deck: Deck,
     val cardCount: Int,
-    val questionCount: Int
+    val questionCount: Int,
+    val dueQuestionCount: Int
 )
 

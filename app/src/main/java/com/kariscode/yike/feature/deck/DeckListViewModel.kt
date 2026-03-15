@@ -35,7 +35,8 @@ data class DeckListUiState(
     val items: List<DeckSummary>,
     val editor: DeckEditorDraft?,
     val pendingDelete: DeckSummary?,
-    val message: String?
+    val message: String?,
+    val errorMessage: String?
 )
 
 /**
@@ -52,7 +53,8 @@ class DeckListViewModel(
             items = emptyList(),
             editor = null,
             pendingDelete = null,
-            message = null
+            message = null,
+            errorMessage = null
         )
     )
     val uiState: StateFlow<DeckListUiState> = _uiState.asStateFlow()
@@ -63,12 +65,25 @@ class DeckListViewModel(
          * 而不是在每个操作完成后手动触发 reload。
          */
         viewModelScope.launch {
-            deckRepository.observeActiveDeckSummaries()
+            val now = timeProvider.nowEpochMillis()
+            deckRepository.observeActiveDeckSummaries(now)
                 .catch { throwable ->
-                    _uiState.update { it.copy(isLoading = false, message = throwable.message ?: "加载失败") }
+                    _uiState.update {
+                        it.copy(
+                            isLoading = false,
+                            message = null,
+                            errorMessage = throwable.message ?: "加载失败"
+                        )
+                    }
                 }
                 .collect { items ->
-                    _uiState.update { it.copy(isLoading = false, items = items, message = null) }
+                    _uiState.update {
+                        it.copy(
+                            isLoading = false,
+                            items = items,
+                            errorMessage = null
+                        )
+                    }
                 }
         }
     }
@@ -80,7 +95,8 @@ class DeckListViewModel(
         _uiState.update {
             it.copy(
                 editor = DeckEditorDraft(deckId = null, name = "", description = "", validationMessage = null),
-                message = null
+                message = null,
+                errorMessage = null
             )
         }
     }
@@ -97,7 +113,8 @@ class DeckListViewModel(
                     description = item.deck.description,
                     validationMessage = null
                 ),
-                message = null
+                message = null,
+                errorMessage = null
             )
         }
     }
@@ -126,7 +143,7 @@ class DeckListViewModel(
      * 关闭编辑器会丢弃草稿，这样能明确“未保存不生效”的交互语义。
      */
     fun onDismissEditor() {
-        _uiState.update { it.copy(editor = null) }
+        _uiState.update { it.copy(editor = null, errorMessage = null) }
     }
 
     /**
@@ -163,7 +180,7 @@ class DeckListViewModel(
             }
 
             deckRepository.upsert(deck)
-            _uiState.update { it.copy(editor = null, message = "已保存") }
+            _uiState.update { it.copy(editor = null, message = "卡组已保存", errorMessage = null) }
         }
     }
 
@@ -181,14 +198,14 @@ class DeckListViewModel(
      * 删除属于高风险操作，因此必须先进入确认态，而不是直接执行。
      */
     fun onDeleteDeckClick(item: DeckSummary) {
-        _uiState.update { it.copy(pendingDelete = item) }
+        _uiState.update { it.copy(pendingDelete = item, errorMessage = null) }
     }
 
     /**
      * 退出确认态可以避免误触造成的数据丢失。
      */
     fun onDismissDelete() {
-        _uiState.update { it.copy(pendingDelete = null) }
+        _uiState.update { it.copy(pendingDelete = null, errorMessage = null) }
     }
 
     /**
@@ -198,7 +215,7 @@ class DeckListViewModel(
         val pending = _uiState.value.pendingDelete ?: return
         viewModelScope.launch {
             deckRepository.delete(pending.deck.id)
-            _uiState.update { it.copy(pendingDelete = null, message = "已删除") }
+            _uiState.update { it.copy(pendingDelete = null, message = "卡组已删除", errorMessage = null) }
         }
     }
 

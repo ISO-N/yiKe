@@ -29,8 +29,12 @@ class OfflineCardRepository(
     /**
      * 通过聚合查询提供列表统计，避免 UI 层逐项查询带来的性能与口径风险。
      */
-    override fun observeActiveCardSummaries(deckId: String): Flow<List<CardSummary>> =
-        cardDao.observeActiveCardSummaries(deckId = deckId, activeStatus = QuestionEntity.STATUS_ACTIVE)
+    override fun observeActiveCardSummaries(deckId: String, nowEpochMillis: Long): Flow<List<CardSummary>> =
+        cardDao.observeActiveCardSummaries(
+            deckId = deckId,
+            activeStatus = QuestionEntity.STATUS_ACTIVE,
+            nowEpochMillis = nowEpochMillis
+        )
             .map { list -> list.map(::toCardSummary) }
 
     /**
@@ -81,6 +85,7 @@ class OfflineCardRepository(
             createdAt = row.createdAt,
             updatedAt = row.updatedAt
         ),
-        questionCount = row.questionCount
+        questionCount = row.questionCount,
+        dueQuestionCount = row.dueQuestionCount
     )
 }

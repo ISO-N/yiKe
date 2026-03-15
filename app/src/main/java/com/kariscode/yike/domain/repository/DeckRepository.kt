@@ -18,7 +18,7 @@ interface DeckRepository {
      * 为列表提供带统计的聚合流，可以把统计口径集中在 data 层实现，
      * 并避免上层用例/页面引入 N+1 查询。
      */
-    fun observeActiveDeckSummaries(): Flow<List<DeckSummary>>
+    fun observeActiveDeckSummaries(nowEpochMillis: Long): Flow<List<DeckSummary>>
 
     /**
      * 以 ID 获取单个对象是为了配合导航参数与进程重建，
