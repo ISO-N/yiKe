@@ -39,6 +39,20 @@ class OfflineDeckRepository(
             .map { list -> list.map(::toDeckSummary) }
 
     /**
+     * 首页走限量快照查询可把“只展示少量入口”的意图下推到数据层，减少无意义的聚合结果构建。
+     */
+    override suspend fun listRecentActiveDeckSummaries(
+        nowEpochMillis: Long,
+        limit: Int
+    ): List<DeckSummary> = withContext(dispatchers.io) {
+        deckDao.listRecentActiveDeckSummaries(
+            activeStatus = QuestionEntity.STATUS_ACTIVE,
+            nowEpochMillis = nowEpochMillis,
+            limit = limit
+        ).map(::toDeckSummary)
+    }
+
+    /**
      * IO 查询放在 dispatchers.io 上执行，避免在主线程触发磁盘读写导致卡顿。
      */
     override suspend fun findById(deckId: String): Deck? = withContext(dispatchers.io) {

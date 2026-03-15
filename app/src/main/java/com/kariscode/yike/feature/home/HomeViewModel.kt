@@ -12,7 +12,6 @@ import com.kariscode.yike.domain.repository.QuestionRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
@@ -65,7 +64,12 @@ class HomeViewModel(
                 coroutineScope {
                     val now = timeProvider.nowEpochMillis()
                     val summary = async { questionRepository.getTodayReviewSummary(now) }
-                    val recentDecks = async { deckRepository.observeActiveDeckSummaries(now).first().take(3) }
+                    val recentDecks = async {
+                        deckRepository.listRecentActiveDeckSummaries(
+                            nowEpochMillis = now,
+                            limit = 3
+                        )
+                    }
                     summary.await() to recentDecks.await()
                 }
             }.onSuccess { (summary, recentDecks) ->

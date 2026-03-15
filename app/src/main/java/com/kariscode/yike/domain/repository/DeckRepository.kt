@@ -21,6 +21,11 @@ interface DeckRepository {
     fun observeActiveDeckSummaries(nowEpochMillis: Long): Flow<List<DeckSummary>>
 
     /**
+     * 首页只展示少量最近卡组，提供限量快照查询可以避免先订阅全量流再在上层截断。
+     */
+    suspend fun listRecentActiveDeckSummaries(nowEpochMillis: Long, limit: Int): List<DeckSummary>
+
+    /**
      * 以 ID 获取单个对象是为了配合导航参数与进程重建，
      * 页面只需要持有 ID 就能重新加载所需信息。
      */

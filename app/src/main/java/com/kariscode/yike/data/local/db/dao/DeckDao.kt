@@ -75,6 +75,37 @@ interface DeckDao {
     )
     fun observeActiveDeckSummaries(activeStatus: String, nowEpochMillis: Long): Flow<List<DeckSummaryRow>>
 
+    /**
+     * 首页最近卡组只需要一小段快照，数据库侧限量可以避免先构造完整列表再让上层截断。
+     */
+    @Query(
+        """
+        SELECT
+            d.id AS id,
+            d.name AS name,
+            d.description AS description,
+            d.archived AS archived,
+            d.sortOrder AS sortOrder,
+            d.createdAt AS createdAt,
+            d.updatedAt AS updatedAt,
+            COUNT(DISTINCT c.id) AS cardCount,
+            COUNT(DISTINCT q.id) AS questionCount,
+            COUNT(DISTINCT CASE WHEN q.dueAt <= :nowEpochMillis THEN q.id END) AS dueQuestionCount
+        FROM deck d
+        LEFT JOIN card c ON c.deckId = d.id AND c.archived = 0
+        LEFT JOIN question q ON q.cardId = c.id AND q.status = :activeStatus
+        WHERE d.archived = 0
+        GROUP BY d.id
+        ORDER BY d.sortOrder ASC, d.createdAt ASC
+        LIMIT :limit
+        """
+    )
+    suspend fun listRecentActiveDeckSummaries(
+        activeStatus: String,
+        nowEpochMillis: Long,
+        limit: Int
+    ): List<DeckSummaryRow>
+
     @Query("SELECT * FROM deck WHERE id = :deckId LIMIT 1")
     suspend fun findById(deckId: String): DeckEntity?
 
