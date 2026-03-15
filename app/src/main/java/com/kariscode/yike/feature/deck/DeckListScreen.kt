@@ -55,7 +55,6 @@ fun DeckListScreen(
         currentDestination = YikePrimaryDestination.DECKS,
         title = "卡组",
         subtitle = "优先把主题拆成卡组，复习和录入都会更容易维护。",
-        showNavigationChrome = false,
         floatingActionButton = {
             YikeFab(
                 text = "+ 新建",

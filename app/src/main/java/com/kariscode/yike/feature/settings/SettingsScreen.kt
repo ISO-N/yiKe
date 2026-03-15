@@ -76,8 +76,7 @@ fun SettingsScreen(
     YikePrimaryScaffold(
         currentDestination = YikePrimaryDestination.SETTINGS,
         title = "设置",
-        subtitle = "在这里管理提醒、备份以及应用的全局状态。",
-        showNavigationChrome = false
+        subtitle = "在这里管理提醒、备份以及应用的全局状态。"
     ) { padding ->
         SettingsContent(
             uiState = uiState,
@@ -213,7 +212,7 @@ private fun ReminderSettingsSection(
                 onCheckedChange = onReminderEnabledChange
             )
         }
-    ) {}
+    )
 
     YikeListItemCard(
         title = "提醒时间",

@@ -55,9 +55,7 @@ fun CardListScreen(
     YikeFlowScaffold(
         title = uiState.deckName ?: "卡片列表",
         subtitle = "按章节或知识块拆分卡片，能让复习时更容易进入上下文。",
-        navigationAction = backNavigationAction(onBack),
-        actionText = null,
-        onActionClick = null
+        navigationAction = backNavigationAction(onBack)
     ) { padding ->
         CardListContent(
             uiState = uiState,
