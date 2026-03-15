@@ -418,3 +418,23 @@ yike-backup-20260314-213000.json
 - 行为可预测
 
 第一版只要把“完整导出 JSON + 全量覆盖恢复”做稳定，就足以满足自用与后续迭代需要。
+
+---
+
+## 19. 当前实现落点（2026-03）
+
+当前工程已按本文档落地以下实现：
+
+- 备份模型：`app/src/main/java/com/kariscode/yike/data/backup/BackupModels.kt`
+- JSON 编解码：`app/src/main/java/com/kariscode/yike/data/backup/BackupJson.kt`
+- 文件校验：`app/src/main/java/com/kariscode/yike/data/backup/BackupValidator.kt`
+- 导出/恢复服务：`app/src/main/java/com/kariscode/yike/data/backup/BackupService.kt`
+- 页面与文件选择流程：`app/src/main/java/com/kariscode/yike/feature/backup/BackupRestoreScreen.kt`
+- 页面编排：`app/src/main/java/com/kariscode/yike/feature/backup/BackupRestoreViewModel.kt`
+
+当前实现提供的行为约束：
+
+- 导出支持空数据与非空数据集，并始终生成包含 `app/settings/decks/cards/questions/reviewRecords` 的 JSON 文件
+- 恢复前先做版本、必填字段、引用关系、评分枚举和阶段合法性校验
+- 恢复采用全量覆盖；数据库写入在事务内完成，设置写入失败时会执行补偿回滚
+- 恢复完成后会根据恢复后的设置重新调度每日提醒

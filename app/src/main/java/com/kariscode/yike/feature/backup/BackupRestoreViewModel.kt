@@ -1,0 +1,204 @@
+package com.kariscode.yike.feature.backup
+
+import android.net.Uri
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.viewModelScope
+import com.kariscode.yike.data.backup.BackupService
+import com.kariscode.yike.data.reminder.ReminderScheduler
+import com.kariscode.yike.domain.repository.AppSettingsRepository
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
+
+/**
+ * 备份页状态需要同时覆盖导出、恢复确认与结果反馈，
+ * 统一建模可避免高风险流程分散在页面临时变量中而难以维护。
+ */
+data class BackupRestoreUiState(
+    val isExporting: Boolean,
+    val isImporting: Boolean,
+    val lastBackupAt: Long?,
+    val warningMessage: String,
+    val message: String?,
+    val errorMessage: String?,
+    val pendingRestoreUri: Uri?
+)
+
+/**
+ * 文件选择器属于一次性系统交互，因此通过 effect 发出可避免把 Uri 启动逻辑塞进持续状态。
+ */
+sealed interface BackupRestoreEffect {
+    data class LaunchExport(val suggestedFileName: String) : BackupRestoreEffect
+    data object LaunchImport : BackupRestoreEffect
+}
+
+/**
+ * BackupRestoreViewModel 把导出、恢复确认和提醒重建串成完整业务路径，
+ * 以确保页面不会越过校验或遗漏恢复后的系统协同。
+ */
+class BackupRestoreViewModel(
+    private val backupService: BackupService,
+    private val appSettingsRepository: AppSettingsRepository,
+    private val reminderScheduler: ReminderScheduler
+) : ViewModel() {
+    private val _uiState = MutableStateFlow(
+        BackupRestoreUiState(
+            isExporting = false,
+            isImporting = false,
+            lastBackupAt = null,
+            warningMessage = "从备份恢复会覆盖当前本地全部数据，请先确认是否已完成备份。",
+            message = null,
+            errorMessage = null,
+            pendingRestoreUri = null
+        )
+    )
+    val uiState: StateFlow<BackupRestoreUiState> = _uiState.asStateFlow()
+
+    private val _effects = MutableSharedFlow<BackupRestoreEffect>(extraBufferCapacity = 1)
+    val effects: SharedFlow<BackupRestoreEffect> = _effects.asSharedFlow()
+
+    init {
+        /**
+         * 最近备份时间来自设置仓储，是为了让导出成功与恢复后的设置变化都能自动反映到页面。
+         */
+        viewModelScope.launch {
+            appSettingsRepository.observeSettings().collect { settings ->
+                _uiState.update { it.copy(lastBackupAt = settings.backupLastAt) }
+            }
+        }
+    }
+
+    /**
+     * 导出入口只负责触发系统文件创建器，
+     * 真正写文件要等用户明确选择保存位置后再执行。
+     */
+    fun onExportClick() {
+        _effects.tryEmit(
+            BackupRestoreEffect.LaunchExport(
+                suggestedFileName = backupService.createSuggestedFileName()
+            )
+        )
+    }
+
+    /**
+     * 导出 URI 回来后才开始写文件，可保证用户取消操作时不产生误导性的成功提示。
+     */
+    fun onExportUriSelected(uri: Uri?) {
+        if (uri == null) return
+        viewModelScope.launch {
+            _uiState.update { it.copy(isExporting = true, message = null, errorMessage = null) }
+            runCatching {
+                backupService.exportToUri(uri)
+            }.onSuccess {
+                _uiState.update {
+                    it.copy(
+                        isExporting = false,
+                        message = "备份已导出",
+                        errorMessage = null
+                    )
+                }
+            }.onFailure {
+                _uiState.update {
+                    it.copy(
+                        isExporting = false,
+                        message = null,
+                        errorMessage = "导出失败，请重试"
+                    )
+                }
+            }
+        }
+    }
+
+    /**
+     * 恢复入口先打开系统文件选择器，是为了保持 Android 文件访问权限流程可解释且最小化。
+     */
+    fun onImportClick() {
+        _effects.tryEmit(BackupRestoreEffect.LaunchImport)
+    }
+
+    /**
+     * 选择文件后必须先进入确认态，
+     * 这样用户在真正覆盖本地数据前会再看到一次不可逆风险提示。
+     */
+    fun onImportUriSelected(uri: Uri?) {
+        if (uri == null) return
+        _uiState.update {
+            it.copy(
+                pendingRestoreUri = uri,
+                message = null,
+                errorMessage = null
+            )
+        }
+    }
+
+    /**
+     * 用户取消确认后应清空待恢复文件，
+     * 避免页面后续误把旧选择当作当前操作目标。
+     */
+    fun onDismissRestoreConfirmation() {
+        _uiState.update { it.copy(pendingRestoreUri = null) }
+    }
+
+    /**
+     * 恢复成功后立即重建提醒，是为了让恢复后的设置与数据状态能马上影响后台任务。
+     */
+    fun onConfirmRestore() {
+        val uri = _uiState.value.pendingRestoreUri ?: return
+        viewModelScope.launch {
+            _uiState.update {
+                it.copy(
+                    isImporting = true,
+                    message = null,
+                    errorMessage = null,
+                    pendingRestoreUri = null
+                )
+            }
+            runCatching {
+                backupService.restoreFromUri(uri)
+                reminderScheduler.syncReminderFromRepository()
+            }.onSuccess {
+                _uiState.update {
+                    it.copy(
+                        isImporting = false,
+                        message = "恢复成功",
+                        errorMessage = null
+                    )
+                }
+            }.onFailure { throwable ->
+                _uiState.update {
+                    it.copy(
+                        isImporting = false,
+                        message = null,
+                        errorMessage = throwable.message ?: "恢复失败，当前数据未被修改"
+                    )
+                }
+            }
+        }
+    }
+
+    companion object {
+        /**
+         * 工厂注入高风险服务依赖，可让页面测试时替换为假实现而不触碰真实文件与数据库。
+         */
+        fun factory(
+            backupService: BackupService,
+            appSettingsRepository: AppSettingsRepository,
+            reminderScheduler: ReminderScheduler
+        ): ViewModelProvider.Factory = object : ViewModelProvider.Factory {
+            override fun <T : ViewModel> create(modelClass: Class<T>): T {
+                @Suppress("UNCHECKED_CAST")
+                return BackupRestoreViewModel(
+                    backupService = backupService,
+                    appSettingsRepository = appSettingsRepository,
+                    reminderScheduler = reminderScheduler
+                ) as T
+            }
+        }
+    }
+}

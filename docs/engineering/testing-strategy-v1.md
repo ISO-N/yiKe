@@ -294,3 +294,21 @@
 - 恢复能不能保底
 
 只要把这四类风险压住，第一版就具备长期自用的基础。
+
+---
+
+## 15. 当前实现落点（2026-03）
+
+当前仓库已经补齐以下自动化验证入口，便于后续回归：
+
+- 单元测试
+  - `domain/scheduler/ReviewSchedulerV1Test.kt`
+  - `domain/scheduler/InitialDueAtCalculatorTest.kt`
+  - `domain/reminder/ReminderTimeCalculatorTest.kt`
+  - `data/backup/BackupValidatorTest.kt`
+- 数据层 / Room 集成测试
+  - `androidTest/data/local/db/YikeDatabaseIntegrationTest.kt`
+- 关键页面内容测试
+  - `androidTest/feature/FeatureContentTest.kt`
+
+首版手动设备验收清单已单独整理为 `manual-acceptance-v0-1.md`，用于覆盖通知、文件选择器与恢复确认等系统级行为。

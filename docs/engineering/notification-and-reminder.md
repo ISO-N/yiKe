@@ -314,3 +314,25 @@ Worker 运行时不依赖页面状态，只依赖本地存储。
 - 设置变化、重启、恢复后都能自动重建
 
 这样既能满足 MVP 的“提醒可用”，也不会过早陷入 Android 精确闹钟的复杂度。
+
+---
+
+## 17. 当前实现落点（2026-03）
+
+当前工程已按本文档落地以下实现：
+
+- 设置页：`app/src/main/java/com/kariscode/yike/feature/settings/SettingsScreen.kt`
+- 设置编排：`app/src/main/java/com/kariscode/yike/feature/settings/SettingsViewModel.kt`
+- 时间计算：`app/src/main/java/com/kariscode/yike/domain/reminder/ReminderTimeCalculator.kt`
+- 调度器：`app/src/main/java/com/kariscode/yike/data/reminder/ReminderScheduler.kt`
+- Worker：`app/src/main/java/com/kariscode/yike/data/reminder/ReminderCheckWorker.kt`
+- 通知辅助：`app/src/main/java/com/kariscode/yike/data/reminder/NotificationHelper.kt`
+- 系统恢复广播：`app/src/main/java/com/kariscode/yike/data/reminder/ReminderRestoreReceiver.kt`
+- 应用启动重建：`app/src/main/java/com/kariscode/yike/app/YikeApplication.kt`
+
+当前实现遵循的运行规则：
+
+- 用户开启提醒时保存开关与时间，并立即替换旧 WorkManager 任务
+- Android 13+ 权限被拒绝时，提醒配置仍保留，但页面会提示通知可能无法显示
+- Worker 只在存在待复习内容时发送通知，并在结束前重建下一次提醒
+- 应用启动、设备重启、时间变更、时区变更和备份恢复后都会重新调度提醒

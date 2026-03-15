@@ -31,6 +31,7 @@ review_queue
 review_card/{cardId}
 settings
 backup_restore
+debug
 ```
 
 说明：
@@ -54,6 +55,8 @@ backup_restore
   -> 设置
       -> settings
           -> backup_restore
+  -> 调试工具（仅 debug 构建）
+      -> debug
 ```
 
 原则：
@@ -112,6 +115,7 @@ backup_restore
 
 - 展示今日待复习概览
 - 提供进入复习、卡组、设置的入口
+- 在 debug 构建下提供进入调试工具页的入口
 
 ### 7.2 `HomeUiState` 建议
 
@@ -152,12 +156,14 @@ error: HomeError?
 - `OnStartReviewClick`
 - `OnDeckListClick`
 - `OnSettingsClick`
+- `OnDebugToolsClick`
 
 ### 7.5 一次性效果
 
 - 导航到卡组列表
 - 导航到设置页
 - 导航到复习流
+- 在 debug 构建下导航到调试工具页
 
 ---
 
@@ -474,6 +480,7 @@ error: BackupRestoreError?
 
 - `backup_restore` 返回 `settings`
 - `settings` 返回 `home`
+- `debug` 返回 `home`
 
 ---
 

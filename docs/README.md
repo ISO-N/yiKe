@@ -75,6 +75,7 @@ docs/
 | `notification-and-reminder.md` | 定义每日提醒能力与 Android 落地方案 |
 | `storage-and-backup.md` | 定义本地存储、JSON 备份与恢复策略 |
 | `testing-strategy-v1.md` | 定义测试层次、最低验收与重点场景 |
+| `manual-acceptance-v0-1.md` | 首版设备手动验收清单 |
 | `error-handling-and-empty-states.md` | 统一错误状态、空状态与交互文案 |
 
 ## 3.4 项目文档 `project/`
