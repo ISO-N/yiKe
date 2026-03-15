@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>忆刻 - 卡组列表</title>
+  <link rel="stylesheet" href="./material-app.css">
+</head>
+<body class="page-bg">
+  <div class="app-shell">
+    <header class="top-bar">
+      <div>
+        <p class="eyebrow">Deck Library</p>
+        <h1 class="screen-title">卡组</h1>
+      </div>
+      <a class="icon-button" href="./home.html" aria-label="返回首页">返</a>
+    </header>
+
+    <section class="section hero-card">
+      <div class="row">
+        <div>
+          <p class="eyebrow">Overview</p>
+          <h2 class="headline">3 个活跃卡组</h2>
+        </div>
+        <span class="badge is-warm">14 题今日到期</span>
+      </div>
+      <p class="supporting">优先把主题拆成卡组，复习和录入都会更容易维护。</p>
+      <div class="pill-row" style="margin-top:16px;">
+        <span class="assist-pill is-active">全部</span>
+        <span class="assist-pill">今日到期</span>
+        <span class="assist-pill">已归档</span>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="list-stack">
+        <article class="list-item">
+          <div class="row">
+            <h3 class="list-title">高等数学</h3>
+            <span class="badge is-warm">8 题到期</span>
+          </div>
+          <p class="meta-line">12 张卡片 · 56 个问题</p>
+          <p class="supporting">极限、微分、积分三块内容的记忆密度最高。</p>
+          <a class="nav-pill is-active" href="./cards.html">进入卡组</a>
+        </article>
+        <article class="list-item">
+          <div class="row">
+            <h3 class="list-title">操作系统</h3>
+            <span class="badge">4 题到期</span>
+          </div>
+          <p class="meta-line">7 张卡片 · 31 个问题</p>
+          <p class="supporting">更偏概念复习，适合在中午时间集中回顾。</p>
+          <a class="nav-pill" href="./cards.html">进入卡组</a>
+        </article>
+        <article class="list-item">
+          <div class="row">
+            <h3 class="list-title">英语词组</h3>
+            <span class="badge">2 题到期</span>
+          </div>
+          <p class="meta-line">5 张卡片 · 20 个问题</p>
+          <p class="supporting">轻量且高频，保持日常记忆温度即可。</p>
+          <a class="nav-pill" href="./cards.html">进入卡组</a>
+        </article>
+      </div>
+    </section>
+
+    <a class="fab" href="./editor.html">+ 新建</a>
+
+    <nav class="bottom-nav" aria-label="主导航">
+      <a href="./home.html">首页</a>
+      <a class="is-active" href="./decks.html">卡组</a>
+      <a href="./settings.html">设置</a>
+    </nav>
+  </div>
+</body>
+</html>

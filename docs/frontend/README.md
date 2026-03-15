@@ -1,0 +1,105 @@
+# 忆刻前端原型说明
+
+## 1. 产物位置
+
+本次 UI/UX 原型全部放在 `docs/frontend/`：
+
+- `index.html`：总览页，可一次查看全部手机页面
+- `material-app.css`：共享设计令牌与组件样式
+- `home.html`：首页
+- `review.html`：复习页
+- `decks.html`：卡组列表页
+- `cards.html`：卡片列表页
+- `editor.html`：问题编辑页
+- `settings.html`：设置页
+- `backup.html`：备份与恢复页
+
+---
+
+## 2. 设计目标
+
+本套原型围绕现有产品文档中的三条核心原则展开：
+
+1. 打开应用后，优先看到“今天该复习什么”
+2. 页面层级尽量少，保证主路径短
+3. 内容管理、复习、设置三类任务清晰分层
+
+因此，视觉上采用接近 Material 3 的：
+
+- 浅色表面层与明确的容器层级
+- Filled / Tonal / Outlined 按钮关系
+- 卡片化信息块
+- 底部导航 + FAB 的手机应用语言
+- 适合长时间阅读的高对比文本布局
+
+---
+
+## 3. 设计系统摘要
+
+结合 `ui-ux-pro-max` skill 检索结果，本次原型采用：
+
+- 主色：青绿色系，强调“专注、稳定、轻效率”
+- 强调色：柔和橙色，用于 FAB、风险提示与高注意力动作
+- 交互：150-300ms 的轻微过渡，不依赖悬停完成主操作
+- 可访问性：
+  - 触控目标最小 44px
+  - 移动端优先布局
+  - 保留明显焦点态
+  - 支持 `prefers-reduced-motion`
+
+---
+
+## 4. 页面映射
+
+### 首页 `home.html`
+
+- 展示今日待复习概览
+- 提供“开始复习”主入口
+- 提供近期卡组入口
+
+### 复习页 `review.html`
+
+- 聚焦单题回忆
+- 点击后显示答案
+- 四档评分立即可达
+
+### 卡组与卡片页 `decks.html` / `cards.html`
+
+- 延续 Material 列表结构
+- 每一项都直接提供数量与到期信息
+- FAB 只承担新增动作，不混入其他能力
+
+### 编辑页 `editor.html`
+
+- 卡片信息与问题草稿垂直展开
+- 先保证输入效率，再考虑复杂富文本能力
+
+### 设置与备份页 `settings.html` / `backup.html`
+
+- 设置页承接“低频但重要”的全局能力
+- 备份恢复页强调风险提示与确认层级
+
+---
+
+## 5. 使用方式
+
+直接在浏览器中打开 `docs/frontend/index.html` 即可预览全部页面。
+
+如果只想查看某一个页面，也可以单独打开对应的 HTML 文件。
+
+---
+
+## 6. 后续实现建议
+
+如果后续要将这套原型落到 Android Compose，可优先映射这些组件：
+
+- `TopAppBar`
+- `BottomNavigationBar`
+- `ExtendedFloatingActionButton`
+- `ElevatedCard`
+- `FilledButton` / `OutlinedButton`
+- `FilterChip`
+- `TextField`
+- `Switch`
+
+这样可以在保留现有信息架构的前提下，最快把视觉方案转成实际代码。

@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>忆刻 - 问题编辑</title>
+  <link rel="stylesheet" href="./material-app.css">
+</head>
+<body class="page-bg">
+  <div class="app-shell">
+    <header class="top-bar">
+      <div>
+        <p class="eyebrow">Question Editor</p>
+        <h1 class="screen-title">编辑卡片</h1>
+      </div>
+      <a class="primary-button" href="./cards.html">保存</a>
+    </header>
+
+    <section class="section hero-card">
+      <p class="eyebrow">Card Info</p>
+      <h2 class="headline">第一章 极限</h2>
+      <p class="supporting">先把卡片标题写得足够明确，后续复习才更容易快速进入语境。</p>
+    </section>
+
+    <section class="section field-stack">
+      <article class="field-card">
+        <label class="field-label" for="card-title">卡片标题</label>
+        <input class="text-field" id="card-title" type="text" value="第一章 极限">
+      </article>
+      <article class="field-card">
+        <label class="field-label" for="card-desc">简短说明</label>
+        <textarea class="text-area" id="card-desc">聚焦极限定义、收敛判定和常见易错点，保持答案简洁但完整。</textarea>
+      </article>
+    </section>
+
+    <section class="section">
+      <div class="row" style="margin-bottom:12px;">
+        <h2 class="screen-title">问题草稿</h2>
+        <span class="badge">2 条未保存修改</span>
+      </div>
+      <div class="field-stack">
+        <article class="field-card">
+          <label class="field-label" for="question-1">问题 1</label>
+          <textarea class="text-area" id="question-1">数列极限的定义为什么要同时包含“任意 ε”和“存在 N”？</textarea>
+          <label class="field-label" for="answer-1" style="margin-top:12px;">答案</label>
+          <textarea class="text-area" id="answer-1">前者保证收敛精度没有上限，后者保证在足够靠后的项中能够稳定满足误差要求。</textarea>
+        </article>
+        <article class="field-card">
+          <label class="field-label" for="question-2">问题 2</label>
+          <textarea class="text-area" id="question-2">无穷小和极限为 0 的数列有什么联系？</textarea>
+          <label class="field-label" for="answer-2" style="margin-top:12px;">答案</label>
+          <textarea class="text-area" id="answer-2">无穷小本质上就是极限为 0 的变量或数列，在不同语境下只是命名不同。</textarea>
+        </article>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="button-row">
+        <button class="secondary-button" type="button">添加问题</button>
+        <button class="primary-button" type="button">保存修改</button>
+      </div>
+    </section>
+  </div>
+</body>
+</html>

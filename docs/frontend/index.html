@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>忆刻前端原型总览</title>
+  <link rel="stylesheet" href="./material-app.css">
+</head>
+<body>
+  <!-- 总览页存在的意义是把页面关系一次讲清，避免评审时在多个独立文件之间反复跳转。 -->
+  <main class="gallery-shell">
+    <header class="gallery-header">
+      <p class="eyebrow">YiKe / Material 3 Mobile Prototype</p>
+      <h1 class="headline">忆刻手机 App UI/UX 原型</h1>
+      <p class="supporting">
+        这一版围绕“打开就能开始复习”来设计，采用 Material 3 常见的色彩语义、卡片层级、
+        底部导航和 FAB 语言，同时保留离线学习工具应有的克制感。
+      </p>
+    </header>
+
+    <section class="section">
+      <div class="token-grid">
+        <article class="token-card">
+          <div class="token-swatch" style="background:#0b6f69;"></div>
+          <h3>主色 / Primary</h3>
+          <p>用于开始复习、关键确认按钮和流程进度，保持任务导向感。</p>
+        </article>
+        <article class="token-card">
+          <div class="token-swatch" style="background:#9cf2ea;"></div>
+          <h3>容器色 / Primary Container</h3>
+          <p>承接今日任务、轻状态提示与顶部概览，减少大面积纯色压迫。</p>
+        </article>
+        <article class="token-card">
+          <div class="token-swatch" style="background:#ffdbc7;"></div>
+          <h3>强调色 / Tertiary</h3>
+          <p>用于 FAB、备份风险和轻提醒，让高关注动作更容易被看到。</p>
+        </article>
+        <article class="token-card">
+          <div class="token-swatch" style="background:#f6fbf9;"></div>
+          <h3>表面层 / Surface</h3>
+          <p>大面积背景保持浅色高对比，更适合长时间阅读题面和答案。</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="state-banner">
+        <h2 class="screen-title">信息架构</h2>
+        <p class="supporting">
+          首页、卡组、设置三段式底部导航承接日常入口；复习流作为独立沉浸式页面；
+          卡组详情和问题编辑延续 Material 列表与表单逻辑，减少学习成本。
+        </p>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="preview-grid">
+        <article class="preview-card">
+          <h3>首页</h3>
+          <p class="preview-meta">任务总览、开始复习、近期卡组入口</p>
+          <div class="preview-shell">
+            <div class="phone-frame">
+              <iframe src="./home.html" title="首页原型"></iframe>
+            </div>
+          </div>
+        </article>
+        <article class="preview-card">
+          <h3>复习页</h3>
+          <p class="preview-meta">问题聚焦、显示答案、四档评分</p>
+          <div class="preview-shell">
+            <div class="phone-frame">
+              <iframe src="./review.html" title="复习页原型"></iframe>
+            </div>
+          </div>
+        </article>
+        <article class="preview-card">
+          <h3>卡组列表</h3>
+          <p class="preview-meta">主题聚合、新建卡组、今日到期信息</p>
+          <div class="preview-shell">
+            <div class="phone-frame">
+              <iframe src="./decks.html" title="卡组列表原型"></iframe>
+            </div>
+          </div>
+        </article>
+        <article class="preview-card">
+          <h3>卡片列表</h3>
+          <p class="preview-meta">章节级内容管理、进入问题编辑</p>
+          <div class="preview-shell">
+            <div class="phone-frame">
+              <iframe src="./cards.html" title="卡片列表原型"></iframe>
+            </div>
+          </div>
+        </article>
+        <article class="preview-card">
+          <h3>问题编辑</h3>
+          <p class="preview-meta">卡片信息 + 多问题编辑，贴近移动端表单习惯</p>
+          <div class="preview-shell">
+            <div class="phone-frame">
+              <iframe src="./editor.html" title="问题编辑原型"></iframe>
+            </div>
+          </div>
+        </article>
+        <article class="preview-card">
+          <h3>设置</h3>
+          <p class="preview-meta">提醒、版本信息、备份恢复入口</p>
+          <div class="preview-shell">
+            <div class="phone-frame">
+              <iframe src="./settings.html" title="设置页原型"></iframe>
+            </div>
+          </div>
+        </article>
+        <article class="preview-card">
+          <h3>备份与恢复</h3>
+          <p class="preview-meta">高风险操作清晰分层，减少误触</p>
+          <div class="preview-shell">
+            <div class="phone-frame">
+              <iframe src="./backup.html" title="备份与恢复原型"></iframe>
+            </div>
+          </div>
+        </article>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

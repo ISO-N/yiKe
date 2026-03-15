@@ -2,11 +2,12 @@
 
 ## 1. 文档目录说明
 
-`docs` 目录已按四类内容整理：
+`docs` 目录已按五类内容整理：
 
 ```text
 docs/
   README.md
+  frontend/
   product/
   domain/
   engineering/
@@ -19,6 +20,7 @@ docs/
 - `domain/`：领域对象、调度规则等核心业务规则
 - `engineering/`：技术架构、数据库、导航、提醒、备份、测试等实现文档
 - `project/`：实施路线、编码约定、版本策略、隐私权限、文档规划
+- `frontend/`：HTML/CSS 原型、视觉方案与页面呈现文档
 
 ---
 
@@ -86,6 +88,14 @@ docs/
 | `coding-conventions.md` | 统一命名、状态建模与代码组织习惯 |
 | `release-and-versioning.md` | 统一应用、数据库、备份文件版本策略 |
 | `privacy-and-permissions.md` | 说明数据边界、权限用途与隐私原则 |
+
+## 3.5 前端原型 `frontend/`
+
+| 文档 | 作用 |
+|---|---|
+| `frontend/README.md` | 说明前端原型结构、设计原则与查看方式 |
+| `frontend/index.html` | 汇总展示全部手机页面原型 |
+| `frontend/material-app.css` | 共享 Material 风格样式令牌与组件样式 |
 
 ---
 

@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>忆刻 - 设置</title>
+  <link rel="stylesheet" href="./material-app.css">
+</head>
+<body class="page-bg">
+  <div class="app-shell">
+    <header class="top-bar">
+      <div>
+        <p class="eyebrow">Settings</p>
+        <h1 class="screen-title">设置</h1>
+      </div>
+      <a class="icon-button" href="./home.html" aria-label="返回首页">返</a>
+    </header>
+
+    <section class="section state-banner">
+      <h2 class="screen-title">提醒已开启</h2>
+      <p class="supporting">每天 20:30 检查是否有待复习内容，避免无任务时打扰用户。</p>
+    </section>
+
+    <section class="section">
+      <div class="list-stack">
+        <article class="list-item">
+          <div class="setting-row">
+            <div>
+              <h3 class="list-title">每日提醒</h3>
+              <p class="meta-line">保持固定节奏，比临时补课更能形成复习习惯。</p>
+            </div>
+            <span class="switch" aria-hidden="true"><span class="switch-thumb"></span></span>
+          </div>
+        </article>
+        <article class="list-item">
+          <div class="setting-row">
+            <div>
+              <h3 class="list-title">提醒时间</h3>
+              <p class="meta-line">20:30</p>
+            </div>
+            <a class="nav-pill is-active" href="./settings.html">修改</a>
+          </div>
+        </article>
+        <article class="list-item">
+          <div class="setting-row">
+            <div>
+              <h3 class="list-title">备份与恢复</h3>
+              <p class="meta-line">导出 JSON 或从本地文件恢复全部数据</p>
+            </div>
+            <a class="nav-pill is-active" href="./backup.html">进入</a>
+          </div>
+        </article>
+        <article class="list-item">
+          <div class="setting-row">
+            <div>
+              <h3 class="list-title">应用版本</h3>
+              <p class="meta-line">YiKe v0.1 · 离线优先</p>
+            </div>
+            <span class="badge">MVP</span>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <nav class="bottom-nav" aria-label="主导航">
+      <a href="./home.html">首页</a>
+      <a href="./decks.html">卡组</a>
+      <a class="is-active" href="./settings.html">设置</a>
+    </nav>
+  </div>
+</body>
+</html>

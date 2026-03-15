@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>忆刻 - 卡片列表</title>
+  <link rel="stylesheet" href="./material-app.css">
+</head>
+<body class="page-bg">
+  <div class="app-shell">
+    <header class="top-bar">
+      <div>
+        <p class="eyebrow">Deck Detail</p>
+        <h1 class="screen-title">高等数学</h1>
+      </div>
+      <a class="icon-button" href="./decks.html" aria-label="返回卡组">返</a>
+    </header>
+
+    <section class="section hero-card">
+      <div class="row">
+        <div>
+          <p class="eyebrow">Chapter Cards</p>
+          <h2 class="headline">12 张卡片</h2>
+        </div>
+        <span class="badge is-warm">8 题待处理</span>
+      </div>
+      <p class="supporting">按章节或知识块拆分卡片，能让复习时更容易进入上下文。</p>
+    </section>
+
+    <section class="section">
+      <div class="list-stack">
+        <article class="list-item">
+          <div class="row">
+            <h3 class="list-title">第一章 极限</h3>
+            <span class="badge is-warm">5 题到期</span>
+          </div>
+          <p class="meta-line">8 个问题 · 最近复习：昨天</p>
+          <p class="supporting">概念定义题较多，适合作为今天的第一张卡片。</p>
+          <a class="nav-pill is-active" href="./editor.html">编辑问题</a>
+        </article>
+        <article class="list-item">
+          <div class="row">
+            <h3 class="list-title">第二章 导数</h3>
+            <span class="badge">2 题到期</span>
+          </div>
+          <p class="meta-line">6 个问题 · 最近复习：3 天前</p>
+          <p class="supporting">证明类题目偏多，建议答案保持短而完整。</p>
+          <a class="nav-pill" href="./editor.html">编辑问题</a>
+        </article>
+        <article class="list-item">
+          <div class="row">
+            <h3 class="list-title">第三章 积分</h3>
+            <span class="badge">1 题到期</span>
+          </div>
+          <p class="meta-line">5 个问题 · 最近复习：本周</p>
+          <p class="supporting">本章节状态较稳，可以继续低频维护。</p>
+          <a class="nav-pill" href="./editor.html">编辑问题</a>
+        </article>
+      </div>
+    </section>
+
+    <a class="fab" href="./editor.html">+ 新卡片</a>
+
+    <nav class="bottom-nav" aria-label="主导航">
+      <a href="./home.html">首页</a>
+      <a class="is-active" href="./decks.html">卡组</a>
+      <a href="./settings.html">设置</a>
+    </nav>
+  </div>
+</body>
+</html>
