@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.CircleShape
@@ -118,9 +119,9 @@ fun YikePrimaryScaffold(
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top))
+                    .windowInsetsPadding(WindowInsets.statusBars.only(WindowInsetsSides.Top))
                     .padding(horizontal = 16.dp)
-                    .padding(top = 20.dp)
+                    .padding(top = 6.dp)
             ) {
                 YikeHeaderBlock(
                     eyebrow = currentDestination.label,
@@ -619,8 +620,7 @@ private fun YikeBottomNavigation(
         modifier = Modifier
             .fillMaxWidth()
             .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.92f))
-            .windowInsetsPadding(WindowInsets.navigationBars.only(WindowInsetsSides.Bottom))
-            .padding(horizontal = 16.dp, vertical = 12.dp)
+            .padding(horizontal = 16.dp, vertical = 6.dp)
     ) {
         Surface(
             tonalElevation = 4.dp,
@@ -632,6 +632,7 @@ private fun YikeBottomNavigation(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .windowInsetsPadding(WindowInsets.navigationBars.only(WindowInsetsSides.Bottom))
                     .padding(8.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
