@@ -30,6 +30,12 @@ import com.kariscode.yike.feature.settings.SettingsScreen
 import com.kariscode.yike.ui.component.YikePrimaryDestination
 import com.kariscode.yike.ui.component.YikePrimaryNavigationChrome
 
+private val primaryDestinationMetadata = listOf(
+    YikeDestination.HOME to YikePrimaryDestination.HOME,
+    YikeDestination.DECK_LIST to YikePrimaryDestination.DECKS,
+    YikeDestination.SETTINGS to YikePrimaryDestination.SETTINGS
+)
+
 /**
  * 将导航图独立出来，能避免在 Activity 或某个页面中堆叠路由逻辑，
  * 同时也让后续为导航加测试或深链路支持更容易。
@@ -174,12 +180,8 @@ private fun NavHostController.navigatePrimaryDestination(
  */
 private fun primaryDestinationOrder(
     route: String?
-): Int? = when (route) {
-    YikeDestination.HOME -> 0
-    YikeDestination.DECK_LIST -> 1
-    YikeDestination.SETTINGS -> 2
-    else -> null
-}
+): Int? = primaryDestinationMetadata.indexOfFirst { (candidateRoute, _) -> candidateRoute == route }
+    .takeIf { index -> index >= 0 }
 
 /**
  * 一级目标映射单独集中，是为了让共享导航壳层能够只根据当前 route 判断自身状态，
@@ -187,12 +189,9 @@ private fun primaryDestinationOrder(
  */
 private fun primaryDestinationForRoute(
     route: String?
-): YikePrimaryDestination? = when (route) {
-    YikeDestination.HOME -> YikePrimaryDestination.HOME
-    YikeDestination.DECK_LIST -> YikePrimaryDestination.DECKS
-    YikeDestination.SETTINGS -> YikePrimaryDestination.SETTINGS
-    else -> null
-}
+): YikePrimaryDestination? = primaryDestinationMetadata
+    .firstOrNull { (candidateRoute, _) -> candidateRoute == route }
+    ?.second
 
 /**
  * 进入动画只在一级入口之间启用，是为了让主导航保持桌面式滑动反馈，
