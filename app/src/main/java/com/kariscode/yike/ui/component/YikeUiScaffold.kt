@@ -106,7 +106,8 @@ fun YikePrimaryScaffold(
     content: @Composable (PaddingValues) -> Unit
 ) {
     val navigationBarPadding = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
-    val contentBottomPadding = navigationBarPadding + 16.dp
+    val contentBottomPadding = navigationBarPadding + 76.dp
+    val contentProtectionHeight = navigationBarPadding + 88.dp
     val fabBottomPadding = navigationBarPadding + 76.dp
 
     YikeScreenBackground {
@@ -130,6 +131,13 @@ fun YikePrimaryScaffold(
                     content(PaddingValues(bottom = contentBottomPadding))
                 }
             }
+
+            YikeBottomContentProtection(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth()
+                    .height(contentProtectionHeight)
+            )
 
             YikeBottomNavigation(
                 currentDestination = currentDestination,
@@ -251,6 +259,26 @@ private fun YikePrimaryHeaderBlock(
             )
         }
     }
+}
+
+/**
+ * 悬浮导航下方补一层渐隐保护，是为了让滚动内容即使进入导航覆盖区，也不会直接穿到按钮背后影响辨识。
+ */
+@Composable
+private fun YikeBottomContentProtection(
+    modifier: Modifier = Modifier
+) {
+    Box(
+        modifier = modifier.background(
+            brush = Brush.verticalGradient(
+                colors = listOf(
+                    Color.Transparent,
+                    MaterialTheme.colorScheme.background.copy(alpha = 0.78f),
+                    MaterialTheme.colorScheme.background
+                )
+            )
+        )
+    )
 }
 
 /**

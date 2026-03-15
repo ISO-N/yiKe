@@ -68,6 +68,7 @@ debug
   `card_list`、`question_editor`、`review_queue`、`review_card`、`backup_restore` 保持流内导航，不展示底部导航。
 - 一级导航壳采用紧凑页头 + 悬浮底部胶囊导航，避免顶部说明和底部底板过度挤占内容首屏。
 - 一级页内容需要为悬浮导航预留底部安全区，但不再依赖 `Scaffold.bottomBar` 预留固定布局区域。
+- 一级页底部会追加一层渐隐保护，让滚动内容进入导航覆盖区时仍保持按钮可读和点击区域清晰。
 
 ---
 
