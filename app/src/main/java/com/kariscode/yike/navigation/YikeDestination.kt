@@ -11,6 +11,7 @@ object YikeDestination {
     const val DECK_LIST = "deck_list"
     const val SETTINGS = "settings"
     const val BACKUP_RESTORE = "backup_restore"
+    const val DEBUG = "debug"
 
     const val REVIEW_QUEUE = "review_queue"
     const val REVIEW_CARD = "review_card/{cardId}"
@@ -32,4 +33,3 @@ object YikeDestination {
         return "$route?deckId=$deckId".toUri().toString()
     }
 }
-

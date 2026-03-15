@@ -26,6 +26,7 @@ fun HomeScreen(
     onStartReview: () -> Unit,
     onOpenDeckList: () -> Unit,
     onOpenSettings: () -> Unit,
+    onOpenDebug: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val container = LocalAppContainer.current
@@ -47,6 +48,7 @@ fun HomeScreen(
             onStartReview = onStartReview,
             onOpenDeckList = onOpenDeckList,
             onOpenSettings = onOpenSettings,
+            onOpenDebug = onOpenDebug,
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
@@ -65,6 +67,7 @@ fun HomeContent(
     onStartReview: () -> Unit,
     onOpenDeckList: () -> Unit,
     onOpenSettings: () -> Unit,
+    onOpenDebug: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -113,5 +116,6 @@ fun HomeContent(
         ) {
             Text("设置")
         }
+        HomeDebugEntry(onOpenDebug = onOpenDebug)
     }
 }

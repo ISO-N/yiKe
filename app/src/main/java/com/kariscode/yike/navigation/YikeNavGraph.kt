@@ -34,7 +34,8 @@ fun YikeNavGraph(
             HomeScreen(
                 onStartReview = { navController.navigate(YikeDestination.REVIEW_QUEUE) },
                 onOpenDeckList = { navController.navigate(YikeDestination.DECK_LIST) },
-                onOpenSettings = { navController.navigate(YikeDestination.SETTINGS) }
+                onOpenSettings = { navController.navigate(YikeDestination.SETTINGS) },
+                onOpenDebug = { navController.navigate(YikeDestination.DEBUG) }
             )
         }
 
@@ -113,5 +114,7 @@ fun YikeNavGraph(
                 onBack = { navController.popBackStack() }
             )
         }
+
+        addDebugDestination(onBack = { navController.popBackStack() })
     }
 }
