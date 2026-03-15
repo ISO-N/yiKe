@@ -34,6 +34,14 @@ class OfflineQuestionRepository(
     }
 
     /**
+     * 一次性读取编辑页所需问题快照时直接走同步查询，可以减少不必要的 Flow 建立与首次收集成本。
+     */
+    override suspend fun listByCard(cardId: String): List<Question> = withContext(dispatchers.io) {
+        questionDao.listByCard(cardId)
+            .map { entity -> RoomMappers.run { entity.toDomain() } }
+    }
+
+    /**
      * 批量写入可避免逐条保存导致中途失败的半完成状态，符合编辑页“一次保存”的期望。
      */
     override suspend fun upsertAll(questions: List<Question>) = withContext(dispatchers.io) {

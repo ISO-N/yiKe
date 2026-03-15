@@ -26,6 +26,12 @@ interface QuestionDao {
     @Query("SELECT * FROM question WHERE cardId = :cardId ORDER BY createdAt ASC")
     fun observeQuestionsByCard(cardId: String): Flow<List<QuestionEntity>>
 
+    /**
+     * 编辑页在进入和保存后只需要一个即时快照，直接查询可避免为单次读取走完整观察链路。
+     */
+    @Query("SELECT * FROM question WHERE cardId = :cardId ORDER BY createdAt ASC")
+    suspend fun listByCard(cardId: String): List<QuestionEntity>
+
     @Query("SELECT * FROM question WHERE id = :questionId LIMIT 1")
     suspend fun findById(questionId: String): QuestionEntity?
 

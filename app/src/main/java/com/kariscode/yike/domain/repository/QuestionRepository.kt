@@ -20,6 +20,11 @@ interface QuestionRepository {
     suspend fun findById(questionId: String): Question?
 
     /**
+     * 编辑页重新载入只需要一个稳定快照，提供直接查询可避免为一次性读取建立额外 Flow 订阅。
+     */
+    suspend fun listByCard(cardId: String): List<Question>
+
+    /**
      * 批量 upsert 能让编辑页一次性保存多问题，避免逐条写入造成中途失败的半成功状态。
      */
     suspend fun upsertAll(questions: List<Question>)

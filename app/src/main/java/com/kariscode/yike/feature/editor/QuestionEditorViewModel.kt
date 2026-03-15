@@ -247,7 +247,7 @@ class QuestionEditorViewModel(
         }
         loadedCard = card
 
-        val questions = questionRepository.observeQuestionsByCard(cardId).first()
+        val questions = questionRepository.listByCard(cardId)
         loadedQuestionsById = questions.associateBy { it.id }
 
         _uiState.update {
