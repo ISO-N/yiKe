@@ -1,0 +1,263 @@
+package com.kariscode.yike.feature.search
+
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.viewModelScope
+import com.kariscode.yike.core.time.TimeProvider
+import com.kariscode.yike.core.viewmodel.typedViewModelFactory
+import com.kariscode.yike.domain.model.QuestionMasteryCalculator
+import com.kariscode.yike.domain.model.QuestionMasteryLevel
+import com.kariscode.yike.domain.model.QuestionQueryFilters
+import com.kariscode.yike.domain.model.QuestionStatus
+import com.kariscode.yike.domain.repository.CardRepository
+import com.kariscode.yike.domain.repository.DeckRepository
+import com.kariscode.yike.domain.repository.StudyInsightsRepository
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
+
+/**
+ * 搜索页 ViewModel 把元数据加载和实时检索集中处理，是为了让页面只表达筛选意图而不关心查询细节。
+ */
+class QuestionSearchViewModel(
+    private val initialDeckId: String?,
+    private val initialCardId: String?,
+    private val studyInsightsRepository: StudyInsightsRepository,
+    private val deckRepository: DeckRepository,
+    private val cardRepository: CardRepository,
+    private val timeProvider: TimeProvider
+) : ViewModel() {
+    private val _uiState = MutableStateFlow(
+        QuestionSearchUiState(
+            isLoading = true,
+            keyword = "",
+            selectedTag = null,
+            selectedStatus = QuestionStatus.ACTIVE,
+            selectedDeckId = initialDeckId,
+            selectedCardId = initialCardId,
+            selectedMasteryLevel = null,
+            availableTags = emptyList(),
+            deckOptions = emptyList(),
+            cardOptions = emptyList(),
+            results = emptyList(),
+            errorMessage = null
+        )
+    )
+    val uiState: StateFlow<QuestionSearchUiState> = _uiState.asStateFlow()
+
+    private var searchJob: Job? = null
+
+    init {
+        /**
+         * 初次进入即加载筛选元数据和首轮结果，是为了让来自首页或卡片页的入口都能立即落到真实题库。
+         */
+        refresh()
+    }
+
+    /**
+     * 主动刷新会同步重取标签和卡组，是为了避免内容维护后返回搜索页仍看到过期筛选项。
+     */
+    fun refresh() {
+        _uiState.update { it.copy(isLoading = true, errorMessage = null) }
+        viewModelScope.launch {
+            runCatching {
+                coroutineScope {
+                    val tags = async { studyInsightsRepository.listAvailableTags(limit = 8) }
+                    val decks = async {
+                        deckRepository.observeActiveDecks()
+                            .first()
+                            .map { deck -> SearchDeckOption(id = deck.id, name = deck.name) }
+                    }
+                    val cards = async { loadCardsForDeck(_uiState.value.selectedDeckId) }
+                    Triple(tags.await(), decks.await(), cards.await())
+                }
+            }.onSuccess { (tags, decks, cards) ->
+                val preservedCardId = _uiState.value.selectedCardId?.takeIf { selectedId ->
+                    cards.any { card -> card.id == selectedId }
+                }
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        availableTags = tags,
+                        deckOptions = decks,
+                        cardOptions = cards,
+                        selectedCardId = preservedCardId,
+                        errorMessage = null
+                    )
+                }
+                search()
+            }.onFailure { throwable ->
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        errorMessage = throwable.message ?: "搜索页加载失败"
+                    )
+                }
+            }
+        }
+    }
+
+    /**
+     * 关键字直接驱动搜索，是为了把“想到什么就搜什么”的主路径保持足够顺手。
+     */
+    fun onKeywordChange(value: String) {
+        _uiState.update { it.copy(keyword = value, errorMessage = null) }
+        search()
+    }
+
+    /**
+     * 标签作为单选入口即可满足 P0，能减少同一轮搜索叠加过多条件导致的空结果。
+     */
+    fun onTagSelected(tag: String?) {
+        _uiState.update { it.copy(selectedTag = tag, errorMessage = null) }
+        search()
+    }
+
+    /**
+     * 状态筛选显式允许“全部”，是为了在需要排查归档题时不必切到其他页面。
+     */
+    fun onStatusSelected(status: QuestionStatus?) {
+        _uiState.update { it.copy(selectedStatus = status, errorMessage = null) }
+        search()
+    }
+
+    /**
+     * 切换卡组后需要重建卡片候选，是为了避免旧卡组的 cardId 继续残留在当前筛选里。
+     */
+    fun onDeckSelected(deckId: String?) {
+        viewModelScope.launch {
+            val cards = loadCardsForDeck(deckId)
+            _uiState.update {
+                it.copy(
+                    selectedDeckId = deckId,
+                    selectedCardId = null,
+                    cardOptions = cards,
+                    errorMessage = null
+                )
+            }
+            search()
+        }
+    }
+
+    /**
+     * 卡片筛选单独切换即可，因为它已经建立在当前卡组上下文之上，不需要再清空其他条件。
+     */
+    fun onCardSelected(cardId: String?) {
+        _uiState.update { it.copy(selectedCardId = cardId, errorMessage = null) }
+        search()
+    }
+
+    /**
+     * 熟练度筛选复用统一等级定义，是为了让搜索结果与卡片摘要看到的是同一套标签语义。
+     */
+    fun onMasterySelected(level: QuestionMasteryLevel?) {
+        _uiState.update { it.copy(selectedMasteryLevel = level, errorMessage = null) }
+        search()
+    }
+
+    /**
+     * 一键清空保留“进行中”默认状态，是为了把搜索快速拉回最常用的题库工作流。
+     */
+    fun onClearFilters() {
+        viewModelScope.launch {
+            _uiState.update {
+                it.copy(
+                    keyword = "",
+                    selectedTag = null,
+                    selectedStatus = QuestionStatus.ACTIVE,
+                    selectedDeckId = null,
+                    selectedCardId = null,
+                    selectedMasteryLevel = null,
+                    cardOptions = emptyList(),
+                    errorMessage = null
+                )
+            }
+            search()
+        }
+    }
+
+    /**
+     * 搜索任务使用可取消作业包装，是为了避免快速连续输入时旧结果反向覆盖新状态。
+     */
+    private fun search() {
+        searchJob?.cancel()
+        searchJob = viewModelScope.launch {
+            val snapshot = _uiState.value
+            _uiState.update { it.copy(isLoading = true, errorMessage = null) }
+            runCatching {
+                val now = timeProvider.nowEpochMillis()
+                studyInsightsRepository.searchQuestionContexts(
+                    filters = QuestionQueryFilters(
+                        keyword = snapshot.keyword,
+                        tag = snapshot.selectedTag,
+                        status = snapshot.selectedStatus,
+                        deckId = snapshot.selectedDeckId,
+                        cardId = snapshot.selectedCardId,
+                        masteryLevel = snapshot.selectedMasteryLevel
+                    )
+                ).map { context ->
+                    QuestionSearchResultUiModel(
+                        context = context,
+                        mastery = QuestionMasteryCalculator.snapshot(context.question),
+                        isDue = context.question.status == QuestionStatus.ACTIVE && context.question.dueAt <= now
+                    )
+                }
+            }.onSuccess { results ->
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        results = results,
+                        errorMessage = null
+                    )
+                }
+            }.onFailure { throwable ->
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        results = emptyList(),
+                        errorMessage = throwable.message ?: "搜索失败"
+                    )
+                }
+            }
+        }
+    }
+
+    /**
+     * 卡片候选始终根据当前卡组即时查询，是为了保证“检索本卡”入口能准确落到最新内容。
+     */
+    private suspend fun loadCardsForDeck(deckId: String?): List<SearchCardOption> {
+        if (deckId == null) return emptyList()
+        return cardRepository.observeActiveCards(deckId)
+            .first()
+            .map { card -> SearchCardOption(id = card.id, title = card.title) }
+    }
+
+    companion object {
+        /**
+         * 工厂显式接收初始筛选参数，是为了让首页和卡片页都能通过路由预置不同搜索上下文。
+         */
+        fun factory(
+            initialDeckId: String?,
+            initialCardId: String?,
+            studyInsightsRepository: StudyInsightsRepository,
+            deckRepository: DeckRepository,
+            cardRepository: CardRepository,
+            timeProvider: TimeProvider
+        ): ViewModelProvider.Factory = typedViewModelFactory {
+            QuestionSearchViewModel(
+                initialDeckId = initialDeckId,
+                initialCardId = initialCardId,
+                studyInsightsRepository = studyInsightsRepository,
+                deckRepository = deckRepository,
+                cardRepository = cardRepository,
+                timeProvider = timeProvider
+            )
+        }
+    }
+}
