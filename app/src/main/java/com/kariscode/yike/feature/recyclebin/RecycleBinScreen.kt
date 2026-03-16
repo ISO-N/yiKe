@@ -29,7 +29,7 @@ import com.kariscode.yike.ui.component.backNavigationAction
 import com.kariscode.yike.ui.theme.LocalYikeSpacing
 
 /**
- * 回收站页面独立成流内路由，是为了把“恢复归档内容”和“彻底删除”从设置页低频入口里抽离出来。
+ * 已归档内容页独立成流内路由，是为了把“恢复归档内容”和“彻底删除”从设置页低频入口里抽离出来。
  */
 @Composable
 fun RecycleBinScreen(
@@ -47,8 +47,8 @@ fun RecycleBinScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
     YikeFlowScaffold(
-        title = "回收站",
-        subtitle = "这里保留已归档内容，恢复后会重新回到原来的列表里。",
+        title = "已归档内容",
+        subtitle = "这里集中保留归档内容，恢复后会重新回到原来的列表里。",
         navigationAction = backNavigationAction(onBack)
     ) { padding ->
         RecycleBinContent(
@@ -87,14 +87,14 @@ private fun RecycleBinContent(
         when {
             uiState.isLoading -> {
                 YikeStateBanner(
-                    title = "正在整理回收站",
+                    title = "正在整理已归档内容",
                     description = "稍等一下，我们会把已归档的卡组和卡片一起载入。"
                 )
             }
 
             uiState.archivedDecks.isEmpty() && uiState.archivedCards.isEmpty() -> {
                 YikeStateBanner(
-                    title = "回收站是空的",
+                    title = "还没有已归档内容",
                     description = "当前没有已归档内容，需要恢复时会在这里集中处理。"
                 )
             }
@@ -116,8 +116,8 @@ private fun RecycleBinContent(
         YikeOperationFeedback(
             successMessage = uiState.message,
             errorMessage = uiState.errorMessage,
-            successTitle = "回收站已更新",
-            errorTitle = "回收站操作失败"
+            successTitle = "已归档内容已更新",
+            errorTitle = "已归档内容操作失败"
         )
         Spacer(modifier = Modifier.height(contentPadding.calculateBottomPadding()))
     }

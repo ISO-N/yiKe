@@ -18,17 +18,17 @@ import org.junit.Test
 
 /**
  * DeckListViewModel 测试锁定卡组页的关键管理语义，
- * 避免删除流程在回收站上线后又退回到直接物理删除。
+ * 避免卡组页在收敛为单一归档入口后又退回到多套重复动作。
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class DeckListViewModelTest {
 
     /**
-     * 删除确认后应把卡组移入回收站而不是直接删库，
-     * 这样用户才能通过回收站完成可恢复的删除流程。
+     * 卡组页只保留归档入口后，点击归档应直接写入归档状态，
+     * 这样列表页就不会再维护一套和归档等价的重复删除语义。
      */
     @Test
-    fun onConfirmDelete_movesDeckToRecycleBin() = runTest {
+    fun onToggleArchiveClick_archivesDeckAndKeepsPhysicalDeleteUnused() = runTest {
         Dispatchers.setMain(UnconfinedTestDispatcher(testScheduler))
         try {
             val repository = FakeDeckRepository()
@@ -41,8 +41,7 @@ class DeckListViewModelTest {
                 }
             )
 
-            viewModel.onDeleteDeckClick(item)
-            viewModel.onConfirmDelete()
+            viewModel.onToggleArchiveClick(item)
             advanceUntilIdle()
 
             assertEquals(1, repository.setArchivedCalls.size)
@@ -50,14 +49,14 @@ class DeckListViewModelTest {
             assertEquals(true, repository.setArchivedCalls.single().archived)
             assertEquals(321L, repository.setArchivedCalls.single().updatedAt)
             assertEquals(0, repository.deletedDeckIds.size)
-            assertEquals("已移入回收站", viewModel.uiState.value.message)
+            assertEquals("已归档，可在已归档内容中恢复", viewModel.uiState.value.message)
         } finally {
             Dispatchers.resetMain()
         }
     }
 
     /**
-     * 测试数据显式保留聚合字段，是为了让删除确认在真实列表项上下文里执行。
+     * 测试数据显式保留聚合字段，是为了让归档动作在真实列表项上下文里执行。
      */
     private fun createDeckSummary(deckId: String): DeckSummary = DeckSummary(
         deck = Deck(
@@ -76,7 +75,7 @@ class DeckListViewModelTest {
 
     /**
      * FakeDeckRepository 只记录 ViewModel 本次关心的写路径，
-     * 这样测试可以聚焦“删除是否变成移入回收站”这一条语义。
+     * 这样测试可以聚焦“卡组页是否只剩归档语义”这一条行为。
      */
     private class FakeDeckRepository : DeckRepository {
         val archivedDecksFlow = MutableStateFlow<List<DeckSummary>>(emptyList())

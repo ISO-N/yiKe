@@ -38,7 +38,7 @@ import com.kariscode.yike.ui.format.formatReminderTime
 import com.kariscode.yike.ui.theme.LocalYikeSpacing
 
 /**
- * 设置页属于一级入口，因此必须复用统一导航壳，并在同一页面里承接提醒、备份和回收站入口。
+ * 设置页属于一级入口，因此必须复用统一导航壳，并在同一页面里承接提醒、备份和归档内容入口。
  */
 @Composable
 fun SettingsScreen(
@@ -76,7 +76,7 @@ fun SettingsScreen(
     YikePrimaryScaffold(
         currentDestination = YikePrimaryDestination.SETTINGS,
         title = "设置",
-        subtitle = "提醒、回收站和备份都在这里。"
+        subtitle = "提醒、已归档内容和备份都在这里。"
     ) { padding ->
         SettingsContent(
             uiState = uiState,
@@ -233,12 +233,12 @@ private fun ReminderSettingsSection(
     }
 
     YikeListItemCard(
-        title = "回收站",
-        summary = "管理已归档内容",
-        supporting = "集中恢复或彻底删除已归档内容。"
+        title = "已归档内容",
+        summary = "集中恢复或清理归档数据",
+        supporting = "先归档，再按需恢复或彻底删除。"
     ) {
         YikeSecondaryButton(
-            text = "进入回收站",
+            text = "查看已归档内容",
             onClick = onOpenRecycleBin,
             modifier = Modifier.fillMaxWidth()
         )

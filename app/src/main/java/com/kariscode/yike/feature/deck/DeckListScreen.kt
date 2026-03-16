@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
@@ -29,7 +28,6 @@ import com.kariscode.yike.ui.component.YikePrimaryDestination
 import com.kariscode.yike.ui.component.YikePrimaryScaffold
 import com.kariscode.yike.ui.component.YikeScrollableColumn
 import com.kariscode.yike.ui.component.YikeSecondaryButton
-import com.kariscode.yike.ui.component.YikeDangerConfirmationDialog
 import com.kariscode.yike.ui.component.YikeStateBanner
 import com.kariscode.yike.ui.component.YikeTextMetadataDialog
 import com.kariscode.yike.ui.theme.LocalYikeSpacing
@@ -55,7 +53,7 @@ fun DeckListScreen(
     YikePrimaryScaffold(
         currentDestination = YikePrimaryDestination.DECKS,
         title = "卡组",
-        subtitle = "管理卡组、查找内容和回收站操作。",
+        subtitle = "管理卡组、查找内容和归档操作。",
         floatingActionButton = {
             YikeFab(
                 text = "+ 新建",
@@ -74,9 +72,6 @@ fun DeckListScreen(
             onConfirmSave = viewModel::onConfirmSave,
             onEditDeck = viewModel::onEditDeckClick,
             onToggleArchive = viewModel::onToggleArchiveClick,
-            onDeleteDeck = viewModel::onDeleteDeckClick,
-            onDismissDelete = viewModel::onDismissDelete,
-            onConfirmDelete = viewModel::onConfirmDelete,
             modifier = modifier,
             contentPadding = padding
         )
@@ -98,9 +93,6 @@ private fun DeckListContent(
     onConfirmSave: () -> Unit,
     onEditDeck: (DeckSummary) -> Unit,
     onToggleArchive: (DeckSummary) -> Unit,
-    onDeleteDeck: (DeckSummary) -> Unit,
-    onDismissDelete: () -> Unit,
-    onConfirmDelete: () -> Unit,
     modifier: Modifier = Modifier,
     contentPadding: PaddingValues = PaddingValues()
 ) {
@@ -158,8 +150,7 @@ private fun DeckListContent(
                         item = item,
                         onOpen = { onOpenDeck(item.deck.id) },
                         onEdit = { onEditDeck(item) },
-                        onArchive = { onToggleArchive(item) },
-                        onDelete = { onDeleteDeck(item) }
+                        onArchive = { onToggleArchive(item) }
                     )
                 }
             }
@@ -184,16 +175,6 @@ private fun DeckListContent(
             validationMessage = editor.validationMessage,
             onDismiss = onDismissEditor,
             onConfirm = onConfirmSave
-        )
-    }
-
-    uiState.pendingDelete?.let {
-        YikeDangerConfirmationDialog(
-            title = "移入回收站？",
-            description = "移入后会从卡组列表隐藏，你仍然可以在回收站里恢复或彻底删除。",
-            confirmText = "移入回收站",
-            onDismiss = onDismissDelete,
-            onConfirm = onConfirmDelete
         )
     }
 }
@@ -232,8 +213,7 @@ private fun DeckSummaryCard(
     item: DeckSummary,
     onOpen: () -> Unit,
     onEdit: () -> Unit,
-    onArchive: () -> Unit,
-    onDelete: () -> Unit
+    onArchive: () -> Unit
 ) {
     YikeListItemCard(
         title = item.deck.name,
@@ -273,11 +253,6 @@ private fun DeckSummaryCard(
             YikeSecondaryButton(
                 text = "归档",
                 onClick = onArchive,
-                modifier = Modifier.weight(1f)
-            )
-            YikeSecondaryButton(
-                text = "移入回收站",
-                onClick = onDelete,
                 modifier = Modifier.weight(1f)
             )
         }

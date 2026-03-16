@@ -29,7 +29,6 @@ data class DeckListUiState(
     val keyword: String,
     val items: List<DeckSummary>,
     val editor: TextMetadataDraft?,
-    val pendingDelete: DeckSummary?,
     val message: String?,
     val errorMessage: String?
 )
@@ -48,7 +47,6 @@ class DeckListViewModel(
             keyword = "",
             items = emptyList(),
             editor = null,
-            pendingDelete = null,
             message = null,
             errorMessage = null
         )
@@ -170,49 +168,29 @@ class DeckListViewModel(
     }
 
     /**
-     * 归档与反归档通过同一入口切换，便于未来把“归档后不进入待复习”作为统一规则拓展。
+     * 卡组页只保留归档入口，是为了把“暂时移出默认列表、需要时再恢复”的语义收敛成单一路径。
      */
     fun onToggleArchiveClick(item: DeckSummary) {
-        executeMutation(errorMessage = ErrorMessages.UPDATE_FAILED) {
-            val now = timeProvider.nowEpochMillis()
-            deckRepository.setArchived(deckId = item.deck.id, archived = !item.deck.archived, updatedAt = now)
-        }
-    }
-
-    /**
-     * 删除入口先进入确认态，是为了把“移入回收站”明确成一次可撤销的管理动作。
-     */
-    fun onDeleteDeckClick(item: DeckSummary) {
-        _uiState.update { it.copy(pendingDelete = item, errorMessage = null) }
-    }
-
-    /**
-     * 退出确认态可以避免误触造成的数据丢失。
-     */
-    fun onDismissDelete() {
-        _uiState.update { it.copy(pendingDelete = null, errorMessage = null) }
-    }
-
-    /**
-     * 卡组页的删除只把内容移入回收站，
-     * 这样用户仍可在需要时恢复，而彻底删除交给回收站承担。
-     */
-    fun onConfirmDelete() {
-        val pending = _uiState.value.pendingDelete ?: return
-        executeMutation(errorMessage = ErrorMessages.UPDATE_FAILED) {
-            deckRepository.setArchived(
-                deckId = pending.deck.id,
-                archived = true,
-                updatedAt = timeProvider.nowEpochMillis()
-            )
-            _uiState.update {
-                it.copy(
-                    pendingDelete = null,
-                    message = "已移入回收站",
-                    errorMessage = null
+        launchResult(
+            action = {
+                deckRepository.setArchived(
+                    deckId = item.deck.id,
+                    archived = !item.deck.archived,
+                    updatedAt = timeProvider.nowEpochMillis()
                 )
+            },
+            onSuccess = {
+                _uiState.update {
+                    it.copy(
+                        message = if (item.deck.archived) "已恢复到卡组列表" else "已归档，可在已归档内容中恢复",
+                        errorMessage = null
+                    )
+                }
+            },
+            onFailure = {
+                _uiState.update { it.copy(message = null, errorMessage = ErrorMessages.UPDATE_FAILED) }
             }
-        }
+        )
     }
 
     /**
