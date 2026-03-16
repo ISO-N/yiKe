@@ -8,13 +8,13 @@ import com.kariscode.yike.core.message.ErrorMessages
 import com.kariscode.yike.core.time.TimeConstants
 import com.kariscode.yike.core.time.TimeProvider
 import com.kariscode.yike.core.viewmodel.typedViewModelFactory
-import com.kariscode.yike.domain.model.Question
 import com.kariscode.yike.domain.model.QuestionContext
 import com.kariscode.yike.domain.model.QuestionMasteryCalculator
 import com.kariscode.yike.domain.model.QuestionMasteryLevel
 import com.kariscode.yike.domain.model.QuestionMasterySnapshot
 import com.kariscode.yike.domain.repository.StudyInsightsRepository
 import kotlin.math.ceil
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -76,6 +76,16 @@ data class TodayPreviewUiState(
 )
 
 /**
+ * 预处理后的题目上下文缓存熟练度结果，是为了让分组、计数和预览项共用同一份计算，
+ * 避免在同一轮刷新里对同一个问题重复做 3 到 4 次 snapshot。
+ */
+private data class ResolvedDueQuestion(
+    val context: QuestionContext,
+    val mastery: QuestionMasterySnapshot,
+    val isLowMastery: Boolean
+)
+
+/**
  * 今日预览 ViewModel 同时整合 due 列表和最近响应时长，
  * 是为了让用户看到的任务总量与耗时估算来自同一轮数据读取。
  */
@@ -83,6 +93,11 @@ class TodayPreviewViewModel(
     private val studyInsightsRepository: StudyInsightsRepository,
     private val timeProvider: TimeProvider
 ) : ViewModel() {
+    /**
+     * 预览刷新只保留最后一轮请求，是为了避免页面反复进入或手动刷新时堆积重复查询。
+     */
+    private var refreshJob: Job? = null
+
     private val _uiState = MutableStateFlow(
         TodayPreviewUiState(
             isLoading = true,
@@ -111,7 +126,8 @@ class TodayPreviewViewModel(
      */
     fun refresh() {
         _uiState.update { it.copy(isLoading = true, errorMessage = null) }
-        viewModelScope.launch {
+        refreshJob?.cancel()
+        refreshJob = viewModelScope.launch {
             runCatching {
                 val now = timeProvider.nowEpochMillis()
                 val (dueQuestions, analytics) = parallel(
@@ -145,8 +161,9 @@ class TodayPreviewViewModel(
         val resolvedResponseTimeMs = averageResponseTimeMs
             ?.coerceAtLeast(MIN_RESPONSE_TIME_MS)
             ?: DEFAULT_RESPONSE_TIME_MS
-        val deckGroups = dueQuestions
-            .groupBy { it.deckId }
+        val resolvedQuestions = dueQuestions.map(::resolveDueQuestion)
+        val deckGroups = resolvedQuestions
+            .groupBy { it.context.deckId }
             .map { (_, deckQuestions) -> buildDeckGroup(deckQuestions, resolvedResponseTimeMs) }
             .sortedWith(
                 compareByDescending<TodayPreviewDeckUiModel> { it.dueQuestionCount }
@@ -161,7 +178,7 @@ class TodayPreviewViewModel(
             totalDecks = deckGroups.size,
             estimatedMinutes = estimateMinutes(dueQuestions.size, resolvedResponseTimeMs),
             averageSecondsPerQuestion = ceil(resolvedResponseTimeMs / 1000.0).toInt(),
-            lowMasteryCount = dueQuestions.count { it.question.isLowMastery() },
+            lowMasteryCount = resolvedQuestions.count(ResolvedDueQuestion::isLowMastery),
             earliestDueAt = dueQuestions.minOfOrNull { it.question.dueAt },
             deckGroups = deckGroups,
             errorMessage = null
@@ -172,38 +189,38 @@ class TodayPreviewViewModel(
      * 卡组分组内部继续按卡片组织，是为了贴合“先决定学哪科，再决定做哪张卡”的使用顺序。
      */
     private fun buildDeckGroup(
-        questions: List<QuestionContext>,
+        questions: List<ResolvedDueQuestion>,
         averageResponseTimeMs: Double
     ): TodayPreviewDeckUiModel {
-        val cards = questions.groupBy { it.question.cardId }
+        val cards = questions.groupBy { it.context.question.cardId }
             .map { (cardId, cardQuestions) ->
                 val previewQuestions = cardQuestions
-                    .sortedBy { it.question.dueAt }
+                    .sortedBy { it.context.question.dueAt }
                     .take(3)
-                    .map { context ->
+                    .map { question ->
                         TodayPreviewQuestionUiModel(
-                            questionId = context.question.id,
-                            prompt = context.question.prompt,
-                            dueAt = context.question.dueAt,
-                            mastery = QuestionMasteryCalculator.snapshot(context.question)
+                            questionId = question.context.question.id,
+                            prompt = question.context.question.prompt,
+                            dueAt = question.context.question.dueAt,
+                            mastery = question.mastery
                         )
                     }
                 TodayPreviewCardUiModel(
                     cardId = cardId,
-                    cardTitle = cardQuestions.first().cardTitle,
+                    cardTitle = cardQuestions.first().context.cardTitle,
                     dueQuestionCount = cardQuestions.size,
                     estimatedMinutes = estimateMinutes(cardQuestions.size, averageResponseTimeMs),
-                    lowMasteryCount = cardQuestions.count { it.question.isLowMastery() },
+                    lowMasteryCount = cardQuestions.count(ResolvedDueQuestion::isLowMastery),
                     questions = previewQuestions
                 )
             }
             .sortedByDescending(TodayPreviewCardUiModel::dueQuestionCount)
         return TodayPreviewDeckUiModel(
-            deckId = questions.first().deckId,
-            deckName = questions.first().deckName,
+            deckId = questions.first().context.deckId,
+            deckName = questions.first().context.deckName,
             dueQuestionCount = questions.size,
             estimatedMinutes = estimateMinutes(questions.size, averageResponseTimeMs),
-            lowMasteryCount = questions.count { it.question.isLowMastery() },
+            lowMasteryCount = questions.count(ResolvedDueQuestion::isLowMastery),
             cards = cards
         )
     }
@@ -217,12 +234,16 @@ class TodayPreviewViewModel(
     }
 
     /**
-     * 低熟练度定义集中在 ViewModel 辅助函数中，是为了让摘要和卡片分组共享同一判断标准。
+     * 同一题目的熟练度与低熟练度标签在进入分组前先算好，是为了避免统计与预览项重复调用 snapshot。
      */
-    private fun Question.isLowMastery(): Boolean =
-        QuestionMasteryCalculator.snapshot(this).level.run {
-            this == QuestionMasteryLevel.NEW || this == QuestionMasteryLevel.LEARNING
-        }
+    private fun resolveDueQuestion(context: QuestionContext): ResolvedDueQuestion {
+        val mastery = QuestionMasteryCalculator.snapshot(context.question)
+        return ResolvedDueQuestion(
+            context = context,
+            mastery = mastery,
+            isLowMastery = mastery.level == QuestionMasteryLevel.NEW || mastery.level == QuestionMasteryLevel.LEARNING
+        )
+    }
 
     companion object {
         /**

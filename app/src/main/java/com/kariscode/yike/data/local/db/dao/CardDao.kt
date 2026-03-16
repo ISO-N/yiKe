@@ -35,6 +35,12 @@ interface CardDao {
     fun observeActiveCards(deckId: String): Flow<List<CardEntity>>
 
     /**
+     * 一次性筛选初始化直接读快照即可，避免搜索页为了拿候选列表额外建立长期订阅。
+     */
+    @Query("SELECT * FROM card WHERE deckId = :deckId AND archived = 0 ORDER BY sortOrder ASC, createdAt ASC")
+    suspend fun listActiveCards(deckId: String): List<CardEntity>
+
+    /**
      * 备份导出需要保留全部卡片层级，包括已归档项，
      * 否则恢复后会破坏用户原本的管理状态。
      */

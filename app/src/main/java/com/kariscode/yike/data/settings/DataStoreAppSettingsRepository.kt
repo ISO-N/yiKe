@@ -11,6 +11,7 @@ import com.kariscode.yike.domain.repository.AppSettingsRepository
 import java.io.IOException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 
 /**
@@ -31,15 +32,18 @@ class DataStoreAppSettingsRepository(
             if (throwable is IOException) emit(androidx.datastore.preferences.core.emptyPreferences())
             else throw throwable
         }
-        .map { prefs ->
-            AppSettings(
-                dailyReminderEnabled = prefs[Keys.dailyReminderEnabled] ?: false,
-                dailyReminderHour = prefs[Keys.dailyReminderHour] ?: 20,
-                dailyReminderMinute = prefs[Keys.dailyReminderMinute] ?: 0,
-                schemaVersion = prefs[Keys.schemaVersion] ?: SettingsConstants.SCHEMA_VERSION,
-                backupLastAt = prefs[Keys.backupLastAt]
-            )
+        .map { prefs -> prefs.toAppSettings() }
+
+    /**
+     * 快照读取复用与订阅流相同的默认值口径，是为了避免“首帧读取”和“后续观察”得到不同配置解释。
+     */
+    override suspend fun getSettings(): AppSettings = dataStore.data
+        .catch { throwable ->
+            if (throwable is IOException) emit(androidx.datastore.preferences.core.emptyPreferences())
+            else throw throwable
         }
+        .map { prefs -> prefs.toAppSettings() }
+        .first()
 
     /**
      * 将写入集中在单点，后续若需要在“开启提醒”时同时做权限提示/重建任务，
@@ -101,4 +105,15 @@ class DataStoreAppSettingsRepository(
         val schemaVersion = intPreferencesKey("schemaVersion")
         val backupLastAt = longPreferencesKey("backupLastAt")
     }
+
+    /**
+     * 设置快照映射收敛为单点后，订阅读取和单次读取都能共享同一默认值解释，避免字段补漏。
+     */
+    private fun Preferences.toAppSettings(): AppSettings = AppSettings(
+        dailyReminderEnabled = this[Keys.dailyReminderEnabled] ?: false,
+        dailyReminderHour = this[Keys.dailyReminderHour] ?: 20,
+        dailyReminderMinute = this[Keys.dailyReminderMinute] ?: 0,
+        schemaVersion = this[Keys.schemaVersion] ?: SettingsConstants.SCHEMA_VERSION,
+        backupLastAt = this[Keys.backupLastAt]
+    )
 }

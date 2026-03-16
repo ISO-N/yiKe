@@ -18,7 +18,6 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
@@ -70,8 +69,7 @@ class QuestionSearchViewModel(
                 parallel3(
                     first = { studyInsightsRepository.listAvailableTags(limit = 8) },
                     second = {
-                        deckRepository.observeActiveDecks()
-                            .first()
+                        deckRepository.listActiveDecks()
                             .map { deck -> SearchDeckOption(id = deck.id, name = deck.name) }
                     },
                     third = { loadCardsForDeck(_uiState.value.selectedDeckId) }
@@ -224,8 +222,7 @@ class QuestionSearchViewModel(
      */
     private suspend fun loadCardsForDeck(deckId: String?): List<SearchCardOption> {
         if (deckId == null) return emptyList()
-        return cardRepository.observeActiveCards(deckId)
-            .first()
+        return cardRepository.listActiveCards(deckId)
             .map { card -> SearchCardOption(id = card.id, title = card.title) }
     }
 

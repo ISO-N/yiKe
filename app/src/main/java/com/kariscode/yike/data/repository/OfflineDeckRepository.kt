@@ -29,6 +29,15 @@ class OfflineDeckRepository(
         }
 
     /**
+     * 快照读取与订阅读取共享同一映射逻辑，是为了让搜索页拿到的数据口径与列表页保持一致。
+     */
+    override suspend fun listActiveDecks(): List<Deck> = withContext(dispatchers.io) {
+        deckDao.listActiveDecks().map { entity ->
+            RoomMappers.run { entity.toDomain() }
+        }
+    }
+
+    /**
      * 通过数据库聚合流提供统计信息，能让列表页在数据变更时稳定刷新且避免 N+1 查询。
      */
     override fun observeActiveDeckSummaries(nowEpochMillis: Long): Flow<List<DeckSummary>> =

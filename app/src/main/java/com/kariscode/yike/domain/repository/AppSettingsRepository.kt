@@ -15,6 +15,12 @@ interface AppSettingsRepository {
     fun observeSettings(): Flow<AppSettings>
 
     /**
+     * 单次读取显式建模为快照接口，是为了把“订阅变化”和“只取当前值”两种意图分开，
+     * 避免调用方为了拿一次配置而重复写 `observeSettings().first()` 模板。
+     */
+    suspend fun getSettings(): AppSettings
+
+    /**
      * 将提醒开关写入封装为仓储方法，便于在未来把“写入后重建提醒任务”作为同一用例的一部分编排，
      * 而不是让 UI 层直接操作 DataStore key。
      */

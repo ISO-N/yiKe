@@ -12,6 +12,7 @@ import com.kariscode.yike.domain.model.ReviewAnalyticsSnapshot
 import com.kariscode.yike.domain.repository.StudyInsightsRepository
 import java.time.Instant
 import java.time.ZoneId
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -74,6 +75,11 @@ class AnalyticsViewModel(
     private val timeProvider: TimeProvider,
     private val zoneId: ZoneId = ZoneId.systemDefault()
 ) : ViewModel() {
+    /**
+     * 刷新任务单独持有引用，是为了在用户快速切换统计范围时取消旧查询，避免陈旧结果回写。
+     */
+    private var refreshJob: Job? = null
+
     private val _uiState = MutableStateFlow(
         AnalyticsUiState(
             isLoading = true,
@@ -111,7 +117,8 @@ class AnalyticsViewModel(
      */
     fun refresh() {
         _uiState.update { it.copy(isLoading = true, errorMessage = null) }
-        viewModelScope.launch {
+        refreshJob?.cancel()
+        refreshJob = viewModelScope.launch {
             runCatching {
                 val startEpochMillis = _uiState.value.selectedRange.toStartEpochMillis(timeProvider.nowEpochMillis())
                 val (analytics, timestamps) = parallel(

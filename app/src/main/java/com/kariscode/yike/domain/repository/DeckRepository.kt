@@ -15,6 +15,12 @@ interface DeckRepository {
     fun observeActiveDecks(): Flow<List<Deck>>
 
     /**
+     * 搜索等场景只需要当前快照而不需要持续订阅，
+     * 因此单次读取接口可以避免调用方借 `Flow.first()` 表达一次性加载。
+     */
+    suspend fun listActiveDecks(): List<Deck>
+
+    /**
      * 为列表提供带统计的聚合流，可以把统计口径集中在 data 层实现，
      * 并避免上层用例/页面引入 N+1 查询。
      */

@@ -43,6 +43,12 @@ interface DeckDao {
     fun observeActiveDecks(): Flow<List<DeckEntity>>
 
     /**
+     * 搜索筛选初始化只需要一次性快照，因此提供挂起查询可以避免为短生命周期任务建立 Flow。
+     */
+    @Query("SELECT * FROM deck WHERE archived = 0 ORDER BY sortOrder ASC, createdAt ASC")
+    suspend fun listActiveDecks(): List<DeckEntity>
+
+    /**
      * 备份导出需要完整读取全部卡组（包括已归档项），
      * 否则恢复后会丢失用户显式保留的历史内容。
      */

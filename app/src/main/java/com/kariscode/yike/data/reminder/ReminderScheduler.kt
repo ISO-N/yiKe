@@ -9,7 +9,6 @@ import com.kariscode.yike.domain.reminder.ReminderTimeCalculator
 import com.kariscode.yike.domain.repository.AppSettingsRepository
 import java.time.ZoneId
 import java.util.concurrent.TimeUnit
-import kotlinx.coroutines.flow.first
 
 /**
  * ReminderScheduler 统一负责“取消旧任务 + 计算下一次时间 + 注册新任务”，
@@ -24,7 +23,7 @@ class ReminderScheduler(
      * 从仓储读取最新设置后再调度，能确保应用初始化或广播恢复时不依赖页面状态。
      */
     suspend fun syncReminderFromRepository() {
-        val settings = appSettingsRepository.observeSettings().first()
+        val settings = appSettingsRepository.getSettings()
         syncReminder(settings)
     }
 

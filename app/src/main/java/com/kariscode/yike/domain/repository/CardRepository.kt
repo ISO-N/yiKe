@@ -16,6 +16,11 @@ interface CardRepository {
     fun observeActiveCards(deckId: String): Flow<List<Card>>
 
     /**
+     * 搜索筛选和初始化只需要当前列表快照时，单次读取接口能减少“先订阅再截断”的样板代码。
+     */
+    suspend fun listActiveCards(deckId: String): List<Card>
+
+    /**
      * 卡片列表需要的聚合信息（例如题目数量）通过专门的流提供，
      * 以避免页面层逐条查询造成性能问题。
      */

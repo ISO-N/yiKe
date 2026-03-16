@@ -4,7 +4,6 @@ import android.content.Context
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.kariscode.yike.app.YikeApplication
-import kotlinx.coroutines.flow.first
 
 /**
  * Worker 只依赖本地仓储与通知辅助组件，
@@ -21,7 +20,7 @@ class ReminderCheckWorker(
     override suspend fun doWork(): Result {
         val container = (applicationContext as YikeApplication).container
         return runCatching {
-            val settings = container.appSettingsRepository.observeSettings().first()
+            val settings = container.appSettingsRepository.getSettings()
             if (settings.dailyReminderEnabled) {
                 val summary = container.questionRepository.getTodayReviewSummary(container.timeProvider.nowEpochMillis())
                 if (summary.dueQuestionCount > 0) {

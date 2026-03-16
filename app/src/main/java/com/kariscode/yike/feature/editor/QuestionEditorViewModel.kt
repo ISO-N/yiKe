@@ -19,7 +19,6 @@ import com.kariscode.yike.domain.scheduler.InitialDueAtCalculator
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
@@ -160,7 +159,7 @@ class QuestionEditorViewModel(
 
             runCatching {
                 val now = timeProvider.nowEpochMillis()
-                val settings = appSettingsRepository.observeSettings().first()
+                val settings = appSettingsRepository.getSettings()
                 val initialDueAt = InitialDueAtCalculator.compute(
                     nowEpochMillis = now,
                     reminderHour = settings.dailyReminderHour,

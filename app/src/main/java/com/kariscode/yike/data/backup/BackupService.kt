@@ -23,7 +23,6 @@ import com.kariscode.yike.domain.model.QuestionStatus
 import com.kariscode.yike.domain.model.ReviewRecord
 import com.kariscode.yike.domain.repository.AppSettingsRepository
 import java.io.FileNotFoundException
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
@@ -162,7 +161,7 @@ class BackupService(
      */
     private suspend fun readCurrentSnapshot(): BackupSnapshot {
         val (settings, deckAndCard, questionAndReview) = parallel3(
-            first = { appSettingsRepository.observeSettings().first() },
+            first = { appSettingsRepository.getSettings() },
             second = {
                 parallel(
                     first = { deckDao.listAll() },

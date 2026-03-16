@@ -29,6 +29,15 @@ class OfflineCardRepository(
         }
 
     /**
+     * 卡片快照读取用于短生命周期筛选场景，是为了避免搜索初始化时创建后立即取消的订阅。
+     */
+    override suspend fun listActiveCards(deckId: String): List<Card> = withContext(dispatchers.io) {
+        cardDao.listActiveCards(deckId).map { entity ->
+            RoomMappers.run { entity.toDomain() }
+        }
+    }
+
+    /**
      * 通过聚合查询提供列表统计，避免 UI 层逐项查询带来的性能与口径风险。
      */
     override fun observeActiveCardSummaries(deckId: String, nowEpochMillis: Long): Flow<List<CardSummary>> =
