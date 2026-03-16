@@ -5,12 +5,12 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.kariscode.yike.app.LocalAppContainer
+import com.kariscode.yike.ui.component.CollectFlowEffect
 import com.kariscode.yike.ui.component.backNavigationAction
 import com.kariscode.yike.ui.component.YikeFlowScaffold
 import com.kariscode.yike.ui.component.YikePrimaryButton
@@ -37,12 +37,10 @@ fun ReviewQueueScreen(
     )
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
-    LaunchedEffect(Unit) {
-        viewModel.effects.collect { effect ->
-            when (effect) {
-                is ReviewQueueEffect.NavigateToCard -> onOpenNextCard(effect.cardId)
-                ReviewQueueEffect.BackToHomeCompleted -> onBackToHome()
-            }
+    CollectFlowEffect(effectFlow = viewModel.effects) { effect ->
+        when (effect) {
+            is ReviewQueueEffect.NavigateToCard -> onOpenNextCard(effect.cardId)
+            ReviewQueueEffect.BackToHomeCompleted -> onBackToHome()
         }
     }
 

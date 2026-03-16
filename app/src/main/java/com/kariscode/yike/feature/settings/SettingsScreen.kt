@@ -18,7 +18,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -27,13 +26,14 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.kariscode.yike.BuildConfig
 import com.kariscode.yike.app.LocalAppContainer
-import com.kariscode.yike.ui.format.formatLocalDateTime
+import com.kariscode.yike.ui.component.CollectFlowEffect
 import com.kariscode.yike.ui.component.YikeBadge
 import com.kariscode.yike.ui.component.YikeListItemCard
 import com.kariscode.yike.ui.component.YikePrimaryDestination
 import com.kariscode.yike.ui.component.YikePrimaryScaffold
 import com.kariscode.yike.ui.component.YikeSecondaryButton
 import com.kariscode.yike.ui.component.YikeStateBanner
+import com.kariscode.yike.ui.format.formatLocalDateTime
 import com.kariscode.yike.ui.theme.LocalYikeSpacing
 
 /**
@@ -64,12 +64,10 @@ fun SettingsScreen(
             Manifest.permission.POST_NOTIFICATIONS
         ) == PackageManager.PERMISSION_GRANTED
 
-    LaunchedEffect(Unit) {
-        viewModel.effects.collect { effect ->
-            when (effect) {
-                SettingsEffect.OpenBackupRestore -> onOpenBackupRestore()
-                SettingsEffect.RequestNotificationPermission -> permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-            }
+    CollectFlowEffect(effectFlow = viewModel.effects) { effect ->
+        when (effect) {
+            SettingsEffect.OpenBackupRestore -> onOpenBackupRestore()
+            SettingsEffect.RequestNotificationPermission -> permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
         }
     }
 
@@ -228,7 +226,7 @@ private fun ReminderSettingsSection(
 
     YikeListItemCard(
         title = "备份与恢复",
-        summary = uiState.lastBackupAt?.let(::formatBackupAt) ?: "暂无备份记录",
+        summary = uiState.lastBackupAt?.let { formatLocalDateTime(it) } ?: "暂无备份记录",
         supporting = "导出 JSON 或从本地文件恢复全部数据。"
     ) {
         YikeSecondaryButton(
@@ -257,8 +255,3 @@ private fun ReminderSettingsSection(
  */
 private fun formatReminderTime(hour: Int, minute: Int): String = "%02d:%02d".format(hour, minute)
 
-/**
- * 最近备份时间只用于设置页展示，因此采用本地时间字符串即可满足理解成本最低的目标。
- */
-private fun formatBackupAt(epochMillis: Long): String =
-    formatLocalDateTime(epochMillis)

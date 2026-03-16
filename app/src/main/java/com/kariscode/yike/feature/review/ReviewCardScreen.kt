@@ -11,14 +11,13 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.kariscode.yike.app.LocalAppContainer
 import com.kariscode.yike.domain.model.ReviewRating
-import com.kariscode.yike.ui.component.NavigationAction
+import com.kariscode.yike.ui.component.CollectFlowEffect
 import com.kariscode.yike.ui.component.YikeBadge
 import com.kariscode.yike.ui.component.YikeDangerButton
 import com.kariscode.yike.ui.component.YikeFlowScaffold
@@ -56,12 +55,10 @@ fun ReviewCardScreen(
 
     BackHandler(onBack = viewModel::onExitAttempt)
 
-    LaunchedEffect(Unit) {
-        viewModel.effects.collect { effect ->
-            when (effect) {
-                ReviewCardEffect.NavigateHome -> onExit()
-                ReviewCardEffect.NavigateToQueue -> onNextCard()
-            }
+    CollectFlowEffect(effectFlow = viewModel.effects) { effect ->
+        when (effect) {
+            ReviewCardEffect.NavigateHome -> onExit()
+            ReviewCardEffect.NavigateToQueue -> onNextCard()
         }
     }
 
