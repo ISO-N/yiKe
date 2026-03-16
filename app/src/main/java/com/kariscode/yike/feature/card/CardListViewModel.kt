@@ -9,6 +9,7 @@ import com.kariscode.yike.core.message.SuccessMessages
 import com.kariscode.yike.core.time.TimeProvider
 import com.kariscode.yike.core.viewmodel.launchResult
 import com.kariscode.yike.core.viewmodel.typedViewModelFactory
+import com.kariscode.yike.feature.common.TextMetadataDraft
 import com.kariscode.yike.domain.model.Card
 import com.kariscode.yike.domain.model.CardSummary
 import com.kariscode.yike.domain.model.QuestionMasteryCalculator
@@ -26,17 +27,6 @@ import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-
-/**
- * 卡片编辑草稿状态集中在 ViewModel，是为了让“标题必填”等校验规则有稳定落点，
- * 避免在 UI 中散落多个临时状态变量导致保存行为不可预测。
- */
-data class CardEditorDraft(
-    val cardId: String?,
-    val title: String,
-    val description: String,
-    val validationMessage: String? = null
-)
 
 /**
  * 熟练度摘要集中在卡片页状态里，是为了让卡组层先暴露“整体薄弱分布”，再让用户进入具体卡片。
@@ -59,7 +49,7 @@ data class CardListUiState(
     val isLoading: Boolean,
     val items: List<CardSummary>,
     val masterySummary: DeckMasterySummary?,
-    val editor: CardEditorDraft?,
+    val editor: TextMetadataDraft?,
     val pendingDelete: CardSummary?,
     val message: String?,
     val errorMessage: String?
@@ -176,7 +166,7 @@ class CardListViewModel(
      * 新建卡片先打开空草稿，便于复用同一套保存校验逻辑。
      */
     fun onCreateCardClick() {
-        openEditor(CardEditorDraft(cardId = null, title = "", description = ""))
+        openEditor(TextMetadataDraft(entityId = null, primaryValue = "", secondaryValue = ""))
     }
 
     /**
@@ -184,10 +174,10 @@ class CardListViewModel(
      */
     fun onEditCardClick(item: CardSummary) {
         openEditor(
-            CardEditorDraft(
-                cardId = item.card.id,
-                title = item.card.title,
-                description = item.card.description
+            TextMetadataDraft(
+                entityId = item.card.id,
+                primaryValue = item.card.title,
+                secondaryValue = item.card.description
             )
         )
     }
@@ -196,14 +186,14 @@ class CardListViewModel(
      * 标题属于必填字段，因此每次输入变更都需要清理上次校验提示以避免误导。
      */
     fun onDraftTitleChange(value: String) {
-        updateEditor { it.copy(title = value, validationMessage = null) }
+        updateEditor { it.updatePrimaryValue(value) }
     }
 
     /**
      * 描述不参与必填校验，但仍需进入草稿以确保保存读取到一致状态。
      */
     fun onDraftDescriptionChange(value: String) {
-        updateEditor { it.copy(description = value, validationMessage = null) }
+        updateEditor { it.updateSecondaryValue(value) }
     }
 
     /**
@@ -218,9 +208,9 @@ class CardListViewModel(
      */
     fun onConfirmSave() {
         val editor = _uiState.value.editor ?: return
-        val trimmedTitle = editor.title.trim()
+        val trimmedTitle = editor.primaryValue.trim()
         if (trimmedTitle.isBlank()) {
-            _uiState.update { it.copy(editor = editor.copy(validationMessage = ErrorMessages.TITLE_REQUIRED)) }
+            _uiState.update { it.copy(editor = editor.withValidationMessage(ErrorMessages.TITLE_REQUIRED)) }
             return
         }
 
@@ -228,10 +218,10 @@ class CardListViewModel(
             action = {
                 val now = timeProvider.nowEpochMillis()
                 val card = Card(
-                    id = editor.cardId ?: EntityIds.newCardId(),
+                    id = editor.entityId ?: EntityIds.newCardId(),
                     deckId = deckId,
                     title = trimmedTitle,
-                    description = editor.description,
+                    description = editor.secondaryValue,
                     archived = false,
                     sortOrder = 0,
                     createdAt = now,
@@ -286,7 +276,7 @@ class CardListViewModel(
     /**
      * 打开编辑器时统一清空旧反馈，是为了让创建和编辑都从同一个干净状态开始。
      */
-    private fun openEditor(editor: CardEditorDraft) {
+    private fun openEditor(editor: TextMetadataDraft) {
         _uiState.update {
             it.copy(
                 editor = editor,
@@ -299,7 +289,7 @@ class CardListViewModel(
     /**
      * 草稿更新收口后，标题与描述的输入路径就不需要各自重复 editor 判空模板。
      */
-    private fun updateEditor(transform: (CardEditorDraft) -> CardEditorDraft) {
+    private fun updateEditor(transform: (TextMetadataDraft) -> TextMetadataDraft) {
         _uiState.update { state ->
             val editor = state.editor ?: return@update state
             state.copy(editor = transform(editor))

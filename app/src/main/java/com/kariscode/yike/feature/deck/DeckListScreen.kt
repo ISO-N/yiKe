@@ -159,12 +159,12 @@ private fun DeckListContent(
 
     uiState.editor?.let { editor ->
         YikeTextMetadataDialog(
-            title = if (editor.deckId == null) "新建卡组" else "编辑卡组",
+            title = if (editor.entityId == null) "新建卡组" else "编辑卡组",
             primaryLabel = "名称",
-            primaryValue = editor.name,
+            primaryValue = editor.primaryValue,
             onPrimaryValueChange = onNameChange,
             secondaryLabel = "说明",
-            secondaryValue = editor.description,
+            secondaryValue = editor.secondaryValue,
             onSecondaryValueChange = onDescriptionChange,
             validationMessage = editor.validationMessage,
             onDismiss = onDismissEditor,

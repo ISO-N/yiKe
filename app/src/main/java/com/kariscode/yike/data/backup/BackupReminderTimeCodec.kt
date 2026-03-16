@@ -15,12 +15,5 @@ object BackupReminderTimeCodec {
     /**
      * 恢复与校验共用同一解析入口，能确保格式错误在所有路径上得到一致处理。
      */
-    fun parse(value: String): Pair<Int, Int> {
-        val parts = value.split(":")
-        require(parts.size == 2) { "备份文件无效或版本不兼容" }
-        val hour = parts[0].toInt()
-        val minute = parts[1].toInt()
-        require(hour in 0..23 && minute in 0..59) { "备份文件无效或版本不兼容" }
-        return hour to minute
-    }
+    fun parse(value: String): Pair<Int, Int> = TimeTextFormatter.parseHourMinute(value)
 }

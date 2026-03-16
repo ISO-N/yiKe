@@ -167,12 +167,12 @@ private fun CardListContent(
 
     uiState.editor?.let { editor ->
         YikeTextMetadataDialog(
-            title = if (editor.cardId == null) "新建卡片" else "编辑卡片",
+            title = if (editor.entityId == null) "新建卡片" else "编辑卡片",
             primaryLabel = "标题",
-            primaryValue = editor.title,
+            primaryValue = editor.primaryValue,
             onPrimaryValueChange = onTitleChange,
             secondaryLabel = "说明",
-            secondaryValue = editor.description,
+            secondaryValue = editor.secondaryValue,
             onSecondaryValueChange = onDescriptionChange,
             validationMessage = editor.validationMessage,
             onDismiss = onDismissEditor,

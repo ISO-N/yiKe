@@ -70,6 +70,7 @@ fun YikeDangerConfirmationDialog(
     title: String,
     description: String,
     confirmText: String,
+    dismissText: String = "取消",
     onDismiss: () -> Unit,
     onConfirm: () -> Unit,
     modifier: Modifier = Modifier
@@ -83,7 +84,7 @@ fun YikeDangerConfirmationDialog(
             YikeDangerButton(text = confirmText, onClick = onConfirm)
         },
         dismissButton = {
-            YikeSecondaryButton(text = "取消", onClick = onDismiss)
+            YikeSecondaryButton(text = dismissText, onClick = onDismiss)
         }
     )
 }

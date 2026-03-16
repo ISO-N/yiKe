@@ -7,9 +7,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -20,16 +17,16 @@ import com.kariscode.yike.app.LocalAppContainer
 import com.kariscode.yike.ui.component.CollectFlowEffect
 import com.kariscode.yike.ui.component.backNavigationAction
 import com.kariscode.yike.ui.component.YikeBadge
-import com.kariscode.yike.ui.component.YikeDangerButton
+import com.kariscode.yike.ui.component.YikeDangerConfirmationDialog
 import com.kariscode.yike.ui.component.YikeFlowScaffold
 import com.kariscode.yike.ui.component.YikeOperationFeedback
 import com.kariscode.yike.ui.component.YikePrimaryButton
+import com.kariscode.yike.ui.component.YikeScrollableColumn
 import com.kariscode.yike.ui.component.YikeSecondaryButton
 import com.kariscode.yike.ui.component.YikeStateBanner
 import com.kariscode.yike.ui.component.YikeSurfaceCard
 import com.kariscode.yike.ui.component.YikeWarningCard
 import com.kariscode.yike.ui.format.formatLocalDateTime
-import com.kariscode.yike.ui.theme.LocalYikeSpacing
 
 /**
  * 备份恢复页属于高风险流内页面，因此继续使用聚焦式返回路径，并把风险提示固定在页面顶部。
@@ -78,7 +75,10 @@ fun BackupRestoreScreen(
     }
 
     if (uiState.pendingRestoreUri != null) {
-        RestoreConfirmationDialog(
+        YikeDangerConfirmationDialog(
+            title = "确认恢复备份？",
+            description = "恢复后将覆盖当前本地全部数据，且无法撤销。",
+            confirmText = "继续恢复",
             onDismiss = viewModel::onDismissRestoreConfirmation,
             onConfirm = viewModel::onConfirmRestore
         )
@@ -95,11 +95,7 @@ fun BackupRestoreContent(
     onImport: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val spacing = LocalYikeSpacing.current
-    Column(
-        modifier = modifier.verticalScroll(rememberScrollState()),
-        verticalArrangement = Arrangement.spacedBy(spacing.lg)
-    ) {
+    YikeScrollableColumn(modifier = modifier) {
         YikeWarningCard(
             title = "恢复会覆盖当前本地全部数据",
             description = uiState.warningMessage
@@ -142,24 +138,4 @@ fun BackupRestoreContent(
     }
 }
 
-/**
- * 恢复确认对话框强调不可逆后果，是为了让覆盖操作在真正执行前再被用户明确确认一次。
- */
-@Composable
-private fun RestoreConfirmationDialog(
-    onDismiss: () -> Unit,
-    onConfirm: () -> Unit
-) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("确认恢复备份？") },
-        text = { Text("恢复后将覆盖当前本地全部数据，且无法撤销。") },
-        confirmButton = {
-            YikeDangerButton(text = "继续恢复", onClick = onConfirm)
-        },
-        dismissButton = {
-            YikeSecondaryButton(text = "取消", onClick = onDismiss)
-        }
-    )
-}
 
