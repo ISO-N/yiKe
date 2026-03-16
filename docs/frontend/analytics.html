@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>忆刻 - 复习统计</title>
+  <link rel="stylesheet" href="./material-app.css">
+</head>
+<body class="page-bg">
+  <div class="app-shell">
+    <!-- 统计页独立存在，是为了遵守首页不承担详细统计的产品边界。 -->
+    <header class="top-bar">
+      <div>
+        <p class="eyebrow">Review Analytics</p>
+        <h1 class="screen-title">复习统计</h1>
+      </div>
+      <a class="icon-button" href="./home.html" aria-label="返回首页">返</a>
+    </header>
+
+    <section class="section hero-card">
+      <div class="row">
+        <div>
+          <p class="eyebrow">Last 7 Days</p>
+          <h2 class="headline">学习状态保持稳定上升</h2>
+        </div>
+        <span class="badge is-warm">连学 9 天</span>
+      </div>
+      <p class="supporting">把最影响节奏的 4 个指标放在首屏，是为了让用户先判断“节奏是否健康”，再看细分数据。</p>
+      <div class="filter-wrap" style="margin-top:16px;">
+        <span class="chip-button is-active">近 7 天</span>
+        <span class="chip-button">近 30 天</span>
+        <span class="chip-button">全部时间</span>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="kpi-grid">
+        <article class="kpi-card">
+          <p class="kpi-label">连续学习</p>
+          <p class="kpi-value">9 天</p>
+          <p class="kpi-note">昨天完成 23 题，保持了习惯链不断。</p>
+        </article>
+        <article class="kpi-card">
+          <p class="kpi-label">平均响应时间</p>
+          <p class="kpi-value">11.8 秒</p>
+          <p class="kpi-note">比上周缩短 1.4 秒，说明提取更顺畅。</p>
+        </article>
+        <article class="kpi-card">
+          <p class="kpi-label">遗忘率</p>
+          <p class="kpi-value">18%</p>
+          <p class="kpi-note">AGAIN 与高 lapse 题目占比低于上周。</p>
+        </article>
+        <article class="kpi-card">
+          <p class="kpi-label">完成题量</p>
+          <p class="kpi-value">146 题</p>
+          <p class="kpi-note">高等数学贡献了本周最多复习记录。</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="section chart-grid">
+      <article class="chart-card">
+        <div class="row">
+          <h2 class="section-heading">评分分布</h2>
+          <span class="badge">基于 146 次评分</span>
+        </div>
+        <div class="distribution-stack">
+          <div class="distribution-row">
+            <p class="distribution-label">AGAIN</p>
+            <div class="distribution-bar"><div class="distribution-fill is-critical" style="width:18%;"></div></div>
+            <p class="distribution-label">18%</p>
+          </div>
+          <div class="distribution-row">
+            <p class="distribution-label">HARD</p>
+            <div class="distribution-bar"><div class="distribution-fill is-soft" style="width:24%;"></div></div>
+            <p class="distribution-label">24%</p>
+          </div>
+          <div class="distribution-row">
+            <p class="distribution-label">GOOD</p>
+            <div class="distribution-bar"><div class="distribution-fill is-good" style="width:41%;"></div></div>
+            <p class="distribution-label">41%</p>
+          </div>
+          <div class="distribution-row">
+            <p class="distribution-label">EASY</p>
+            <div class="distribution-bar"><div class="distribution-fill is-best" style="width:17%;"></div></div>
+            <p class="distribution-label">17%</p>
+          </div>
+        </div>
+      </article>
+
+      <article class="chart-card">
+        <div class="row">
+          <h2 class="section-heading">遗忘率与耗时</h2>
+          <span class="badge">重点观察</span>
+        </div>
+        <div class="timeline-stack">
+          <div class="timeline-row">
+            <div>
+              <h3 class="group-title">高等数学</h3>
+              <p class="timeline-meta">遗忘率 22% · 平均响应 14.2 秒</p>
+            </div>
+            <span class="badge is-warm">重点</span>
+          </div>
+          <div class="timeline-row">
+            <div>
+              <h3 class="group-title">操作系统</h3>
+              <p class="timeline-meta">遗忘率 16% · 平均响应 10.5 秒</p>
+            </div>
+            <span class="badge">稳定</span>
+          </div>
+          <div class="timeline-row">
+            <div>
+              <h3 class="group-title">英语词组</h3>
+              <p class="timeline-meta">遗忘率 11% · 平均响应 7.3 秒</p>
+            </div>
+            <span class="badge">轻量</span>
+          </div>
+        </div>
+      </article>
+    </section>
+
+    <section class="section state-banner">
+      <div class="row">
+        <div>
+          <h2 class="screen-title">统计结论</h2>
+          <p class="supporting">困难题主要集中在高等数学第一章，适合先看今日预览再进入复习。</p>
+        </div>
+        <span class="badge is-warm">推荐动作</span>
+      </div>
+      <div class="button-row">
+        <a class="primary-button" href="./today-preview.html">查看今日预览</a>
+        <a class="secondary-button" href="./search.html">检索困难题</a>
+      </div>
+    </section>
+  </div>
+</body>
+</html>

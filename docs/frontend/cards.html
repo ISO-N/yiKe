@@ -8,6 +8,7 @@
 </head>
 <body class="page-bg">
   <div class="app-shell">
+    <!-- 卡片列表页补入熟练度摘要和检索入口，是为了让内容管理流能承接 P0 搜索能力。 -->
     <header class="top-bar">
       <div>
         <p class="eyebrow">Deck Detail</p>
@@ -24,7 +25,48 @@
         </div>
         <span class="badge is-warm">8 题待处理</span>
       </div>
-      <p class="supporting">按章节或知识块拆分卡片，能让复习时更容易进入上下文。</p>
+      <p class="supporting">按章节或知识块拆分卡片，能让复习时更容易进入上下文，也方便按熟练度定位薄弱点。</p>
+      <div class="pill-row" style="margin-top:16px;">
+        <span class="assist-pill is-active">全部卡片</span>
+        <span class="assist-pill">低熟练度</span>
+        <span class="assist-pill">今日到期</span>
+      </div>
+      <div class="button-row" style="margin-top:16px;">
+        <a class="primary-button" href="./search.html">查看题库</a>
+        <a class="secondary-button" href="./today-preview.html">看今日任务</a>
+      </div>
+    </section>
+
+    <section class="section state-banner">
+      <div class="row">
+        <div>
+          <h2 class="screen-title">熟练度分布</h2>
+          <p class="supporting">自动标签不写回数据库，只根据复习记录即时计算。</p>
+        </div>
+        <span class="badge">56 题</span>
+      </div>
+      <div class="distribution-stack">
+        <div class="distribution-row">
+          <p class="distribution-label">新问题</p>
+          <div class="distribution-bar"><div class="distribution-fill is-critical" style="width:21%;"></div></div>
+          <p class="distribution-label">12</p>
+        </div>
+        <div class="distribution-row">
+          <p class="distribution-label">学习中</p>
+          <div class="distribution-bar"><div class="distribution-fill is-soft" style="width:34%;"></div></div>
+          <p class="distribution-label">19</p>
+        </div>
+        <div class="distribution-row">
+          <p class="distribution-label">熟悉</p>
+          <div class="distribution-bar"><div class="distribution-fill is-good" style="width:27%;"></div></div>
+          <p class="distribution-label">15</p>
+        </div>
+        <div class="distribution-row">
+          <p class="distribution-label">已掌握</p>
+          <div class="distribution-bar"><div class="distribution-fill is-best" style="width:18%;"></div></div>
+          <p class="distribution-label">10</p>
+        </div>
+      </div>
     </section>
 
     <section class="section">
@@ -35,8 +77,19 @@
             <span class="badge is-warm">5 题到期</span>
           </div>
           <p class="meta-line">8 个问题 · 最近复习：昨天</p>
-          <p class="supporting">概念定义题较多，适合作为今天的第一张卡片。</p>
-          <a class="nav-pill is-active" href="./editor.html">编辑问题</a>
+          <p class="supporting">概念定义题较多，适合作为今天的第一张卡片，学习中问题占比最高。</p>
+          <div class="tag-row">
+            <span class="mastery-badge is-learning">学习中 4 题</span>
+            <span class="mastery-badge is-familiar">熟悉 2 题</span>
+            <span class="mastery-badge is-new">新问题 2 题</span>
+          </div>
+          <div class="mastery-track">
+            <div class="mastery-fill is-learning" style="width:52%;"></div>
+          </div>
+          <div class="row">
+            <a class="nav-pill is-active" href="./editor.html">编辑问题</a>
+            <a class="nav-pill" href="./search.html">检索本卡</a>
+          </div>
         </article>
         <article class="list-item">
           <div class="row">
@@ -44,8 +97,19 @@
             <span class="badge">2 题到期</span>
           </div>
           <p class="meta-line">6 个问题 · 最近复习：3 天前</p>
-          <p class="supporting">证明类题目偏多，建议答案保持短而完整。</p>
-          <a class="nav-pill" href="./editor.html">编辑问题</a>
+          <p class="supporting">证明类题目偏多，建议答案保持短而完整，低熟练度题需要优先处理。</p>
+          <div class="tag-row">
+            <span class="mastery-badge is-learning">学习中 3 题</span>
+            <span class="mastery-badge is-mastered">已掌握 2 题</span>
+            <span class="mastery-badge is-new">新问题 1 题</span>
+          </div>
+          <div class="mastery-track">
+            <div class="mastery-fill is-learning" style="width:44%;"></div>
+          </div>
+          <div class="row">
+            <a class="nav-pill" href="./editor.html">编辑问题</a>
+            <a class="nav-pill" href="./search.html">检索本卡</a>
+          </div>
         </article>
         <article class="list-item">
           <div class="row">
@@ -53,8 +117,18 @@
             <span class="badge">1 题到期</span>
           </div>
           <p class="meta-line">5 个问题 · 最近复习：本周</p>
-          <p class="supporting">本章节状态较稳，可以继续低频维护。</p>
-          <a class="nav-pill" href="./editor.html">编辑问题</a>
+          <p class="supporting">本章节状态较稳，可以继续低频维护，已掌握题目可以作为信心区。</p>
+          <div class="tag-row">
+            <span class="mastery-badge is-mastered">已掌握 3 题</span>
+            <span class="mastery-badge is-familiar">熟悉 2 题</span>
+          </div>
+          <div class="mastery-track">
+            <div class="mastery-fill is-mastered" style="width:76%;"></div>
+          </div>
+          <div class="row">
+            <a class="nav-pill" href="./editor.html">编辑问题</a>
+            <a class="nav-pill" href="./search.html">检索本卡</a>
+          </div>
         </article>
       </div>
     </section>

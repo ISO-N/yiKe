@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>忆刻 - 问题搜索与筛选</title>
+  <link rel="stylesheet" href="./material-app.css">
+</head>
+<body class="page-bg">
+  <div class="app-shell">
+    <!-- 搜索页把全文搜索、标签筛选和熟练度筛选收拢到一起，是为了减少来回切页的成本。 -->
+    <header class="top-bar">
+      <div>
+        <p class="eyebrow">Question Finder</p>
+        <h1 class="screen-title">问题搜索与筛选</h1>
+      </div>
+      <a class="icon-button" href="./cards.html" aria-label="返回卡片列表">返</a>
+    </header>
+
+    <section class="section hero-card">
+      <p class="eyebrow">Search</p>
+      <h2 class="headline">快速定位需要处理的问题</h2>
+      <p class="supporting">这页把全文搜索、标签、状态、卡组卡片和熟练度筛选放在同一处，方便直接进入专项复习。</p>
+      <label class="field-label" for="question-search" style="margin-top:16px;">搜索问题或答案</label>
+      <input id="question-search" class="search-field" type="text" value="极限 定义" aria-label="搜索问题或答案">
+    </section>
+
+    <section class="section chart-card">
+      <div class="row">
+        <h2 class="section-heading">筛选条件</h2>
+        <span class="badge is-warm">28 条结果</span>
+      </div>
+      <div class="filter-wrap">
+        <span class="chip-button is-active">卡组：高等数学</span>
+        <span class="chip-button">卡片：第一章 极限</span>
+        <span class="chip-button">状态：进行中</span>
+        <span class="chip-button">标签：定义</span>
+      </div>
+      <div class="divider-line"></div>
+      <div class="filter-wrap">
+        <span class="chip-button is-active">熟练度：学习中</span>
+        <span class="chip-button">熟练度：新问题</span>
+        <span class="chip-button">熟练度：熟悉</span>
+        <span class="chip-button">熟练度：已掌握</span>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="row" style="margin-bottom:12px;">
+        <h2 class="screen-title">搜索结果</h2>
+        <a class="nav-pill is-active" href="./review.html">专项复习</a>
+      </div>
+      <div class="result-stack">
+        <article class="result-card">
+          <div class="result-head">
+            <h3 class="result-title">为什么极限定义要求对任意 ε 成立？</h3>
+            <span class="mastery-badge is-learning">学习中</span>
+          </div>
+          <p class="result-snippet">答案片段：因为极限表达的是可以无限逼近的稳定性，只有对任意足够小误差都成立才说明真正收敛。</p>
+          <div class="tag-row">
+            <span class="badge">定义</span>
+            <span class="badge">极限</span>
+            <span class="badge">证明</span>
+          </div>
+          <div class="meta-grid">
+            <div class="meta-block">
+              <strong>所属位置</strong>
+              <span class="meta-line">高等数学 / 第一章 极限</span>
+            </div>
+            <div class="meta-block">
+              <strong>状态</strong>
+              <span class="meta-line">进行中 · 复习 3 次 · lapse 1 次</span>
+            </div>
+          </div>
+          <div class="mastery-track">
+            <div class="mastery-fill is-learning" style="width:38%;"></div>
+          </div>
+          <div class="result-foot">
+            <span class="meta-line">最近复习：今天 08:12</span>
+            <a class="nav-pill" href="./editor.html">编辑问题</a>
+          </div>
+        </article>
+
+        <article class="result-card">
+          <div class="result-head">
+            <h3 class="result-title">如何用数列语言描述函数极限？</h3>
+            <span class="mastery-badge is-familiar">熟悉</span>
+          </div>
+          <p class="result-snippet">答案片段：任取趋于该点的自变量数列，函数值数列都趋于同一极限值。</p>
+          <div class="tag-row">
+            <span class="badge">函数极限</span>
+            <span class="badge">数列方法</span>
+          </div>
+          <div class="meta-grid">
+            <div class="meta-block">
+              <strong>所属位置</strong>
+              <span class="meta-line">高等数学 / 第一章 极限</span>
+            </div>
+            <div class="meta-block">
+              <strong>状态</strong>
+              <span class="meta-line">进行中 · 复习 5 次 · lapse 0 次</span>
+            </div>
+          </div>
+          <div class="mastery-track">
+            <div class="mastery-fill is-familiar" style="width:68%;"></div>
+          </div>
+          <div class="result-foot">
+            <span class="meta-line">最近复习：昨天 21:08</span>
+            <a class="nav-pill" href="./review.html">立即复习</a>
+          </div>
+        </article>
+
+        <article class="result-card">
+          <div class="result-head">
+            <h3 class="result-title">无穷小与极限存在之间是什么关系？</h3>
+            <span class="mastery-badge is-new">新问题</span>
+          </div>
+          <p class="result-snippet">答案片段：若函数与某常数差为无穷小，则函数以该常数为极限；反过来，极限存在也可以转写为无穷小形式。</p>
+          <div class="tag-row">
+            <span class="badge">无穷小</span>
+            <span class="badge">转换</span>
+          </div>
+          <div class="meta-grid">
+            <div class="meta-block">
+              <strong>所属位置</strong>
+              <span class="meta-line">高等数学 / 第二章 导数</span>
+            </div>
+            <div class="meta-block">
+              <strong>状态</strong>
+              <span class="meta-line">进行中 · 尚未复习 · lapse 0 次</span>
+            </div>
+          </div>
+          <div class="mastery-track">
+            <div class="mastery-fill is-new" style="width:16%;"></div>
+          </div>
+          <div class="result-foot">
+            <span class="meta-line">预计首轮答题 18 秒</span>
+            <a class="nav-pill" href="./editor.html">完善答案</a>
+          </div>
+        </article>
+      </div>
+    </section>
+  </div>
+</body>
+</html>

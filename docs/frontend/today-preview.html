@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>忆刻 - 今日复习预览</title>
+  <link rel="stylesheet" href="./material-app.css">
+</head>
+<body class="page-bg">
+  <div class="app-shell">
+    <!-- 预览页让用户在开始复习前先建立预期，减少“点进复习才发现任务太重”的挫败感。 -->
+    <header class="top-bar">
+      <div>
+        <p class="eyebrow">Today Preview</p>
+        <h1 class="screen-title">今日复习预览</h1>
+      </div>
+      <a class="icon-button" href="./home.html" aria-label="返回首页">返</a>
+    </header>
+
+    <section class="section hero-card">
+      <div class="row">
+        <div>
+          <p class="eyebrow">3 月 16 日任务</p>
+          <h2 class="headline">18 个问题，预计 42 分钟</h2>
+        </div>
+        <span class="badge is-warm">3 个卡组</span>
+      </div>
+      <p class="supporting">时长基于最近 7 天 responseTimeMs 平均值估算，先给用户一个可接受的心理预期。</p>
+      <div class="button-row" style="margin-top:16px;">
+        <a class="primary-button" href="./review.html">直接开始</a>
+        <a class="secondary-button" href="./analytics.html">查看统计</a>
+      </div>
+    </section>
+
+    <section class="section state-banner">
+      <div class="row">
+        <div>
+          <h2 class="screen-title">任务摘要</h2>
+          <p class="supporting">最早到期时间 08:00，困难题 4 个，适合先完成高等数学。</p>
+        </div>
+        <span class="badge">平均 2.3 分/题</span>
+      </div>
+      <div class="stats-grid">
+        <article class="stat-card">
+          <p class="stat-value">10</p>
+          <p class="stat-label">上午更适合</p>
+        </article>
+        <article class="stat-card">
+          <p class="stat-value">4</p>
+          <p class="stat-label">低熟练度题</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="row" style="margin-bottom:12px;">
+        <h2 class="screen-title">按卡组查看</h2>
+        <span class="badge">按到期量排序</span>
+      </div>
+      <div class="list-stack">
+        <article class="group-card">
+          <div class="split-row">
+            <div>
+              <h3 class="group-title">高等数学</h3>
+              <p class="group-note">8 题 · 约 19 分钟 · 第一章极限优先</p>
+            </div>
+            <span class="badge is-warm">最重任务</span>
+          </div>
+          <div class="item-list">
+            <div class="item-row">
+              <strong>第一章 极限</strong>
+              <p class="item-meta">5 题到期 · 2 题学习中 · 预计 12 分钟</p>
+              <p class="item-meta">包含“极限定义”与“收敛判定”两类高频题。</p>
+            </div>
+            <div class="item-row">
+              <strong>第二章 导数</strong>
+              <p class="item-meta">2 题到期 · 1 题新问题 · 预计 5 分钟</p>
+              <p class="item-meta">证明题偏多，建议在专注状态下完成。</p>
+            </div>
+            <div class="item-row">
+              <strong>第三章 积分</strong>
+              <p class="item-meta">1 题到期 · 已掌握占比高 · 预计 2 分钟</p>
+              <p class="item-meta">可作为收尾，帮助快速建立完成感。</p>
+            </div>
+          </div>
+        </article>
+
+        <article class="group-card">
+          <div class="split-row">
+            <div>
+              <h3 class="group-title">操作系统</h3>
+              <p class="group-note">6 题 · 约 15 分钟 · 中午集中处理</p>
+            </div>
+            <span class="badge">次重点</span>
+          </div>
+          <div class="item-list">
+            <div class="item-row">
+              <strong>进程调度</strong>
+              <p class="item-meta">3 题到期 · 平均响应 11 秒</p>
+            </div>
+            <div class="item-row">
+              <strong>内存管理</strong>
+              <p class="item-meta">3 题到期 · 熟悉题较多，适合碎片时间推进</p>
+            </div>
+          </div>
+        </article>
+
+        <article class="group-card">
+          <div class="split-row">
+            <div>
+              <h3 class="group-title">英语词组</h3>
+              <p class="group-note">4 题 · 约 8 分钟 · 晚间轻量完成</p>
+            </div>
+            <span class="badge">轻任务</span>
+          </div>
+          <div class="item-list">
+            <div class="item-row">
+              <strong>高频短语</strong>
+              <p class="item-meta">2 题到期 · 已掌握为主</p>
+            </div>
+            <div class="item-row">
+              <strong>写作替换表达</strong>
+              <p class="item-meta">2 题到期 · 响应时间稳定在 6 秒左右</p>
+            </div>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="button-row">
+        <a class="secondary-button" href="./search.html">先筛困难题</a>
+        <a class="primary-button" href="./review.html">开始今日复习</a>
+      </div>
+    </section>
+  </div>
+</body>
+</html>
