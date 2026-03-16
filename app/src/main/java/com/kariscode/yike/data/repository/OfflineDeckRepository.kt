@@ -46,6 +46,15 @@ class OfflineDeckRepository(
             .mapEach { row -> RoomMappers.run { row.toDomain() } }
 
     /**
+     * 回收站与活跃列表共享同一聚合模型，是为了让恢复前后的统计变化仍由数据库统一计算。
+     */
+    override fun observeArchivedDeckSummaries(nowEpochMillis: Long): Flow<List<DeckSummary>> =
+        deckDao.observeArchivedDeckSummaries(
+            activeStatus = QuestionEntity.STATUS_ACTIVE,
+            nowEpochMillis = nowEpochMillis
+        ).mapEach { row -> RoomMappers.run { row.toDomain() } }
+
+    /**
      * 首页走限量快照查询可把“只展示少量入口”的意图下推到数据层，减少无意义的聚合结果构建。
      */
     override suspend fun listRecentActiveDeckSummaries(

@@ -1,6 +1,7 @@
 package com.kariscode.yike.domain.repository
 
 import com.kariscode.yike.domain.model.Card
+import com.kariscode.yike.domain.model.ArchivedCardSummary
 import com.kariscode.yike.domain.model.CardSummary
 import kotlinx.coroutines.flow.Flow
 
@@ -25,6 +26,12 @@ interface CardRepository {
      * 以避免页面层逐条查询造成性能问题。
      */
     fun observeActiveCardSummaries(deckId: String, nowEpochMillis: Long): Flow<List<CardSummary>>
+
+    /**
+     * 回收站查看已归档卡片时需要携带所属卡组名称，
+     * 因此提供独立摘要流能避免页面层自己拼接层级信息。
+     */
+    fun observeArchivedCardSummaries(nowEpochMillis: Long): Flow<List<ArchivedCardSummary>>
 
     /**
      * 单对象读取用于编辑页根据 cardId 重建表单状态，避免跨页面传对象。

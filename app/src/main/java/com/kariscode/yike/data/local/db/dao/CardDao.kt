@@ -23,6 +23,24 @@ data class CardSummaryRow(
 )
 
 /**
+ * 回收站里的卡片需要保留所属卡组上下文，
+ * 这样用户才能判断恢复动作应该回到哪里。
+ */
+data class ArchivedCardSummaryRow(
+    val id: String,
+    val deckId: String,
+    val deckName: String,
+    val title: String,
+    val description: String,
+    val archived: Boolean,
+    val sortOrder: Int,
+    val createdAt: Long,
+    val updatedAt: Long,
+    val questionCount: Int,
+    val dueQuestionCount: Int
+)
+
+/**
  * CardDao 提供以 deckId 维度的查询，是为了让内容管理流保持“按层级加载”的稳定形态，
  * 这样 UI 只持有路由参数即可重建页面状态，避免跨页面传递大对象。
  */
@@ -75,6 +93,37 @@ interface CardDao {
         activeStatus: String,
         nowEpochMillis: Long
     ): Flow<List<CardSummaryRow>>
+
+    /**
+     * 回收站读取已归档卡片时把卡组名称一并带出，
+     * 可以避免 UI 为了展示上下文再为每条卡片单独补查询。
+     */
+    @Query(
+        """
+        SELECT
+            c.id AS id,
+            c.deckId AS deckId,
+            d.name AS deckName,
+            c.title AS title,
+            c.description AS description,
+            c.archived AS archived,
+            c.sortOrder AS sortOrder,
+            c.createdAt AS createdAt,
+            c.updatedAt AS updatedAt,
+            COUNT(DISTINCT q.id) AS questionCount,
+            COUNT(DISTINCT CASE WHEN q.dueAt <= :nowEpochMillis THEN q.id END) AS dueQuestionCount
+        FROM card c
+        INNER JOIN deck d ON d.id = c.deckId
+        LEFT JOIN question q ON q.cardId = c.id AND q.status = :activeStatus
+        WHERE c.archived = 1
+        GROUP BY c.id
+        ORDER BY c.updatedAt DESC, c.createdAt DESC
+        """
+    )
+    fun observeArchivedCardSummaries(
+        activeStatus: String,
+        nowEpochMillis: Long
+    ): Flow<List<ArchivedCardSummaryRow>>
 
     @Query("SELECT * FROM card WHERE id = :cardId LIMIT 1")
     suspend fun findById(cardId: String): CardEntity?

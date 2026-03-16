@@ -4,6 +4,7 @@ import com.kariscode.yike.core.dispatchers.AppDispatchers
 import com.kariscode.yike.data.local.db.dao.CardDao
 import com.kariscode.yike.data.local.db.entity.QuestionEntity
 import com.kariscode.yike.data.mapper.RoomMappers
+import com.kariscode.yike.domain.model.ArchivedCardSummary
 import com.kariscode.yike.domain.model.Card
 import com.kariscode.yike.domain.model.CardSummary
 import com.kariscode.yike.domain.repository.CardRepository
@@ -45,6 +46,15 @@ class OfflineCardRepository(
             nowEpochMillis = nowEpochMillis
         )
             .mapEach { row -> RoomMappers.run { row.toDomain() } }
+
+    /**
+     * 已归档卡片的读取单独走带卡组名称的聚合查询，是为了让回收站直接具备恢复所需上下文。
+     */
+    override fun observeArchivedCardSummaries(nowEpochMillis: Long): Flow<List<ArchivedCardSummary>> =
+        cardDao.observeArchivedCardSummaries(
+            activeStatus = QuestionEntity.STATUS_ACTIVE,
+            nowEpochMillis = nowEpochMillis
+        ).mapEach { row -> RoomMappers.run { row.toDomain() } }
 
     /**
      * cardId 查询用于编辑页/复习页基于路由参数重建内容。

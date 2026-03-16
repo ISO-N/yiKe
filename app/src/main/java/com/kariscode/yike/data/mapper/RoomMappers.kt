@@ -5,6 +5,7 @@ import com.kariscode.yike.data.local.db.entity.DeckEntity
 import com.kariscode.yike.data.local.db.entity.QuestionEntity
 import com.kariscode.yike.data.local.db.entity.ReviewRecordEntity
 import com.kariscode.yike.domain.model.Card
+import com.kariscode.yike.domain.model.ArchivedCardSummary
 import com.kariscode.yike.domain.model.CardSummary
 import com.kariscode.yike.domain.model.Deck
 import com.kariscode.yike.domain.model.DeckSummary
@@ -14,6 +15,7 @@ import com.kariscode.yike.domain.model.QuestionStatus
 import com.kariscode.yike.domain.model.ReviewRating
 import com.kariscode.yike.domain.model.ReviewRecord
 import com.kariscode.yike.data.local.db.dao.CardSummaryRow
+import com.kariscode.yike.data.local.db.dao.ArchivedCardSummaryRow
 import com.kariscode.yike.data.local.db.dao.DeckSummaryRow
 import com.kariscode.yike.data.local.db.dao.QuestionContextRow
 import kotlinx.serialization.builtins.ListSerializer
@@ -160,6 +162,25 @@ object RoomMappers {
             createdAt = createdAt,
             updatedAt = updatedAt
         ),
+        questionCount = questionCount,
+        dueQuestionCount = dueQuestionCount
+    )
+
+    /**
+     * 回收站行额外携带卡组名称，因此单独映射能避免页面层理解 SQL 别名字段。
+     */
+    fun ArchivedCardSummaryRow.toDomain(): ArchivedCardSummary = ArchivedCardSummary(
+        card = Card(
+            id = id,
+            deckId = deckId,
+            title = title,
+            description = description,
+            archived = archived,
+            sortOrder = sortOrder,
+            createdAt = createdAt,
+            updatedAt = updatedAt
+        ),
+        deckName = deckName,
         questionCount = questionCount,
         dueQuestionCount = dueQuestionCount
     )

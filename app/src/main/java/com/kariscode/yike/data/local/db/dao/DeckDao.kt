@@ -82,6 +82,33 @@ interface DeckDao {
     fun observeActiveDeckSummaries(activeStatus: String, nowEpochMillis: Long): Flow<List<DeckSummaryRow>>
 
     /**
+     * 回收站的统计口径应与活跃列表一致，只是把筛选条件切换为已归档卡组，
+     * 这样恢复前后看到的数量变化才可预测。
+     */
+    @Query(
+        """
+        SELECT
+            d.id AS id,
+            d.name AS name,
+            d.description AS description,
+            d.archived AS archived,
+            d.sortOrder AS sortOrder,
+            d.createdAt AS createdAt,
+            d.updatedAt AS updatedAt,
+            COUNT(DISTINCT c.id) AS cardCount,
+            COUNT(DISTINCT q.id) AS questionCount,
+            COUNT(DISTINCT CASE WHEN q.dueAt <= :nowEpochMillis THEN q.id END) AS dueQuestionCount
+        FROM deck d
+        LEFT JOIN card c ON c.deckId = d.id
+        LEFT JOIN question q ON q.cardId = c.id AND q.status = :activeStatus
+        WHERE d.archived = 1
+        GROUP BY d.id
+        ORDER BY d.updatedAt DESC, d.createdAt DESC
+        """
+    )
+    fun observeArchivedDeckSummaries(activeStatus: String, nowEpochMillis: Long): Flow<List<DeckSummaryRow>>
+
+    /**
      * 首页最近卡组只需要一小段快照，数据库侧限量可以避免先构造完整列表再让上层截断。
      */
     @Query(

@@ -27,6 +27,11 @@ interface DeckRepository {
     fun observeActiveDeckSummaries(nowEpochMillis: Long): Flow<List<DeckSummary>>
 
     /**
+     * 回收站需要持续观察已归档卡组，才能让恢复与彻底删除后列表立即回写到界面。
+     */
+    fun observeArchivedDeckSummaries(nowEpochMillis: Long): Flow<List<DeckSummary>>
+
+    /**
      * 首页只展示少量最近卡组，提供限量快照查询可以避免先订阅全量流再在上层截断。
      */
     suspend fun listRecentActiveDeckSummaries(nowEpochMillis: Long, limit: Int): List<DeckSummary>
