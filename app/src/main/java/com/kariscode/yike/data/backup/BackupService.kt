@@ -123,33 +123,13 @@ class BackupService(
      */
     private suspend fun restoreDocument(document: BackupDocument) {
         val previousSnapshot = readCurrentSnapshot()
+        val restoredEntities = document.toRestorePayload()
 
         try {
-            database.withTransaction {
-                reviewRecordDao.clearAll()
-                questionDao.clearAll()
-                cardDao.clearAll()
-                deckDao.clearAll()
-
-                deckDao.upsertAll(document.decks.map { deck -> deck.toEntity() })
-                cardDao.upsertAll(document.cards.map { card -> card.toEntity() })
-                questionDao.upsertAll(document.questions.map { question -> question.toEntity() })
-                reviewRecordDao.insertAll(document.reviewRecords.map { record -> record.toEntity() })
-            }
-
+            replaceDatabaseContent(restoredEntities)
             writeSettingsFromBackup(document.settings)
         } catch (throwable: Throwable) {
-            database.withTransaction {
-                reviewRecordDao.clearAll()
-                questionDao.clearAll()
-                cardDao.clearAll()
-                deckDao.clearAll()
-
-                deckDao.upsertAll(previousSnapshot.decks)
-                cardDao.upsertAll(previousSnapshot.cards)
-                questionDao.upsertAll(previousSnapshot.questions)
-                reviewRecordDao.insertAll(previousSnapshot.reviewRecords)
-            }
+            replaceDatabaseContent(previousSnapshot.toRestorePayload())
             restorePreviousSettings(previousSnapshot.settings)
             throw IllegalStateException("恢复失败，当前数据未被修改", throwable)
         }
@@ -215,6 +195,30 @@ class BackupService(
      */
     private suspend fun persistSettings(settings: AppSettings) {
         appSettingsRepository.setSettings(settings)
+    }
+
+    /**
+     * 恢复主流程与失败补偿都需要执行“先清空再全量写回”，
+     * 抽成统一入口可以确保事务骨架只维护一份，不会在两条路径上逐渐分叉。
+     */
+    private suspend fun replaceDatabaseContent(payload: RestorePayload) {
+        database.withTransaction {
+            clearDatabaseContent()
+            deckDao.upsertAll(payload.decks)
+            cardDao.upsertAll(payload.cards)
+            questionDao.upsertAll(payload.questions)
+            reviewRecordDao.insertAll(payload.reviewRecords)
+        }
+    }
+
+    /**
+     * 清空顺序集中在单点，是为了让恢复语义与级联关系调整时只需要校验一个入口。
+     */
+    private suspend fun clearDatabaseContent() {
+        reviewRecordDao.clearAll()
+        questionDao.clearAll()
+        cardDao.clearAll()
+        deckDao.clearAll()
     }
 
     /**
@@ -371,5 +375,35 @@ class BackupService(
             note = this@toEntity.note
         ).toEntity()
     }
+
+    /**
+     * 备份文档先一次性转成实体载荷，是为了让校验通过后的恢复事务只专注处理数据库替换。
+     */
+    private fun BackupDocument.toRestorePayload(): RestorePayload = RestorePayload(
+        decks = decks.map { deck -> deck.toEntity() },
+        cards = cards.map { card -> card.toEntity() },
+        questions = questions.map { question -> question.toEntity() },
+        reviewRecords = reviewRecords.map { record -> record.toEntity() }
+    )
+
+    /**
+     * 旧快照同样投影成统一载荷，是为了让补偿恢复与正式恢复完全复用同一套写入骨架。
+     */
+    private fun BackupSnapshot.toRestorePayload(): RestorePayload = RestorePayload(
+        decks = decks,
+        cards = cards,
+        questions = questions,
+        reviewRecords = reviewRecords
+    )
+
+    /**
+     * 恢复时把待写入的实体集合显式建模，可以避免多组平行列表在参数传递中错位。
+     */
+    private data class RestorePayload(
+        val decks: List<DeckEntity>,
+        val cards: List<CardEntity>,
+        val questions: List<QuestionEntity>,
+        val reviewRecords: List<ReviewRecordEntity>
+    )
 
 }

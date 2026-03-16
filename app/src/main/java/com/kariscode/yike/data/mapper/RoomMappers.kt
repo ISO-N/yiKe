@@ -5,11 +5,17 @@ import com.kariscode.yike.data.local.db.entity.DeckEntity
 import com.kariscode.yike.data.local.db.entity.QuestionEntity
 import com.kariscode.yike.data.local.db.entity.ReviewRecordEntity
 import com.kariscode.yike.domain.model.Card
+import com.kariscode.yike.domain.model.CardSummary
 import com.kariscode.yike.domain.model.Deck
+import com.kariscode.yike.domain.model.DeckSummary
 import com.kariscode.yike.domain.model.Question
+import com.kariscode.yike.domain.model.QuestionContext
 import com.kariscode.yike.domain.model.QuestionStatus
 import com.kariscode.yike.domain.model.ReviewRating
 import com.kariscode.yike.domain.model.ReviewRecord
+import com.kariscode.yike.data.local.db.dao.CardSummaryRow
+import com.kariscode.yike.data.local.db.dao.DeckSummaryRow
+import com.kariscode.yike.data.local.db.dao.QuestionContextRow
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.json.Json
@@ -120,6 +126,66 @@ object RoomMappers {
         reviewedAt = reviewedAt,
         responseTimeMs = responseTimeMs,
         note = note
+    )
+
+    /**
+     * 聚合行在 mapper 层还原成领域摘要，可避免 Repository 重复理解 SQL 别名与层级字段。
+     */
+    fun DeckSummaryRow.toDomain(): DeckSummary = DeckSummary(
+        deck = Deck(
+            id = id,
+            name = name,
+            description = description,
+            archived = archived,
+            sortOrder = sortOrder,
+            createdAt = createdAt,
+            updatedAt = updatedAt
+        ),
+        cardCount = cardCount,
+        questionCount = questionCount,
+        dueQuestionCount = dueQuestionCount
+    )
+
+    /**
+     * 卡片摘要行与普通实体字段相近但不完全一致，把转换集中可避免列表查询继续散落手写构造。
+     */
+    fun CardSummaryRow.toDomain(): CardSummary = CardSummary(
+        card = Card(
+            id = id,
+            deckId = deckId,
+            title = title,
+            description = description,
+            archived = archived,
+            sortOrder = sortOrder,
+            createdAt = createdAt,
+            updatedAt = updatedAt
+        ),
+        questionCount = questionCount,
+        dueQuestionCount = dueQuestionCount
+    )
+
+    /**
+     * 搜索与预览共用的上下文行统一映射成领域模型，是为了让熟练度筛选继续只依赖同一份 Question 语义。
+     */
+    fun QuestionContextRow.toDomain(): QuestionContext = QuestionContext(
+        question = Question(
+            id = id,
+            cardId = cardId,
+            prompt = prompt,
+            answer = answer,
+            tags = decodeQuestionTags(tagsJson),
+            status = decodeStatus(status),
+            stageIndex = stageIndex,
+            dueAt = dueAt,
+            lastReviewedAt = lastReviewedAt,
+            reviewCount = reviewCount,
+            lapseCount = lapseCount,
+            createdAt = createdAt,
+            updatedAt = updatedAt
+        ),
+        deckId = deckId,
+        deckName = deckName,
+        cardTitle = cardTitle
     )
 
     /**

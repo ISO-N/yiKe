@@ -2,7 +2,6 @@ package com.kariscode.yike.data.repository
 
 import com.kariscode.yike.core.dispatchers.AppDispatchers
 import com.kariscode.yike.data.local.db.dao.CardDao
-import com.kariscode.yike.data.local.db.dao.CardSummaryRow
 import com.kariscode.yike.data.local.db.entity.QuestionEntity
 import com.kariscode.yike.data.mapper.RoomMappers
 import com.kariscode.yike.domain.model.Card
@@ -45,7 +44,7 @@ class OfflineCardRepository(
             activeStatus = QuestionEntity.STATUS_ACTIVE,
             nowEpochMillis = nowEpochMillis
         )
-            .map { list -> list.map(::toCardSummary) }
+            .mapEach { row -> RoomMappers.run { row.toDomain() } }
 
     /**
      * cardId 查询用于编辑页/复习页基于路由参数重建内容。
@@ -81,23 +80,4 @@ class OfflineCardRepository(
         cardDao.deleteById(cardId)
         Unit
     }
-
-    /**
-     * CardSummary 的转换在 data 层完成，能避免 UI 层理解数据库聚合细节，
-     * 并为后续扩展更多统计字段提供稳定扩展点。
-     */
-    private fun toCardSummary(row: CardSummaryRow): CardSummary = CardSummary(
-        card = Card(
-            id = row.id,
-            deckId = row.deckId,
-            title = row.title,
-            description = row.description,
-            archived = row.archived,
-            sortOrder = row.sortOrder,
-            createdAt = row.createdAt,
-            updatedAt = row.updatedAt
-        ),
-        questionCount = row.questionCount,
-        dueQuestionCount = row.dueQuestionCount
-    )
 }

@@ -2,11 +2,9 @@ package com.kariscode.yike.data.repository
 
 import com.kariscode.yike.core.dispatchers.AppDispatchers
 import com.kariscode.yike.data.local.db.dao.QuestionDao
-import com.kariscode.yike.data.local.db.dao.QuestionContextRow
 import com.kariscode.yike.data.local.db.dao.ReviewRecordDao
 import com.kariscode.yike.data.mapper.RoomMappers
 import com.kariscode.yike.domain.model.DeckReviewAnalyticsSnapshot
-import com.kariscode.yike.domain.model.Question
 import com.kariscode.yike.domain.model.QuestionContext
 import com.kariscode.yike.domain.model.QuestionMasteryCalculator
 import com.kariscode.yike.domain.model.QuestionQueryFilters
@@ -36,7 +34,7 @@ class OfflineStudyInsightsRepository(
                 deckId = filters.deckId,
                 cardId = filters.cardId,
                 maxDueAt = null
-            ).map(::mapQuestionContext)
+            ).map { row -> RoomMappers.run { row.toDomain() } }
                 .filterByMastery(filters)
         }
 
@@ -52,7 +50,7 @@ class OfflineStudyInsightsRepository(
                 deckId = null,
                 cardId = null,
                 maxDueAt = nowEpochMillis
-            ).map(::mapQuestionContext)
+            ).map { row -> RoomMappers.run { row.toDomain() } }
         }
 
     /**
@@ -106,34 +104,6 @@ class OfflineStudyInsightsRepository(
         dispatchers.onIo {
             reviewRecordDao.listReviewTimestamps(startEpochMillis = startEpochMillis)
         }
-
-    /**
-     * Room 行先还原成 Question 领域模型，是为了让熟练度规则和现有业务模型继续复用同一对象。
-     */
-    private fun mapQuestionContext(row: QuestionContextRow): QuestionContext {
-        val question = Question(
-            id = row.id,
-            cardId = row.cardId,
-            prompt = row.prompt,
-            answer = row.answer,
-            tags = RoomMappers.decodeQuestionTags(row.tagsJson),
-            status = QuestionStatus.fromStorageValue(row.status),
-            stageIndex = row.stageIndex,
-            dueAt = row.dueAt,
-            lastReviewedAt = row.lastReviewedAt,
-            reviewCount = row.reviewCount,
-            lapseCount = row.lapseCount,
-            createdAt = row.createdAt,
-            updatedAt = row.updatedAt
-        )
-        return QuestionContext(
-            question = question,
-            deckId = row.deckId,
-            deckName = row.deckName,
-            cardTitle = row.cardTitle
-        )
-    }
-
     /**
      * 熟练度筛选保持在仓储层收口，是为了让卡片页摘要和搜索页结果始终看到同一批题目。
      */

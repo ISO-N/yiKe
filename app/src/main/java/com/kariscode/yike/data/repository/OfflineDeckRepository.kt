@@ -2,7 +2,6 @@ package com.kariscode.yike.data.repository
 
 import com.kariscode.yike.core.dispatchers.AppDispatchers
 import com.kariscode.yike.data.local.db.dao.DeckDao
-import com.kariscode.yike.data.local.db.dao.DeckSummaryRow
 import com.kariscode.yike.data.local.db.entity.QuestionEntity
 import com.kariscode.yike.data.mapper.RoomMappers
 import com.kariscode.yike.domain.model.Deck
@@ -44,7 +43,7 @@ class OfflineDeckRepository(
             activeStatus = QuestionEntity.STATUS_ACTIVE,
             nowEpochMillis = nowEpochMillis
         )
-            .map { list -> list.map(::toDeckSummary) }
+            .mapEach { row -> RoomMappers.run { row.toDomain() } }
 
     /**
      * 首页走限量快照查询可把“只展示少量入口”的意图下推到数据层，减少无意义的聚合结果构建。
@@ -57,7 +56,7 @@ class OfflineDeckRepository(
             activeStatus = QuestionEntity.STATUS_ACTIVE,
             nowEpochMillis = nowEpochMillis,
             limit = limit
-        ).map(::toDeckSummary)
+        ).map { row -> RoomMappers.run { row.toDomain() } }
     }
 
     /**
@@ -94,23 +93,4 @@ class OfflineDeckRepository(
         deckDao.deleteById(deckId)
         Unit
     }
-
-    /**
-     * 将聚合行转换为 domain 模型是为了让上层完全不依赖 SQL 别名与聚合字段命名，
-     * 从而保持统计口径变更时的影响面可控。
-     */
-    private fun toDeckSummary(row: DeckSummaryRow): DeckSummary = DeckSummary(
-        deck = Deck(
-            id = row.id,
-            name = row.name,
-            description = row.description,
-            archived = row.archived,
-            sortOrder = row.sortOrder,
-            createdAt = row.createdAt,
-            updatedAt = row.updatedAt
-        ),
-        cardCount = row.cardCount,
-        questionCount = row.questionCount,
-        dueQuestionCount = row.dueQuestionCount
-    )
 }
