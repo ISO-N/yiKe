@@ -7,6 +7,7 @@ import com.kariscode.yike.core.coroutine.parallel
 import com.kariscode.yike.core.coroutine.parallel3
 import com.kariscode.yike.core.dispatchers.AppDispatchers
 import com.kariscode.yike.core.time.TimeProvider
+import com.kariscode.yike.core.time.TimeTextFormatter
 import com.kariscode.yike.data.local.db.YikeDatabase
 import com.kariscode.yike.data.local.db.dao.CardDao
 import com.kariscode.yike.data.local.db.dao.DeckDao
@@ -170,7 +171,7 @@ class BackupService(
      * 设置写入单独封装，是为了让恢复成功后的提醒配置和版本信息与备份内容保持一致。
      */
     private suspend fun writeSettingsFromBackup(settings: BackupSettings) {
-        val (hour, minute) = BackupReminderTimeCodec.parse(settings.dailyReminderTime)
+        val (hour, minute) = TimeTextFormatter.parseHourMinute(settings.dailyReminderTime)
         persistSettings(
             settings = AppSettings(
                 dailyReminderEnabled = settings.dailyReminderEnabled,
@@ -225,7 +226,7 @@ class BackupService(
      * 统一把设置映射为固定 `HH:mm` 文本，是为了让备份文件结构稳定且便于人工阅读。
      */
     private fun AppSettings.toBackupReminderTime(): String =
-        BackupReminderTimeCodec.format(
+        TimeTextFormatter.formatHourMinute(
             hour = dailyReminderHour,
             minute = dailyReminderMinute
         )

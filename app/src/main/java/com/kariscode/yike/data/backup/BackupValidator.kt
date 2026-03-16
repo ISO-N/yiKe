@@ -1,5 +1,6 @@
 package com.kariscode.yike.data.backup
 
+import com.kariscode.yike.core.time.TimeTextFormatter
 import com.kariscode.yike.domain.scheduler.ReviewSchedulerV1
 
 /**
@@ -73,7 +74,7 @@ class BackupValidator {
      * 提醒时间在恢复后会立即参与调度，因此必须在校验阶段就保证格式正确。
      */
     private fun parseReminderTime(value: String) {
-        BackupReminderTimeCodec.parse(value)
+        TimeTextFormatter.parseHourMinute(value)
     }
 
     /**
