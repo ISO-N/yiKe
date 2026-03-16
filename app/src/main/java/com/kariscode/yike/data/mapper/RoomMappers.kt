@@ -69,7 +69,7 @@ object RoomMappers {
         cardId = cardId,
         prompt = prompt,
         answer = answer,
-        tags = decodeTags(tagsJson),
+        tags = decodeQuestionTags(tagsJson),
         status = decodeStatus(status),
         stageIndex = stageIndex,
         dueAt = dueAt,
@@ -150,12 +150,18 @@ object RoomMappers {
     )
 
     /**
-     * 标签解码失败时回退空列表，是为了保证单条题目脏数据不会让整个列表查询失去可用性。
+     * 标签解码规则对搜索候选、洞察统计和实体映射都必须保持一致，
+     * 因此暴露单一入口可以避免不同仓储各自演化出不同的容错语义。
      */
-    private fun decodeTags(tagsJson: String): List<String> = runCatching {
+    fun decodeQuestionTags(tagsJson: String): List<String> = runCatching {
         json.decodeFromString(
             deserializer = tagsSerializer,
             string = tagsJson
         )
     }.getOrElse { emptyList() }
+
+    /**
+     * 标签解码失败时回退空列表，是为了保证单条题目脏数据不会让整个列表查询失去可用性。
+     */
+    private fun decodeTags(tagsJson: String): List<String> = decodeQuestionTags(tagsJson)
 }

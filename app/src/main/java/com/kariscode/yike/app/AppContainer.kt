@@ -63,6 +63,11 @@ class AppContainer(
         ).build()
     }
 
+    private val deckDao by lazy { database.deckDao() }
+    private val cardDao by lazy { database.cardDao() }
+    private val questionDao by lazy { database.questionDao() }
+    private val reviewRecordDao by lazy { database.reviewRecordDao() }
+
     /**
      * 设置仓储放在容器层创建，能保证全应用对默认值与读写路径的一致理解，
      * 并为后续在写入后触发提醒重建提供单点入口。
@@ -78,15 +83,15 @@ class AppContainer(
      * 并且后续首页统计、提醒 Worker 与备份导出都会复用同一套查询口径。
      */
     val deckRepository: DeckRepository by lazy {
-        OfflineDeckRepository(deckDao = database.deckDao(), dispatchers = dispatchers)
+        OfflineDeckRepository(deckDao = deckDao, dispatchers = dispatchers)
     }
 
     val cardRepository: CardRepository by lazy {
-        OfflineCardRepository(cardDao = database.cardDao(), dispatchers = dispatchers)
+        OfflineCardRepository(cardDao = cardDao, dispatchers = dispatchers)
     }
 
     val questionRepository: QuestionRepository by lazy {
-        OfflineQuestionRepository(questionDao = database.questionDao(), dispatchers = dispatchers)
+        OfflineQuestionRepository(questionDao = questionDao, dispatchers = dispatchers)
     }
 
     /**
@@ -95,8 +100,8 @@ class AppContainer(
      */
     val studyInsightsRepository: StudyInsightsRepository by lazy {
         OfflineStudyInsightsRepository(
-            questionDao = database.questionDao(),
-            reviewRecordDao = database.reviewRecordDao(),
+            questionDao = questionDao,
+            reviewRecordDao = reviewRecordDao,
             dispatchers = dispatchers
         )
     }
@@ -107,8 +112,8 @@ class AppContainer(
     val reviewRepository: ReviewRepository by lazy {
         OfflineReviewRepository(
             database = database,
-            questionDao = database.questionDao(),
-            reviewRecordDao = database.reviewRecordDao(),
+            questionDao = questionDao,
+            reviewRecordDao = reviewRecordDao,
             reviewScheduler = reviewScheduler,
             dispatchers = dispatchers
         )
@@ -139,10 +144,10 @@ class AppContainer(
         BackupService(
             application = application,
             database = database,
-            deckDao = database.deckDao(),
-            cardDao = database.cardDao(),
-            questionDao = database.questionDao(),
-            reviewRecordDao = database.reviewRecordDao(),
+            deckDao = deckDao,
+            cardDao = cardDao,
+            questionDao = questionDao,
+            reviewRecordDao = reviewRecordDao,
             appSettingsRepository = appSettingsRepository,
             backupValidator = BackupValidator(),
             timeProvider = timeProvider,

@@ -4,6 +4,7 @@ import com.kariscode.yike.core.dispatchers.AppDispatchers
 import com.kariscode.yike.data.local.db.dao.QuestionDao
 import com.kariscode.yike.data.local.db.dao.QuestionContextRow
 import com.kariscode.yike.data.local.db.dao.ReviewRecordDao
+import com.kariscode.yike.data.mapper.RoomMappers
 import com.kariscode.yike.domain.model.DeckReviewAnalyticsSnapshot
 import com.kariscode.yike.domain.model.Question
 import com.kariscode.yike.domain.model.QuestionContext
@@ -12,9 +13,6 @@ import com.kariscode.yike.domain.model.QuestionQueryFilters
 import com.kariscode.yike.domain.model.QuestionStatus
 import com.kariscode.yike.domain.model.ReviewAnalyticsSnapshot
 import com.kariscode.yike.domain.repository.StudyInsightsRepository
-import kotlinx.serialization.builtins.ListSerializer
-import kotlinx.serialization.builtins.serializer
-import kotlinx.serialization.json.Json
 
 /**
  * 学习洞察仓储把搜索、预览和统计查询集中实现，
@@ -25,9 +23,6 @@ class OfflineStudyInsightsRepository(
     private val reviewRecordDao: ReviewRecordDao,
     private val dispatchers: AppDispatchers
 ) : StudyInsightsRepository {
-    private val json: Json = Json { ignoreUnknownKeys = true }
-    private val tagsSerializer = ListSerializer(String.serializer())
-
     /**
      * 搜索结果先在数据库做文本和层级过滤，再在仓储层补齐熟练度筛选，
      * 这样既能保持查询简单，也能复用同一套熟练度规则。
@@ -65,7 +60,7 @@ class OfflineStudyInsightsRepository(
      */
     override suspend fun listAvailableTags(limit: Int): List<String> = dispatchers.onIo {
         questionDao.listTagsJson(activeStatus = QuestionStatus.ACTIVE.storageValue)
-            .flatMap(::decodeTags)
+            .flatMap(RoomMappers::decodeQuestionTags)
             .map(String::trim)
             .filter(String::isNotBlank)
             .groupingBy { it }
@@ -121,7 +116,7 @@ class OfflineStudyInsightsRepository(
             cardId = row.cardId,
             prompt = row.prompt,
             answer = row.answer,
-            tags = decodeTags(row.tagsJson),
+            tags = RoomMappers.decodeQuestionTags(row.tagsJson),
             status = QuestionStatus.fromStorageValue(row.status),
             stageIndex = row.stageIndex,
             dueAt = row.dueAt,
@@ -149,13 +144,6 @@ class OfflineStudyInsightsRepository(
             QuestionMasteryCalculator.snapshot(context.question).level == expectedLevel
         }
     } ?: this
-
-    /**
-     * 标签解析规则保持和 Room 映射层一致，是为了让搜索候选不会因为解析差异漏掉已有标签。
-     */
-    private fun decodeTags(tagsJson: String): List<String> = runCatching {
-        json.decodeFromString(tagsSerializer, tagsJson)
-    }.getOrElse { emptyList() }
 
     /**
      * 比例换算收口为辅助函数，是为了避免 AGAIN 比例和遗忘率在多个调用点重复处理除零分支。
