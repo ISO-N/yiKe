@@ -9,8 +9,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -22,7 +20,6 @@ import com.kariscode.yike.app.LocalAppContainer
 import com.kariscode.yike.core.message.ErrorMessages
 import com.kariscode.yike.domain.model.DeckSummary
 import com.kariscode.yike.ui.component.YikeBadge
-import com.kariscode.yike.ui.component.YikeDangerButton
 import com.kariscode.yike.ui.component.YikeFab
 import com.kariscode.yike.ui.component.YikeHeroCard
 import com.kariscode.yike.ui.component.YikeListItemCard
@@ -32,7 +29,9 @@ import com.kariscode.yike.ui.component.YikePrimaryButton
 import com.kariscode.yike.ui.component.YikePrimaryDestination
 import com.kariscode.yike.ui.component.YikePrimaryScaffold
 import com.kariscode.yike.ui.component.YikeSecondaryButton
+import com.kariscode.yike.ui.component.YikeDangerConfirmationDialog
 import com.kariscode.yike.ui.component.YikeStateBanner
+import com.kariscode.yike.ui.component.YikeTextMetadataDialog
 import com.kariscode.yike.ui.theme.LocalYikeSpacing
 
 /**
@@ -159,17 +158,25 @@ private fun DeckListContent(
     }
 
     uiState.editor?.let { editor ->
-        DeckEditorDialog(
-            editor = editor,
-            onNameChange = onNameChange,
-            onDescriptionChange = onDescriptionChange,
+        YikeTextMetadataDialog(
+            title = if (editor.deckId == null) "新建卡组" else "编辑卡组",
+            primaryLabel = "名称",
+            primaryValue = editor.name,
+            onPrimaryValueChange = onNameChange,
+            secondaryLabel = "说明",
+            secondaryValue = editor.description,
+            onSecondaryValueChange = onDescriptionChange,
+            validationMessage = editor.validationMessage,
             onDismiss = onDismissEditor,
             onConfirm = onConfirmSave
         )
     }
 
     uiState.pendingDelete?.let {
-        DeckDeleteDialog(
+        YikeDangerConfirmationDialog(
+            title = "确认删除卡组？",
+            description = "删除会级联清理该卡组下的卡片、问题与复习记录，且无法恢复。",
+            confirmText = "删除",
             onDismiss = onDismissDelete,
             onConfirm = onConfirmDelete
         )
@@ -257,68 +264,4 @@ private fun DeckSummaryCard(
             }
         }
     }
-}
-
-/**
- * 编辑弹窗继续保留轻量对话形式，是为了在不扩展新页面的前提下完成卡组创建与基础维护。
- */
-@Composable
-private fun DeckEditorDialog(
-    editor: DeckEditorDraft,
-    onNameChange: (String) -> Unit,
-    onDescriptionChange: (String) -> Unit,
-    onDismiss: () -> Unit,
-    onConfirm: () -> Unit
-) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(if (editor.deckId == null) "新建卡组" else "编辑卡组") },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(LocalYikeSpacing.current.md)) {
-                OutlinedTextField(
-                    value = editor.name,
-                    onValueChange = onNameChange,
-                    label = { Text("名称") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
-                OutlinedTextField(
-                    value = editor.description,
-                    onValueChange = onDescriptionChange,
-                    label = { Text("说明") },
-                    modifier = Modifier.fillMaxWidth()
-                )
-                editor.validationMessage?.let { message ->
-                    Text(text = message)
-                }
-            }
-        },
-        confirmButton = {
-            YikePrimaryButton(text = "保存", onClick = onConfirm)
-        },
-        dismissButton = {
-            YikeSecondaryButton(text = "取消", onClick = onDismiss)
-        }
-    )
-}
-
-/**
- * 删除确认单独封装，是为了确保级联删除这种高风险操作始终带着明确提示出现。
- */
-@Composable
-private fun DeckDeleteDialog(
-    onDismiss: () -> Unit,
-    onConfirm: () -> Unit
-) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("确认删除卡组？") },
-        text = { Text("删除会级联清理该卡组下的卡片、问题与复习记录，且无法恢复。") },
-        confirmButton = {
-            YikeDangerButton(text = "删除", onClick = onConfirm)
-        },
-        dismissButton = {
-            YikeSecondaryButton(text = "取消", onClick = onDismiss)
-        }
-    )
 }
