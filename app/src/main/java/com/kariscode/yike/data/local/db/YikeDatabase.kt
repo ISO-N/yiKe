@@ -25,7 +25,10 @@ import com.kariscode.yike.data.local.db.entity.ReviewRecordEntity
     ],
     version = DatabaseConstants.ROOM_SCHEMA_VERSION,
     exportSchema = true,
-    autoMigrations = [AutoMigration(from = 1, to = 2)]
+    autoMigrations = [
+        AutoMigration(from = 1, to = 2),
+        AutoMigration(from = 2, to = 3)
+    ]
 )
 abstract class YikeDatabase : RoomDatabase() {
     abstract fun deckDao(): DeckDao

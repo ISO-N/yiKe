@@ -10,6 +10,7 @@ data class DeckMetadataDraft(
     val entityId: String?,
     val name: String,
     val description: String,
+    val tags: List<String> = emptyList(),
     val intervalStepCountText: String = ReviewSchedulerV1.DEFAULT_INTERVAL_STEP_COUNT.toString(),
     val validationMessage: String? = null
 ) {
@@ -24,6 +25,12 @@ data class DeckMetadataDraft(
      */
     fun updateDescription(value: String): DeckMetadataDraft =
         copy(description = value, validationMessage = null)
+
+    /**
+     * 标签进入草稿后，补全建议和删除操作都能围绕同一份待保存状态工作，避免 UI 另存副本。
+     */
+    fun updateTags(value: List<String>): DeckMetadataDraft =
+        copy(tags = value, validationMessage = null)
 
     /**
      * 间隔次数文本先按字符串保存，是为了允许用户处于“正在输入中”的中间态，而不是每击键一次就强行丢弃。

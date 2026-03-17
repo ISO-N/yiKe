@@ -143,6 +143,7 @@ question
 | `id` | `TEXT` | 否 | 无 | 主键 |
 | `name` | `TEXT` | 否 | 无 | 卡组名称 |
 | `description` | `TEXT` | 否 | `""` | 描述 |
+| `tagsJson` | `TEXT` | 否 | `"[]"` | 卡组标签 JSON |
 | `intervalStepCount` | `INTEGER` | 否 | `8` | 间隔序列次数，范围 `1..8` |
 | `archived` | `INTEGER` | 否 | `0` | 0=false, 1=true |
 | `sortOrder` | `INTEGER` | 否 | `0` | 手动排序值 |
@@ -152,6 +153,7 @@ question
 ### 7.3 约束
 
 - `name` 不能为空
+- `tagsJson` 保存 `List<String>` 的 JSON 序列化结果
 - `intervalStepCount` 必须在 `1..8`
 - 第一版不支持父子卡组
 
@@ -283,6 +285,7 @@ question
 | `dailyReminderMinute` | `Int` | 分钟 |
 | `schemaVersion` | `Int` | 数据结构版本 |
 | `backupLastAt` | `Long?` | 最近备份时间 |
+| `themeMode` | `String` | `light / dark / system` |
 
 说明：
 

@@ -44,6 +44,7 @@ data class SettingsUiState(
 sealed interface SettingsEffect {
     data object RequestNotificationPermission : SettingsEffect
     data object OpenBackupRestore : SettingsEffect
+    data object OpenLanSync : SettingsEffect
 }
 
 /**
@@ -144,6 +145,13 @@ class SettingsViewModel(
      */
     fun onBackupRestoreClick() {
         _effects.tryEmit(SettingsEffect.OpenBackupRestore)
+    }
+
+    /**
+     * 局域网同步属于高风险全局能力，通过 effect 发导航可以保持 ViewModel 不依赖具体路由实现。
+     */
+    fun onLanSyncClick() {
+        _effects.tryEmit(SettingsEffect.OpenLanSync)
     }
 
     /**

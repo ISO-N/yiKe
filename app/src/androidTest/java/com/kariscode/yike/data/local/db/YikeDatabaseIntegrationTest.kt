@@ -213,6 +213,7 @@ class YikeDatabaseIntegrationTest {
         id = id,
         name = id,
         description = "",
+        tagsJson = "[]",
         intervalStepCount = 8,
         archived = archived,
         sortOrder = 0,

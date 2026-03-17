@@ -31,6 +31,7 @@ import com.kariscode.yike.feature.review.ReviewCardScreen
 import com.kariscode.yike.feature.review.ReviewQueueScreen
 import com.kariscode.yike.feature.search.QuestionSearchScreen
 import com.kariscode.yike.feature.settings.SettingsScreen
+import com.kariscode.yike.feature.sync.LanSyncScreen
 import com.kariscode.yike.ui.component.YikePrimaryDestination
 import com.kariscode.yike.ui.component.YikePrimaryNavigationChrome
 
@@ -143,12 +144,19 @@ fun YikeNavGraph(
             composable(route = YikeDestination.SETTINGS) {
                 SettingsScreen(
                     onOpenBackupRestore = { navController.navigate(YikeDestination.BACKUP_RESTORE) },
+                    onOpenLanSync = { navController.navigate(YikeDestination.LAN_SYNC) },
                     onOpenRecycleBin = { navController.navigate(YikeDestination.RECYCLE_BIN) }
                 )
             }
 
             composable(route = YikeDestination.BACKUP_RESTORE) {
                 BackupRestoreScreen(
+                    onBack = { navController.popBackStack() }
+                )
+            }
+
+            composable(route = YikeDestination.LAN_SYNC) {
+                LanSyncScreen(
                     onBack = { navController.popBackStack() }
                 )
             }

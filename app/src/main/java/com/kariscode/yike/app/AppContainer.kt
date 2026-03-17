@@ -19,9 +19,11 @@ import com.kariscode.yike.data.reminder.NotificationHelper
 import com.kariscode.yike.data.reminder.ReminderScheduler
 import com.kariscode.yike.data.settings.DataStoreAppSettingsRepository
 import com.kariscode.yike.data.settings.appSettingsDataStore
+import com.kariscode.yike.data.sync.LanSyncRepositoryImpl
 import com.kariscode.yike.domain.repository.AppSettingsRepository
 import com.kariscode.yike.domain.repository.CardRepository
 import com.kariscode.yike.domain.repository.DeckRepository
+import com.kariscode.yike.domain.repository.LanSyncRepository
 import com.kariscode.yike.domain.repository.QuestionRepository
 import com.kariscode.yike.domain.repository.ReviewRepository
 import com.kariscode.yike.domain.repository.StudyInsightsRepository
@@ -152,6 +154,18 @@ class AppContainer(
             backupValidator = BackupValidator(),
             timeProvider = timeProvider,
             dispatchers = dispatchers
+        )
+    }
+
+    /**
+     * 局域网同步仓储把发现、服务广播与恢复流程聚合起来，能让设置页入口只围绕单一能力工作。
+     */
+    val lanSyncRepository: LanSyncRepository by lazy {
+        LanSyncRepositoryImpl(
+            context = application,
+            backupService = backupService,
+            appSettingsRepository = appSettingsRepository,
+            timeProvider = timeProvider
         )
     }
 

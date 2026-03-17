@@ -104,6 +104,7 @@ class BackupValidatorTest {
                 id = "deck_1",
                 name = "测试卡组",
                 description = "",
+                tags = listOf("数学", "微积分"),
                 intervalStepCount = 4,
                 archived = false,
                 sortOrder = 0,

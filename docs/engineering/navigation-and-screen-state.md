@@ -35,6 +35,7 @@ review_card/{cardId}
 settings
 recycle_bin
 backup_restore
+lan_sync
 debug
 ```
 
@@ -65,6 +66,7 @@ debug
               -> question_editor/{cardId}
   -> 设置
       -> settings
+          -> lan_sync
           -> recycle_bin
           -> backup_restore
   -> 调试工具（仅 debug 构建）
@@ -443,6 +445,7 @@ error: ReviewError?
 ### 14.1 页面职责
 
 - 管理提醒设置
+- 提供局域网同步入口
 - 提供已归档内容入口
 - 提供备份恢复入口
 - 展示应用信息
@@ -465,8 +468,42 @@ error: SettingsError?
 - `OnReminderTimeClick`
 - `OnReminderTimeConfirmed`
 - `OnThemeModeChange`
+- `OnLanSyncClick`
 - `OnArchivedContentClick`
 - `OnBackupRestoreClick`
+
+---
+
+## 14.1 局域网同步页 `LanSyncScreen`
+
+### 页面职责
+
+- 发现同一 Wi-Fi 下的其他忆刻设备
+- 展示本机与远端同步摘要
+- 在覆盖前执行风险确认
+- 拉取远端完整备份并恢复到本机
+
+### `LanSyncUiState` 建议
+
+```text
+isSessionActive: Boolean
+isPreparing: Boolean
+isSyncing: Boolean
+localDeviceName: String
+localSnapshot: LocalSyncSnapshot?
+devices: List<SyncDeviceUiModel>
+pendingConflict: SyncConflictUiModel?
+message: String?
+errorMessage: String?
+```
+
+### 关键事件
+
+- `OnPermissionReady`
+- `OnStopSession`
+- `OnSyncDeviceClick(deviceId)`
+- `OnConfirmConflictSync`
+- `OnDismissConflict`
 
 ---
 
@@ -655,6 +692,7 @@ error: BackupRestoreError?
 
 - `recycle_bin` 返回 `settings`
 - `backup_restore` 返回 `settings`
+- `lan_sync` 返回 `settings`
 - `settings` 返回 `home`
 - `debug` 返回 `home`
 - `today_preview`、`review_analytics`、`question_search` 默认回退到来源页，若无来源则返回 `home`

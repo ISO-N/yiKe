@@ -47,6 +47,7 @@ import com.kariscode.yike.ui.theme.LocalYikeSpacing
 @Composable
 fun SettingsScreen(
     onOpenBackupRestore: () -> Unit,
+    onOpenLanSync: () -> Unit,
     onOpenRecycleBin: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -73,6 +74,7 @@ fun SettingsScreen(
     CollectFlowEffect(effectFlow = viewModel.effects) { effect ->
         when (effect) {
             SettingsEffect.OpenBackupRestore -> onOpenBackupRestore()
+            SettingsEffect.OpenLanSync -> onOpenLanSync()
             SettingsEffect.RequestNotificationPermission -> permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
         }
     }
@@ -102,6 +104,7 @@ fun SettingsScreen(
             },
             onThemeModeChange = viewModel::onThemeModeChange,
             onOpenBackupRestore = viewModel::onBackupRestoreClick,
+            onOpenLanSync = viewModel::onLanSyncClick,
             onOpenRecycleBin = onOpenRecycleBin,
             modifier = modifier,
             contentPadding = padding
@@ -120,6 +123,7 @@ private fun SettingsContent(
     onChangeTime: () -> Unit,
     onThemeModeChange: (ThemeMode) -> Unit,
     onOpenBackupRestore: () -> Unit,
+    onOpenLanSync: () -> Unit,
     onOpenRecycleBin: () -> Unit,
     modifier: Modifier = Modifier,
     contentPadding: PaddingValues = PaddingValues()
@@ -152,6 +156,7 @@ private fun SettingsContent(
             onChangeTime = onChangeTime,
             onThemeModeChange = onThemeModeChange,
             onOpenBackupRestore = onOpenBackupRestore,
+            onOpenLanSync = onOpenLanSync,
             onOpenRecycleBin = onOpenRecycleBin
         )
         Spacer(modifier = Modifier.height(contentPadding.calculateBottomPadding()))
@@ -198,6 +203,7 @@ private fun ReminderSettingsSection(
     onChangeTime: () -> Unit,
     onThemeModeChange: (ThemeMode) -> Unit,
     onOpenBackupRestore: () -> Unit,
+    onOpenLanSync: () -> Unit,
     onOpenRecycleBin: () -> Unit
 ) {
     YikeListItemCard(
@@ -247,6 +253,18 @@ private fun ReminderSettingsSection(
         YikeSecondaryButton(
             text = "进入备份页",
             onClick = onOpenBackupRestore,
+            modifier = Modifier.fillMaxWidth()
+        )
+    }
+
+    YikeListItemCard(
+        title = "局域网同步",
+        summary = "发现同一 Wi-Fi 下的设备",
+        supporting = "当前版本会把远端完整备份覆盖同步到本机。"
+    ) {
+        YikeSecondaryButton(
+            text = "进入同步页",
+            onClick = onOpenLanSync,
             modifier = Modifier.fillMaxWidth()
         )
     }

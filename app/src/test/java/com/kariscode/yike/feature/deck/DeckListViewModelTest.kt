@@ -4,6 +4,7 @@ import com.kariscode.yike.core.time.TimeProvider
 import com.kariscode.yike.domain.model.Deck
 import com.kariscode.yike.domain.model.DeckSummary
 import com.kariscode.yike.domain.repository.DeckRepository
+import com.kariscode.yike.domain.repository.StudyInsightsRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
@@ -37,6 +38,7 @@ class DeckListViewModelTest {
             repository.archivedDecksFlow.value = listOf(item)
             val viewModel = DeckListViewModel(
                 deckRepository = repository,
+                studyInsightsRepository = FakeStudyInsightsRepository(),
                 timeProvider = object : TimeProvider {
                     override fun nowEpochMillis(): Long = 321L
                 }
@@ -65,6 +67,7 @@ class DeckListViewModelTest {
         try {
             val viewModel = DeckListViewModel(
                 deckRepository = FakeDeckRepository(),
+                studyInsightsRepository = FakeStudyInsightsRepository(),
                 timeProvider = object : TimeProvider {
                     override fun nowEpochMillis(): Long = 123L
                 }
@@ -80,6 +83,34 @@ class DeckListViewModelTest {
     }
 
     /**
+     * 保存前统一清洗标签，能避免用户在补全与手输混用时留下重复或空白标签。
+     */
+    @Test
+    fun onConfirmSave_normalizesTagsBeforePersisting() = runTest {
+        Dispatchers.setMain(UnconfinedTestDispatcher(testScheduler))
+        try {
+            val repository = FakeDeckRepository()
+            val viewModel = DeckListViewModel(
+                deckRepository = repository,
+                studyInsightsRepository = FakeStudyInsightsRepository(),
+                timeProvider = object : TimeProvider {
+                    override fun nowEpochMillis(): Long = 456L
+                }
+            )
+
+            viewModel.onCreateDeckClick()
+            viewModel.onDraftNameChange("数学")
+            viewModel.onDraftTagsChange(listOf(" 高频 ", "高频", "", "线性 代数"))
+            viewModel.onConfirmSave()
+            advanceUntilIdle()
+
+            assertEquals(listOf("高频", "线性 代数"), repository.upsertedDecks.single().tags)
+        } finally {
+            Dispatchers.resetMain()
+        }
+    }
+
+    /**
      * 测试数据显式保留聚合字段，是为了让归档动作在真实列表项上下文里执行。
      */
     private fun createDeckSummary(deckId: String): DeckSummary = DeckSummary(
@@ -87,6 +118,7 @@ class DeckListViewModelTest {
             id = deckId,
             name = "英语",
             description = "",
+            tags = listOf("词汇"),
             intervalStepCount = 8,
             archived = false,
             sortOrder = 0,
@@ -106,6 +138,7 @@ class DeckListViewModelTest {
         val archivedDecksFlow = MutableStateFlow<List<DeckSummary>>(emptyList())
         val setArchivedCalls = mutableListOf<SetArchivedCall>()
         val deletedDeckIds = mutableListOf<String>()
+        val upsertedDecks = mutableListOf<Deck>()
 
         data class SetArchivedCall(val deckId: String, val archived: Boolean, val updatedAt: Long)
 
@@ -121,7 +154,9 @@ class DeckListViewModelTest {
 
         override suspend fun findById(deckId: String): Deck? = null
 
-        override suspend fun upsert(deck: Deck) = Unit
+        override suspend fun upsert(deck: Deck) {
+            upsertedDecks.add(deck)
+        }
 
         override suspend fun setArchived(deckId: String, archived: Boolean, updatedAt: Long) {
             setArchivedCalls.add(SetArchivedCall(deckId, archived, updatedAt))
@@ -130,5 +165,23 @@ class DeckListViewModelTest {
         override suspend fun delete(deckId: String) {
             deletedDeckIds.add(deckId)
         }
+    }
+
+    /**
+     * 标签候选对本组测试只需要稳定返回固定数据，便于把断言聚焦在卡组页自身的清洗逻辑。
+     */
+    private class FakeStudyInsightsRepository : StudyInsightsRepository {
+        override suspend fun searchQuestionContexts(filters: com.kariscode.yike.domain.model.QuestionQueryFilters) =
+            emptyList<com.kariscode.yike.domain.model.QuestionContext>()
+
+        override suspend fun listDueQuestionContexts(nowEpochMillis: Long) =
+            emptyList<com.kariscode.yike.domain.model.QuestionContext>()
+
+        override suspend fun listAvailableTags(limit: Int): List<String> = listOf("高频", "定义")
+
+        override suspend fun getReviewAnalytics(startEpochMillis: Long?) =
+            throw UnsupportedOperationException("Not required for DeckListViewModelTest")
+
+        override suspend fun listReviewTimestamps(startEpochMillis: Long?): List<Long> = emptyList()
     }
 }

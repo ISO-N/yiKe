@@ -262,10 +262,16 @@ class DebugViewModel(
      */
     private fun createDeck(deckIndex: Int, nowEpochMillis: Long): DeckEntity {
         val topic = DECK_TOPICS[deckIndex % DECK_TOPICS.size]
+        val tags = listOf(
+            "debug",
+            topic,
+            TAG_POOL[(deckIndex + 1) % TAG_POOL.size]
+        )
         return DeckEntity(
             id = "deck_${UUID.randomUUID()}",
             name = "调试卡组 ${deckIndex + 1} · $topic",
             description = "用于快速验证随机复习数据与列表展示。",
+            tagsJson = tags.joinToString(prefix = "[\"", postfix = "\"]", separator = "\",\""),
             intervalStepCount = ReviewSchedulerV1.DEFAULT_INTERVAL_STEP_COUNT,
             archived = false,
             sortOrder = deckIndex,

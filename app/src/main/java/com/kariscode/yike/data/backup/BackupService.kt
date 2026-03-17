@@ -63,8 +63,7 @@ class BackupService(
      */
     suspend fun exportToUri(uri: Uri) = withContext(dispatchers.io) {
         val exportedAt = timeProvider.nowEpochMillis()
-        val document = buildBackupDocument(exportedAtEpochMillis = exportedAt)
-        val jsonString = BackupJson.json.encodeToString(document)
+        val jsonString = exportToJsonString(exportedAtEpochMillis = exportedAt)
         application.contentResolver.openOutputStream(uri)?.use { outputStream ->
             outputStream.write(jsonString.toByteArray())
             outputStream.flush()
@@ -79,9 +78,7 @@ class BackupService(
     suspend fun restoreFromUri(uri: Uri) = withContext(dispatchers.io) {
         val jsonString = application.contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() }
             ?: throw FileNotFoundException("无法读取备份文件")
-        val document = BackupJson.json.decodeFromString<BackupDocument>(jsonString)
-        backupValidator.validate(document).getOrThrow()
-        restoreDocument(document)
+        restoreFromJsonString(jsonString)
     }
 
     /**
@@ -94,6 +91,35 @@ class BackupService(
             .replace("T", "-")
             .substringBefore("+")
         return "yike-backup-$stamp.json"
+    }
+
+    /**
+     * 局域网同步与导出文件都需要同一份 JSON 快照，因此单独暴露字符串导出入口可以避免重复序列化骨架。
+     */
+    suspend fun exportToJsonString(
+        exportedAtEpochMillis: Long = timeProvider.nowEpochMillis()
+    ): String = withContext(dispatchers.io) {
+        val document = exportDocument(exportedAtEpochMillis = exportedAtEpochMillis)
+        BackupJson.json.encodeToString(document)
+    }
+
+    /**
+     * 同步拉取到的远端备份本质上与本地导入文件等价，
+     * 因此共享同一恢复入口可以确保校验、事务与失败补偿完全一致。
+     */
+    suspend fun restoreFromJsonString(jsonString: String) = withContext(dispatchers.io) {
+        val document = BackupJson.json.decodeFromString<BackupDocument>(jsonString)
+        backupValidator.validate(document).getOrThrow()
+        restoreDocument(document)
+    }
+
+    /**
+     * 同步预览只需要结构化文档而不一定马上写文件，因此公开文档导出入口能减少二次反序列化成本。
+     */
+    suspend fun exportDocument(
+        exportedAtEpochMillis: Long = timeProvider.nowEpochMillis()
+    ): BackupDocument = withContext(dispatchers.io) {
+        buildBackupDocument(exportedAtEpochMillis = exportedAtEpochMillis)
     }
 
     /**
@@ -242,6 +268,7 @@ class BackupService(
         id = id,
         name = name,
         description = description,
+        tags = RoomMappers.decodeQuestionTags(tagsJson),
         intervalStepCount = intervalStepCount,
         archived = archived,
         sortOrder = sortOrder,
@@ -323,6 +350,7 @@ class BackupService(
         id = id,
         name = name,
         description = description,
+        tagsJson = BackupJson.json.encodeToString(tags),
         intervalStepCount = ReviewSchedulerV1.normalizeIntervalStepCount(intervalStepCount),
         archived = archived,
         sortOrder = sortOrder,

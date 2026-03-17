@@ -8,6 +8,7 @@ data class Deck(
     val id: String,
     val name: String,
     val description: String,
+    val tags: List<String>,
     val intervalStepCount: Int,
     val archived: Boolean,
     val sortOrder: Int,

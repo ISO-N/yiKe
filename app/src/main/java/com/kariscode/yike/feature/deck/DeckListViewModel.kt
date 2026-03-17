@@ -12,6 +12,7 @@ import com.kariscode.yike.core.viewmodel.typedViewModelFactory
 import com.kariscode.yike.domain.model.Deck
 import com.kariscode.yike.domain.model.DeckSummary
 import com.kariscode.yike.domain.repository.DeckRepository
+import com.kariscode.yike.domain.repository.StudyInsightsRepository
 import com.kariscode.yike.domain.scheduler.ReviewSchedulerV1
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -28,6 +29,7 @@ data class DeckListUiState(
     val isLoading: Boolean,
     val keyword: String,
     val items: List<DeckSummary>,
+    val availableTags: List<String>,
     val editor: DeckMetadataDraft?,
     val message: String?,
     val errorMessage: String?
@@ -39,13 +41,17 @@ data class DeckListUiState(
  */
 class DeckListViewModel(
     private val deckRepository: DeckRepository,
+    private val studyInsightsRepository: StudyInsightsRepository,
     private val timeProvider: TimeProvider
 ) : ViewModel() {
+    private var insightTags: List<String> = emptyList()
+
     private val _uiState = MutableStateFlow(
         DeckListUiState(
             isLoading = true,
             keyword = "",
             items = emptyList(),
+            availableTags = emptyList(),
             editor = null,
             message = null,
             errorMessage = null
@@ -75,11 +81,13 @@ class DeckListViewModel(
                         it.copy(
                             isLoading = false,
                             items = items,
+                            availableTags = mergeAvailableTags(items = items, insightTags = insightTags),
                             errorMessage = null
                         )
                     }
                 }
         }
+        refreshAvailableTags()
     }
 
     /**
@@ -91,6 +99,7 @@ class DeckListViewModel(
                 entityId = null,
                 name = "",
                 description = "",
+                tags = emptyList(),
                 intervalStepCountText = ReviewSchedulerV1.DEFAULT_INTERVAL_STEP_COUNT.toString()
             )
         )
@@ -105,6 +114,7 @@ class DeckListViewModel(
                 entityId = item.deck.id,
                 name = item.deck.name,
                 description = item.deck.description,
+                tags = item.deck.tags,
                 intervalStepCountText = item.deck.intervalStepCount.toString()
             )
         )
@@ -122,6 +132,13 @@ class DeckListViewModel(
      */
     fun onDraftDescriptionChange(value: String) {
         updateEditor { it.updateDescription(value) }
+    }
+
+    /**
+     * 标签改动与名称、描述同样回写草稿，是为了让补全结果在保存前可见且可撤销。
+     */
+    fun onDraftTagsChange(tags: List<String>) {
+        updateEditor { it.updateTags(normalizeTags(tags)) }
     }
 
     /**
@@ -171,12 +188,14 @@ class DeckListViewModel(
         launchResult(
             action = {
                 val now = timeProvider.nowEpochMillis()
+                val normalizedTags = normalizeTags(editor.tags)
                 // Room 的 upsert 会自动处理"不存在则插入，存在则更新"的逻辑
                 // 直接构建对象并 upsert，无需先查询
                 val deck = Deck(
                     id = editor.entityId ?: EntityIds.newDeckId(),
                     name = trimmedName,
                     description = editor.description,
+                    tags = normalizedTags,
                     intervalStepCount = intervalStepCount,
                     archived = false,
                     sortOrder = 0,
@@ -191,6 +210,27 @@ class DeckListViewModel(
             onFailure = {
                 _uiState.update { it.copy(message = null, errorMessage = ErrorMessages.SAVE_FAILED) }
             }
+        )
+    }
+
+    /**
+     * 题库标签补全单独读取，是为了让卡组标签能复用用户已经在问题层建立的分类词汇。
+     */
+    private fun refreshAvailableTags() {
+        launchResult(
+            action = { studyInsightsRepository.listAvailableTags(limit = 12) },
+            onSuccess = { tags ->
+                insightTags = normalizeTags(tags)
+                _uiState.update { state ->
+                    state.copy(
+                        availableTags = mergeAvailableTags(
+                            items = state.items,
+                            insightTags = insightTags
+                        )
+                    )
+                }
+            },
+            onFailure = { Unit }
         )
     }
 
@@ -244,6 +284,36 @@ class DeckListViewModel(
     }
 
     /**
+     * 标签在保存前统一清洗空白和大小写重复，是为了避免后续搜索与补全出现肉眼相同却存成两份的噪声。
+     */
+    private fun normalizeTags(tags: List<String>): List<String> {
+        val normalizedTags = mutableListOf<String>()
+        val deduplicatedKeys = linkedSetOf<String>()
+        tags.forEach { rawTag ->
+            val normalizedTag = rawTag
+                .trim()
+                .replace(Regex("\\s+"), " ")
+            if (normalizedTag.isBlank()) {
+                return@forEach
+            }
+            if (deduplicatedKeys.add(normalizedTag.lowercase())) {
+                normalizedTags.add(normalizedTag)
+            }
+        }
+        return normalizedTags
+    }
+
+    /**
+     * 卡组列表和题库元数据都可能贡献补全候选，合并去重后才能让弹窗既覆盖旧标签也保留最新共识词汇。
+     */
+    private fun mergeAvailableTags(
+        items: List<DeckSummary>,
+        insightTags: List<String>
+    ): List<String> = normalizeTags(
+        insightTags + items.flatMap { summary -> summary.deck.tags }
+    ).sortedBy { tag -> tag.lowercase() }
+
+    /**
      * 列表页的写操作统一走同一层失败反馈，是为了避免归档、删除等入口各自遗漏异常收口。
      */
     private fun executeMutation(
@@ -265,9 +335,10 @@ class DeckListViewModel(
          */
         fun factory(
             deckRepository: DeckRepository,
+            studyInsightsRepository: StudyInsightsRepository,
             timeProvider: TimeProvider
         ): ViewModelProvider.Factory = typedViewModelFactory {
-            DeckListViewModel(deckRepository, timeProvider)
+            DeckListViewModel(deckRepository, studyInsightsRepository, timeProvider)
         }
     }
 }

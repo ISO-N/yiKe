@@ -48,6 +48,7 @@ data class BackupDeck(
     val id: String,
     val name: String,
     val description: String,
+    val tags: List<String> = emptyList(),
     val intervalStepCount: Int = ReviewSchedulerV1.DEFAULT_INTERVAL_STEP_COUNT,
     val archived: Boolean,
     val sortOrder: Int,

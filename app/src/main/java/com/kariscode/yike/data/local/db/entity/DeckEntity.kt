@@ -20,6 +20,8 @@ data class DeckEntity(
     @PrimaryKey val id: String,
     val name: String,
     val description: String,
+    @ColumnInfo(defaultValue = "'[]'")
+    val tagsJson: String,
     @ColumnInfo(defaultValue = "8")
     val intervalStepCount: Int,
     val archived: Boolean,

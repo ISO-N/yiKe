@@ -344,7 +344,7 @@ class OfflineReviewRepositoryTest {
     ) {
         database.deckDao().upsert(
             DeckEntity(
-                id = deckId, name = deckId, description = "",
+                id = deckId, name = deckId, description = "", tagsJson = "[]",
                 intervalStepCount = intervalStepCount,
                 archived = false, sortOrder = 0, createdAt = 1L, updatedAt = 1L
             )

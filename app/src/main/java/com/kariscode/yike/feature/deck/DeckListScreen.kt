@@ -7,6 +7,8 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -47,6 +49,7 @@ fun DeckListScreen(
     val viewModel = viewModel<DeckListViewModel>(
         factory = DeckListViewModel.factory(
             deckRepository = container.deckRepository,
+            studyInsightsRepository = container.studyInsightsRepository,
             timeProvider = container.timeProvider
         )
     )
@@ -70,6 +73,7 @@ fun DeckListScreen(
             onKeywordChange = viewModel::onKeywordChange,
             onNameChange = viewModel::onDraftNameChange,
             onDescriptionChange = viewModel::onDraftDescriptionChange,
+            onTagsChange = viewModel::onDraftTagsChange,
             onIntervalStepCountChange = viewModel::onDraftIntervalStepCountChange,
             onDismissEditor = viewModel::onDismissEditor,
             onConfirmSave = viewModel::onConfirmSave,
@@ -92,6 +96,7 @@ private fun DeckListContent(
     onKeywordChange: (String) -> Unit,
     onNameChange: (String) -> Unit,
     onDescriptionChange: (String) -> Unit,
+    onTagsChange: (List<String>) -> Unit,
     onIntervalStepCountChange: (String) -> Unit,
     onDismissEditor: () -> Unit,
     onConfirmSave: () -> Unit,
@@ -104,7 +109,8 @@ private fun DeckListContent(
         val keyword = uiState.keyword.trim()
         keyword.isBlank() ||
             item.deck.name.contains(keyword, ignoreCase = true) ||
-            item.deck.description.contains(keyword, ignoreCase = true)
+            item.deck.description.contains(keyword, ignoreCase = true) ||
+            item.deck.tags.any { tag -> tag.contains(keyword, ignoreCase = true) }
     }
     YikeScrollableColumn(modifier = modifier) {
         DeckOverviewSection(items = visibleItems)
@@ -144,7 +150,7 @@ private fun DeckListContent(
             visibleItems.isEmpty() -> {
                 YikeStateBanner(
                     title = "没有找到匹配的卡组",
-                    description = "换个关键词试试，卡组名称和说明都会参与查找。"
+                    description = "换个关键词试试，卡组名称、说明和标签都会参与查找。"
                 )
             }
 
@@ -186,6 +192,11 @@ private fun DeckListContent(
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     modifier = Modifier.fillMaxWidth()
+                )
+                DeckTagEditor(
+                    tags = editor.tags,
+                    availableTags = uiState.availableTags,
+                    onTagsChange = onTagsChange
                 )
             },
             onDismiss = onDismissEditor,
@@ -232,7 +243,12 @@ private fun DeckSummaryCard(
 ) {
     YikeListItemCard(
         title = item.deck.name,
-        summary = "${item.cardCount} 张卡片 · ${item.questionCount} 个问题 · ${item.deck.intervalStepCount} 段间隔",
+        summary = buildString {
+            append("${item.cardCount} 张卡片 · ${item.questionCount} 个问题 · ${item.deck.intervalStepCount} 段间隔")
+            if (item.deck.tags.isNotEmpty()) {
+                append(" · ${item.deck.tags.size} 个标签")
+            }
+        },
         supporting = item.deck.description.ifBlank {
             if (item.dueQuestionCount > 0) {
                 "今天还有 ${item.dueQuestionCount} 题到期。"
@@ -246,6 +262,9 @@ private fun DeckSummaryCard(
             )
         }
     ) {
+        if (item.deck.tags.isNotEmpty()) {
+            DeckTagRow(tags = item.deck.tags)
+        }
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(LocalYikeSpacing.current.sm)
@@ -286,8 +305,23 @@ private fun DeckSearchSection(
         value = keyword,
         onValueChange = onKeywordChange,
         label = { Text("查找卡组") },
-        placeholder = { Text("输入名称或说明") },
+        placeholder = { Text("输入名称、说明或标签") },
         modifier = Modifier.fillMaxWidth(),
         singleLine = true
     )
+}
+
+/**
+ * 列表卡片直接展示标签，可以让用户在浏览卡组时快速确认当前分类语义，而不必再进编辑弹窗核对。
+ */
+@Composable
+private fun DeckTagRow(tags: List<String>) {
+    Row(
+        modifier = Modifier.horizontalScroll(rememberScrollState()),
+        horizontalArrangement = Arrangement.spacedBy(LocalYikeSpacing.current.sm)
+    ) {
+        tags.forEach { tag ->
+            YikeBadge(text = tag)
+        }
+    }
 }
