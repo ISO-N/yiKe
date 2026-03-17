@@ -8,6 +8,8 @@ import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.request.get
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
+import io.ktor.http.ContentType
+import io.ktor.http.HttpHeaders
 import io.ktor.serialization.kotlinx.json.json
 import kotlinx.coroutines.delay
 import kotlinx.serialization.KSerializer
@@ -16,23 +18,14 @@ import kotlinx.serialization.KSerializer
  * 局域网客户端把 hello、配对和受保护请求统一封装，是为了让仓储层只关注同步意图而不关心 HTTP 细节。
  */
 class LanSyncHttpClient(
-    private val crypto: LanSyncCrypto
-) {
-    private val client = HttpClient(CIO) {
-        install(ContentNegotiation) {
-            json(LanSyncJson.json)
-        }
-        install(HttpTimeout) {
-            connectTimeoutMillis = 5_000
-            requestTimeoutMillis = 10_000
-            socketTimeoutMillis = 10_000
-        }
-    }
-
+    private val crypto: LanSyncCrypto,
+    private val client: HttpClient = createDefaultHttpClient(),
+    private val retryDelaysMillis: LongArray = DEFAULT_RETRY_DELAYS_MILLIS
+) : LanSyncTransportClient {
     /**
      * hello 走明文只返回最小发现资料，是为了在未配对前先完成版本和身份识别，而不提前暴露真正同步内容。
      */
-    suspend fun hello(hostAddress: String, port: Int): LanSyncHelloResponse =
+    override suspend fun hello(hostAddress: String, port: Int): LanSyncHelloResponse =
         retryIdempotent {
             client.get(buildUrl(hostAddress = hostAddress, port = port, path = HELLO_PATH))
                 .body()
@@ -41,7 +34,7 @@ class LanSyncHttpClient(
     /**
      * 首次配对使用临时配对密钥保护共享密钥，是为了让后续持久认证不必依赖用户持续记住 6 位配对码。
      */
-    suspend fun pair(
+    override suspend fun pair(
         hostAddress: String,
         port: Int,
         hello: LanSyncHelloResponse,
@@ -63,6 +56,7 @@ class LanSyncHttpClient(
             keyBytes = key
         )
         val response = client.post(buildUrl(hostAddress = hostAddress, port = port, path = PAIR_INIT_PATH)) {
+            headers.append(HttpHeaders.ContentType, ContentType.Application.Json.toString())
             setBody(
                 LanSyncPairInitRequest(
                     initiatorDeviceId = initiatorDeviceId,
@@ -84,7 +78,7 @@ class LanSyncHttpClient(
     /**
      * 心跳也走受保护请求，是为了避免未配对设备通过 ping 不断探知可信设备的真实在线状态。
      */
-    suspend fun ping(
+    override suspend fun ping(
         hostAddress: String,
         port: Int,
         requesterDeviceId: String,
@@ -106,7 +100,7 @@ class LanSyncHttpClient(
     /**
      * pull 支持只拉 header，是为了在 preview 阶段先做冲突分析，再按需拉完整载荷。
      */
-    suspend fun pullChanges(
+    override suspend fun pullChanges(
         hostAddress: String,
         port: Int,
         requesterDeviceId: String,
@@ -129,7 +123,7 @@ class LanSyncHttpClient(
     /**
      * push 不做自动重试，而是依赖 sessionId 幂等处理，是为了避免客户端在未知提交结果下重复应用同一批变更。
      */
-    suspend fun pushChanges(
+    override suspend fun pushChanges(
         hostAddress: String,
         port: Int,
         requesterDeviceId: String,
@@ -150,7 +144,7 @@ class LanSyncHttpClient(
     /**
      * ack 只在本地真正落库成功后调用，是为了让对端只推进自己已经被确认消费过的本地 seq。
      */
-    suspend fun ack(
+    override suspend fun ack(
         hostAddress: String,
         port: Int,
         requesterDeviceId: String,
@@ -186,6 +180,7 @@ class LanSyncHttpClient(
             keyBytes = crypto.decodeSecret(sharedSecret)
         )
         val response = client.post(buildUrl(hostAddress = hostAddress, port = port, path = path)) {
+            headers.append(HttpHeaders.ContentType, ContentType.Application.Json.toString())
             setBody(
                 LanSyncProtectedRequest(
                     requesterDeviceId = requesterDeviceId,
@@ -206,15 +201,15 @@ class LanSyncHttpClient(
     private suspend fun <T> retryIdempotent(action: suspend () -> T): T {
         var attempt = 0
         var lastError: Throwable? = null
-        while (attempt < RETRY_DELAYS_MILLIS.size + 1) {
+        while (attempt < retryDelaysMillis.size + 1) {
             try {
                 return action()
             } catch (throwable: Throwable) {
                 lastError = throwable
-                if (attempt >= RETRY_DELAYS_MILLIS.lastIndex) {
+                if (attempt >= retryDelaysMillis.lastIndex) {
                     break
                 }
-                delay(RETRY_DELAYS_MILLIS[attempt])
+                delay(retryDelaysMillis[attempt])
                 attempt += 1
             }
         }
@@ -258,6 +253,20 @@ class LanSyncHttpClient(
         private const val PULL_CHANGES_PATH: String = "/lan-sync/v2/changes/pull"
         private const val PUSH_CHANGES_PATH: String = "/lan-sync/v2/changes/push"
         private const val ACK_PATH: String = "/lan-sync/v2/sync/ack"
-        private val RETRY_DELAYS_MILLIS: LongArray = longArrayOf(1_000L, 2_000L, 4_000L)
+        private val DEFAULT_RETRY_DELAYS_MILLIS: LongArray = longArrayOf(1_000L, 2_000L, 4_000L)
+
+        /**
+         * 默认客户端配置集中在单点，是为了让生产超时策略和测试注入入口围绕同一构造边界维护。
+         */
+        private fun createDefaultHttpClient(): HttpClient = HttpClient(CIO) {
+            install(ContentNegotiation) {
+                json(LanSyncJson.json)
+            }
+            install(HttpTimeout) {
+                connectTimeoutMillis = 5_000
+                requestTimeoutMillis = 10_000
+                socketTimeoutMillis = 10_000
+            }
+        }
     }
 }

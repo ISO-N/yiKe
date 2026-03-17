@@ -9,6 +9,8 @@ import com.kariscode.yike.data.local.db.entity.DeckEntity
 import com.kariscode.yike.data.local.db.entity.QuestionEntity
 import com.kariscode.yike.data.local.db.entity.ReviewRecordEntity
 import com.kariscode.yike.data.repository.OfflineReviewRepository
+import com.kariscode.yike.data.sync.LanSyncChangeRecorder
+import com.kariscode.yike.data.sync.LanSyncCrypto
 import com.kariscode.yike.domain.model.ReviewRating
 import com.kariscode.yike.domain.scheduler.ReviewSchedulerV1
 import kotlinx.coroutines.runBlocking
@@ -121,7 +123,11 @@ class YikeDatabaseIntegrationTest {
             questionDao = database.questionDao(),
             reviewRecordDao = database.reviewRecordDao(),
             reviewScheduler = ReviewSchedulerV1(),
-            dispatchers = DefaultAppDispatchers()
+            dispatchers = DefaultAppDispatchers(),
+            syncChangeRecorder = LanSyncChangeRecorder(
+                syncChangeDao = database.syncChangeDao(),
+                crypto = LanSyncCrypto()
+            )
         )
 
         val submission = repository.submitRating(
