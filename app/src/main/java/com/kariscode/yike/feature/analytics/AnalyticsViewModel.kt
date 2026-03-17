@@ -177,16 +177,14 @@ class AnalyticsViewModel(
     private fun calculateStreakDays(timestamps: List<Long>): Int {
         val reviewedDates = timestamps
             .map { Instant.ofEpochMilli(it).atZone(zoneId).toLocalDate() }
-            .distinct()
-            .sortedDescending()
-        val latestDate = reviewedDates.firstOrNull() ?: return 0
+            .toSet()
+        val latestDate = reviewedDates.maxOrNull() ?: return 0
         val today = Instant.ofEpochMilli(timeProvider.nowEpochMillis()).atZone(zoneId).toLocalDate()
         if (latestDate.isBefore(today.minusDays(1))) return 0
 
         var streak = 0
         var expectedDate = latestDate
-        reviewedDates.forEach { date ->
-            if (date != expectedDate) return streak
+        while (expectedDate in reviewedDates) {
             streak += 1
             expectedDate = expectedDate.minusDays(1)
         }

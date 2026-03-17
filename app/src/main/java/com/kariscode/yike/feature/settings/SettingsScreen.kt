@@ -11,9 +11,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Switch
@@ -128,7 +126,10 @@ private fun SettingsContent(
     modifier: Modifier = Modifier,
     contentPadding: PaddingValues = PaddingValues()
 ) {
-    YikeScrollableColumn(modifier = modifier) {
+    YikeScrollableColumn(
+        modifier = modifier,
+        contentPadding = contentPadding
+    ) {
         if (uiState.isLoading) {
             YikeStateBanner(
                 title = "正在读取设置",
@@ -159,7 +160,6 @@ private fun SettingsContent(
             onOpenLanSync = onOpenLanSync,
             onOpenRecycleBin = onOpenRecycleBin
         )
-        Spacer(modifier = Modifier.height(contentPadding.calculateBottomPadding()))
     }
 }
 

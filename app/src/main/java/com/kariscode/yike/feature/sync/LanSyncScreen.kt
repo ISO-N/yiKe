@@ -158,12 +158,8 @@ private fun LanSyncContent(
     contentPadding: PaddingValues = PaddingValues()
 ) {
     YikeScrollableColumn(
-        modifier = modifier
-            .fillMaxSize()
-            .padding(
-                top = contentPadding.calculateTopPadding(),
-                bottom = contentPadding.calculateBottomPadding()
-            )
+        modifier = modifier.fillMaxSize(),
+        contentPadding = contentPadding
     ) {
         YikeWarningCard(
             title = "同步前先确认",

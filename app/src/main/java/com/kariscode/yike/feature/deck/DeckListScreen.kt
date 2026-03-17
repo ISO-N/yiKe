@@ -1,12 +1,9 @@
 package com.kariscode.yike.feature.deck
 
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
@@ -112,7 +109,10 @@ private fun DeckListContent(
             item.deck.description.contains(keyword, ignoreCase = true) ||
             item.deck.tags.any { tag -> tag.contains(keyword, ignoreCase = true) }
     }
-    YikeScrollableColumn(modifier = modifier) {
+    YikeScrollableColumn(
+        modifier = modifier,
+        contentPadding = contentPadding
+    ) {
         DeckOverviewSection(items = visibleItems)
         DeckSearchSection(
             keyword = uiState.keyword,
@@ -170,7 +170,6 @@ private fun DeckListContent(
             successMessage = uiState.message,
             errorMessage = null
         )
-        Spacer(modifier = Modifier.height(contentPadding.calculateBottomPadding()))
     }
 
     uiState.editor?.let { editor ->

@@ -107,8 +107,9 @@ fun YikePrimaryScaffold(
     floatingActionButton: @Composable (() -> Unit)? = null,
     content: @Composable (PaddingValues) -> Unit
 ) {
-    val contentBottomPadding = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 88.dp
-    val fabBottomPadding = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 76.dp
+    val navigationBottomPadding = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+    val contentBottomPadding = navigationBottomPadding + 88.dp
+    val fabBottomPadding = navigationBottomPadding + 76.dp
 
     YikeScreenBackground {
         Box(modifier = Modifier.fillMaxSize()) {
@@ -594,11 +595,14 @@ fun YikeListItemCard(
 @Composable
 fun YikeScrollableColumn(
     modifier: Modifier = Modifier,
+    contentPadding: PaddingValues = PaddingValues(),
     verticalArrangement: Arrangement.Vertical = Arrangement.spacedBy(LocalYikeSpacing.current.lg),
     content: @Composable ColumnScope.() -> Unit
 ) {
     Column(
-        modifier = modifier.verticalScroll(rememberScrollState()),
+        modifier = modifier
+            .padding(contentPadding)
+            .verticalScroll(rememberScrollState()),
         verticalArrangement = verticalArrangement,
         content = content
     )

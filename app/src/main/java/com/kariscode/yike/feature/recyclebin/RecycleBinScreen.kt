@@ -3,9 +3,7 @@ package com.kariscode.yike.feature.recyclebin
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -59,7 +57,7 @@ fun RecycleBinScreen(
             onDeleteCard = viewModel::onDeleteCardClick,
             onDismissDelete = viewModel::onDismissDelete,
             onConfirmDelete = viewModel::onConfirmDelete,
-            modifier = modifier.padding(padding),
+            modifier = modifier,
             contentPadding = padding
         )
     }
@@ -81,7 +79,10 @@ private fun RecycleBinContent(
     modifier: Modifier = Modifier,
     contentPadding: PaddingValues = PaddingValues()
 ) {
-    YikeScrollableColumn(modifier = modifier) {
+    YikeScrollableColumn(
+        modifier = modifier,
+        contentPadding = contentPadding
+    ) {
         RecycleBinOverviewSection(uiState = uiState)
 
         when {
@@ -119,7 +120,6 @@ private fun RecycleBinContent(
             successTitle = "已归档内容已更新",
             errorTitle = "已归档内容操作失败"
         )
-        Spacer(modifier = Modifier.height(contentPadding.calculateBottomPadding()))
     }
 
     uiState.pendingDelete?.let { target ->

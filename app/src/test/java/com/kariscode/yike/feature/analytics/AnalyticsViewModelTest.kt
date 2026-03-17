@@ -83,6 +83,38 @@ class AnalyticsViewModelTest {
     }
 
     /**
+     * 连续学习统计只关心“某天是否学过”，
+     * 因此重复时间戳和乱序输入都不应抬高或打断 streak。
+     */
+    @Test
+    fun init_streakIgnoresDuplicateTimestampsAndOrdering() = runTest {
+        Dispatchers.setMain(UnconfinedTestDispatcher(testScheduler))
+        try {
+            val now = 1_700_000_000_000L
+            val repository = FakeStudyInsightsRepository().apply {
+                reviewTimestamps = listOf(
+                    now - TimeConstants.DAY_MILLIS,
+                    now,
+                    now,
+                    now - 2L * TimeConstants.DAY_MILLIS,
+                    now - TimeConstants.DAY_MILLIS
+                )
+            }
+
+            val viewModel = AnalyticsViewModel(
+                studyInsightsRepository = repository,
+                timeProvider = FixedTimeProvider(nowEpochMillis = now),
+                zoneId = ZoneId.of("UTC")
+            )
+            advanceUntilIdle()
+
+            assertEquals(3, viewModel.uiState.value.streakDays)
+        } finally {
+            Dispatchers.resetMain()
+        }
+    }
+
+    /**
      * 切换统计范围必须按对应时间窗口重新请求仓储，
      * 否则用户看到的标签和数据口径会错位。
      */
