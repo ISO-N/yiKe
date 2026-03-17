@@ -6,7 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.kariscode.yike.core.message.ErrorMessages
 import com.kariscode.yike.core.message.SuccessMessages
 import com.kariscode.yike.core.time.TimeProvider
-import com.kariscode.yike.core.viewmodel.launchResult
+import com.kariscode.yike.core.viewmodel.launchMutation
 import com.kariscode.yike.core.viewmodel.typedViewModelFactory
 import com.kariscode.yike.domain.model.ArchivedCardSummary
 import com.kariscode.yike.domain.model.DeckSummary
@@ -174,7 +174,7 @@ class RecycleBinViewModel(
         successMessage: String,
         action: suspend () -> Unit
     ) {
-        launchResult(
+        launchMutation(
             action = action,
             onSuccess = {
                 _uiState.update {

@@ -7,6 +7,7 @@ import com.kariscode.yike.core.id.EntityIds
 import com.kariscode.yike.core.message.ErrorMessages
 import com.kariscode.yike.core.message.SuccessMessages
 import com.kariscode.yike.core.time.TimeProvider
+import com.kariscode.yike.core.viewmodel.launchMutation
 import com.kariscode.yike.core.viewmodel.launchResult
 import com.kariscode.yike.core.viewmodel.typedViewModelFactory
 import com.kariscode.yike.domain.model.Deck
@@ -185,7 +186,7 @@ class DeckListViewModel(
             return
         }
 
-        launchResult(
+        launchMutation(
             action = {
                 val now = timeProvider.nowEpochMillis()
                 val normalizedTags = normalizeTags(editor.tags)
@@ -238,7 +239,7 @@ class DeckListViewModel(
      * 卡组页只保留归档入口，是为了把“暂时移出默认列表、需要时再恢复”的语义收敛成单一路径。
      */
     fun onToggleArchiveClick(item: DeckSummary) {
-        launchResult(
+        launchMutation(
             action = {
                 deckRepository.setArchived(
                     deckId = item.deck.id,
@@ -312,21 +313,6 @@ class DeckListViewModel(
     ): List<String> = normalizeTags(
         insightTags + items.flatMap { summary -> summary.deck.tags }
     ).sortedBy { tag -> tag.lowercase() }
-
-    /**
-     * 列表页的写操作统一走同一层失败反馈，是为了避免归档、删除等入口各自遗漏异常收口。
-     */
-    private fun executeMutation(
-        errorMessage: String,
-        action: suspend () -> Unit
-    ) {
-        launchResult(
-            action = action,
-            onFailure = {
-                _uiState.update { it.copy(message = null, errorMessage = errorMessage) }
-            }
-        )
-    }
 
     companion object {
         /**

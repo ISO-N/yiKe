@@ -18,3 +18,17 @@ inline fun <T> ViewModel.launchResult(
         .onSuccess { result -> onSuccess(result) }
         .onFailure { throwable -> onFailure(throwable) }
 }
+
+/**
+ * 很多写操作只关心“完成了”而不关心返回值，
+ * 单独提供 Unit 版本是为了把各个 ViewModel 里重复的 `onSuccess = {}` 模板收口到共享入口。
+ */
+inline fun ViewModel.launchMutation(
+    crossinline action: suspend () -> Unit,
+    crossinline onSuccess: () -> Unit = {},
+    crossinline onFailure: (Throwable) -> Unit = {}
+): Job = launchResult(
+    action = action,
+    onSuccess = { onSuccess() },
+    onFailure = onFailure
+)

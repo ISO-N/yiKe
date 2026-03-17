@@ -3,6 +3,7 @@ package com.kariscode.yike.feature.sync
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.kariscode.yike.core.viewmodel.launchMutation
 import com.kariscode.yike.core.viewmodel.launchResult
 import com.kariscode.yike.core.viewmodel.typedViewModelFactory
 import com.kariscode.yike.domain.model.LanSyncConflictChoice
@@ -97,31 +98,18 @@ class LanSyncViewModel(
         if (_uiState.value.session.isSessionActive) {
             return
         }
-        launchResult(
-            action = { lanSyncRepository.startSession() },
-            onSuccess = {},
-            onFailure = {}
-        )
+        launchMutation(action = { lanSyncRepository.startSession() })
     }
 
     /**
      * 主动停止会话可以让用户在同步页内就把应用恢复到完全离线状态，而不必依赖返回导航触发 onCleared。
      */
     fun onStopSession() {
-        launchResult(
+        launchMutation(
             action = { lanSyncRepository.stopSession() },
             onSuccess = {
-                _uiState.update {
-                    it.copy(
-                        pendingPairingPeer = null,
-                        pairingCodeInput = "",
-                        pendingPreview = null,
-                        showConflictDialog = false,
-                        conflictChoices = emptyMap()
-                    )
-                }
-            },
-            onFailure = {}
+                _uiState.update { state -> state.clearTransientSyncState() }
+            }
         )
     }
 
@@ -160,12 +148,7 @@ class LanSyncViewModel(
      * 关闭配对弹窗时只清理授权输入，是为了让设备列表和后台发现状态保持不受影响。
      */
     fun onDismissPairing() {
-        _uiState.update {
-            it.copy(
-                pendingPairingPeer = null,
-                pairingCodeInput = ""
-            )
-        }
+        _uiState.update { state -> state.clearPairingState() }
     }
 
     /**
@@ -192,7 +175,7 @@ class LanSyncViewModel(
      * 预览关闭时只清空当前待确认内容，是为了让会话本身继续存活并可立即重新选择设备。
      */
     fun onDismissPreview() {
-        _uiState.update { it.copy(pendingPreview = null) }
+        _uiState.update { state -> state.clearPreviewDecisionState() }
     }
 
     /**
@@ -225,7 +208,7 @@ class LanSyncViewModel(
      * 冲突弹窗关闭只退回预览态，是为了让用户能重新阅读本次同步规模后再决定是否执行。
      */
     fun onDismissConflicts() {
-        _uiState.update { it.copy(showConflictDialog = false) }
+        _uiState.update { state -> state.clearPreviewDecisionState(keepPreview = true) }
     }
 
     /**
@@ -255,12 +238,11 @@ class LanSyncViewModel(
         if (name.isBlank()) {
             return
         }
-        launchResult(
+        launchMutation(
             action = { lanSyncRepository.updateLocalDisplayName(name) },
             onSuccess = {
                 _uiState.update { it.copy(isEditingLocalName = false) }
-            },
-            onFailure = {}
+            }
         )
     }
 
@@ -280,11 +262,7 @@ class LanSyncViewModel(
      * 传输中取消统一委托给仓储，是为了由同一处处理网络请求中断和状态回滚。
      */
     fun onCancelActiveSync() {
-        launchResult(
-            action = { lanSyncRepository.cancelActiveSync() },
-            onSuccess = {},
-            onFailure = {}
-        )
+        launchMutation(action = { lanSyncRepository.cancelActiveSync() })
     }
 
     /**
@@ -305,13 +283,7 @@ class LanSyncViewModel(
             action = { lanSyncRepository.prepareSync(peer = peer, pairingCode = pairingCode) },
             onSuccess = { preview ->
                 _uiState.update {
-                    it.copy(
-                        pendingPairingPeer = null,
-                        pairingCodeInput = "",
-                        pendingPreview = preview,
-                        showConflictDialog = false,
-                        conflictChoices = emptyMap()
-                    )
+                    it.clearTransientSyncState().copy(pendingPreview = preview)
                 }
             },
             onFailure = {}
@@ -325,18 +297,38 @@ class LanSyncViewModel(
         preview: LanSyncPreview,
         resolutions: List<LanSyncConflictResolution>
     ) {
-        _uiState.update {
-            it.copy(
-                pendingPreview = null,
-                showConflictDialog = false
-            )
-        }
-        launchResult(
-            action = { lanSyncRepository.runSync(preview = preview, resolutions = resolutions) },
-            onSuccess = {},
-            onFailure = {}
+        _uiState.update { state -> state.clearPreviewDecisionState() }
+        launchMutation(
+            action = { lanSyncRepository.runSync(preview = preview, resolutions = resolutions) }
         )
     }
+
+    /**
+     * 配对输入与待配对设备总是成对消失，收口成状态 helper 后可以避免多个入口反复复制同一组字段模板。
+     */
+    private fun LanSyncUiState.clearPairingState(): LanSyncUiState = copy(
+        pendingPairingPeer = null,
+        pairingCodeInput = ""
+    )
+
+    /**
+     * 预览和冲突决议属于同一阶段的临时 UI 状态，
+     * 集中清理可以避免结束同步流后残留上一次的冲突选择。
+     */
+    private fun LanSyncUiState.clearPreviewDecisionState(
+        keepPreview: Boolean = false
+    ): LanSyncUiState = copy(
+        pendingPreview = if (keepPreview) pendingPreview else null,
+        showConflictDialog = false,
+        conflictChoices = emptyMap()
+    )
+
+    /**
+     * 停止会话或拿到新预览时都需要回到干净的同步临时态，
+     * 抽成单点后可以明确表达“把上一次的配对和预览痕迹一起清掉”这一意图。
+     */
+    private fun LanSyncUiState.clearTransientSyncState(): LanSyncUiState =
+        clearPairingState().clearPreviewDecisionState()
 
     companion object {
         /**

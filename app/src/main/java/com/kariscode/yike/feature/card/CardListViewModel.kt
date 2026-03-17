@@ -7,6 +7,7 @@ import com.kariscode.yike.core.id.EntityIds
 import com.kariscode.yike.core.message.ErrorMessages
 import com.kariscode.yike.core.message.SuccessMessages
 import com.kariscode.yike.core.time.TimeProvider
+import com.kariscode.yike.core.viewmodel.launchMutation
 import com.kariscode.yike.core.viewmodel.launchResult
 import com.kariscode.yike.core.viewmodel.typedViewModelFactory
 import com.kariscode.yike.feature.common.TextMetadataDraft
@@ -214,7 +215,7 @@ class CardListViewModel(
             return
         }
 
-        launchResult(
+        launchMutation(
             action = {
                 val now = timeProvider.nowEpochMillis()
                 val card = Card(
@@ -303,7 +304,7 @@ class CardListViewModel(
         errorMessage: String,
         action: suspend () -> Unit
     ) {
-        launchResult(
+        launchMutation(
             action = action,
             onFailure = {
                 _uiState.update { it.copy(message = null, errorMessage = errorMessage) }

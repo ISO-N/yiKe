@@ -173,6 +173,41 @@ class LanSyncViewModelTest {
     }
 
     /**
+     * 停止会话后必须一并清空配对、预览和冲突决议，
+     * 这样用户重新开始发现时不会带着上一次同步流程的临时状态继续操作。
+     */
+    @Test
+    fun onStopSession_clearsTransientSyncState() = runTest {
+        Dispatchers.setMain(UnconfinedTestDispatcher(testScheduler))
+        try {
+            val repository = FakeLanSyncRepository()
+            repository.nextPreview = repository.createConflictPreview()
+            val viewModel = LanSyncViewModel(repository)
+
+            viewModel.onPeerClick(repository.untrustedPeer)
+            viewModel.onPairingCodeChange("123456")
+            viewModel.onConfirmPairing()
+            advanceUntilIdle()
+            viewModel.onConfirmPreview()
+
+            assertNotNull(viewModel.uiState.value.pendingPreview)
+            assertTrue(viewModel.uiState.value.showConflictDialog)
+
+            viewModel.onStopSession()
+            advanceUntilIdle()
+
+            assertNull(viewModel.uiState.value.pendingPairingPeer)
+            assertEquals("", viewModel.uiState.value.pairingCodeInput)
+            assertNull(viewModel.uiState.value.pendingPreview)
+            assertFalse(viewModel.uiState.value.showConflictDialog)
+            assertTrue(viewModel.uiState.value.conflictChoices.isEmpty())
+            assertFalse(viewModel.uiState.value.session.isSessionActive)
+        } finally {
+            Dispatchers.resetMain()
+        }
+    }
+
+    /**
      * 假仓储只保留 ViewModel 本组测试关心的会话轨迹，
      * 是为了把断言集中在状态推进而不是底层网络实现。
      */
