@@ -479,31 +479,51 @@ error: SettingsError?
 ### 页面职责
 
 - 发现同一 Wi-Fi 下的其他忆刻设备
-- 展示本机与远端同步摘要
-- 在覆盖前执行风险确认
-- 拉取远端完整备份并恢复到本机
+- 展示本机身份、配对码与已发现设备
+- 生成双向同步预览
+- 在真正执行前完成冲突决议
+- 展示传输、应用、取消与结果状态
 
 ### `LanSyncUiState` 建议
 
 ```text
-isSessionActive: Boolean
-isPreparing: Boolean
-isSyncing: Boolean
-localDeviceName: String
-localSnapshot: LocalSyncSnapshot?
-devices: List<SyncDeviceUiModel>
-pendingConflict: SyncConflictUiModel?
-message: String?
-errorMessage: String?
+session: LanSyncSessionState
+pendingPairingPeer: LanSyncPeer?
+pairingCodeInput: String
+pendingPreview: LanSyncPreview?
+showConflictDialog: Boolean
+conflictChoices: Map<String, LanSyncConflictChoice>
+isEditingLocalName: Boolean
+localNameInput: String
 ```
 
 ### 关键事件
 
 - `OnPermissionReady`
 - `OnStopSession`
-- `OnSyncDeviceClick(deviceId)`
-- `OnConfirmConflictSync`
-- `OnDismissConflict`
+- `OnPeerClick(peer)`
+- `OnPairingCodeChange`
+- `OnConfirmPairing`
+- `OnConfirmPreview`
+- `OnConflictChoiceChange`
+- `OnConfirmConflicts`
+- `OnCancelActiveSync`
+- `OnEditLocalName`
+- `OnSaveLocalName`
+
+### 流程状态
+
+- 发现态：展示本机信息、配对码与设备列表
+- 配对态：未信任设备点击后弹出 6 位配对码输入
+- 预览态：显示待上传、待下载、设置变更与冲突数量
+- 冲突态：按实体逐项确认 `KEEP_LOCAL / KEEP_REMOTE / SKIP`
+- 执行态：显示 `TRANSFERRING / APPLYING / COMPLETED / FAILED / CANCELLED`
+
+说明：
+
+- 局域网同步页不再承载“完整备份覆盖本机”的单一确认弹窗
+- 未信任设备不会直接进入预览或传输
+- 已进入 `APPLYING` 后只展示“正在提交，暂不可取消”
 
 ---
 

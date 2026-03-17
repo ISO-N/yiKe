@@ -281,19 +281,29 @@ yike-backup-20260314-213000.json
 - 可预测
 - 不引入复杂冲突处理
 
-### 9.3 局域网同步与备份的一致性
+### 9.3 局域网同步与备份的边界
 
-当前工程已增加“设置 -> 局域网同步”入口，但同步协议仍刻意复用完整备份 JSON：
+当前工程已将“文件备份恢复”和“局域网同步”明确拆成两条能力：
 
-- 远端设备先暴露摘要信息供本机确认风险
-- 真正同步时传输完整备份 JSON
-- 本机继续使用既有恢复事务执行全量覆盖
+- 文件备份继续使用完整 JSON 导出与全量覆盖恢复
+- 局域网同步改为独立的 LAN Sync V2 协议
+- 局域网同步不再复用 `BackupService.restoreFromJsonString`
 
-这样做的原因是：
+当前 LAN Sync V2 的核心约束：
 
-- 不需要再维护第二套写库协议
-- 继续复用现有备份校验与失败回滚
-- 局域网同步与文件恢复保持完全一致的覆盖语义
+- 只在同步页打开期间启动 NSD 发现、HTTP 服务与心跳
+- 首次连接必须输入 6 位配对码建立信任
+- 已信任设备之间通过持久共享密钥做应用层 AES-GCM 加密
+- 同步基于本地 change journal 与双 cursor 做双向增量
+- `Deck/Card/Question/SyncedAppSettings` 进入冲突检测
+- `ReviewRecord` 作为追加型事件自动并集合并
+- 真正执行前必须先生成预览；有冲突时必须显式确认决议
+
+这样拆分的原因是：
+
+- 文件恢复继续保留“从外部文件重建本机”的单向覆盖语义
+- 局域网同步可以单独演进配对、冲突和增量协议，而不会牵连备份格式
+- 备份校验失败与同步冲突不再被混成同一种错误
 
 ---
 
@@ -346,7 +356,7 @@ yike-backup-20260314-213000.json
 
 ## 13. 版本策略
 
-建议采用双版本概念：
+当前实现采用三套独立版本概念：
 
 ### 13.1 schemaVersion
 
@@ -356,12 +366,21 @@ yike-backup-20260314-213000.json
 
 表示备份文件格式版本。
 
+### 13.3 syncProtocolVersion
+
+表示局域网同步协议版本。
+
 好处：
 
 - 后续结构演进时更容易兼容旧文件
 - 导入导出逻辑更清晰
+- 可以明确区分“备份文件不兼容”和“同步协议不兼容”
 
-第一版可先都设为 `1`。
+当前实现值：
+
+- `schemaVersion = 4`
+- `backupVersion = 1`
+- `syncProtocolVersion = 2`
 
 ---
 
@@ -453,6 +472,9 @@ yike-backup-20260314-213000.json
 - 导出/恢复服务：`app/src/main/java/com/kariscode/yike/data/backup/BackupService.kt`
 - 页面与文件选择流程：`app/src/main/java/com/kariscode/yike/feature/backup/BackupRestoreScreen.kt`
 - 页面编排：`app/src/main/java/com/kariscode/yike/feature/backup/BackupRestoreViewModel.kt`
+- 局域网同步协议：`app/src/main/java/com/kariscode/yike/data/sync/LanSyncRepositoryImpl.kt`
+- 局域网同步本地 journal：`app/src/main/java/com/kariscode/yike/data/local/db/entity/SyncChangeEntity.kt`
+- 已配对设备与 cursor：`app/src/main/java/com/kariscode/yike/data/local/db/entity/SyncPeerEntity.kt`、`app/src/main/java/com/kariscode/yike/data/local/db/entity/SyncPeerCursorEntity.kt`
 
 当前实现提供的行为约束：
 
@@ -463,4 +485,4 @@ yike-backup-20260314-213000.json
 - 恢复前先做版本、必填字段、引用关系、评分枚举和阶段合法性校验
 - 恢复采用全量覆盖；数据库写入在事务内完成，设置写入失败时会执行补偿回滚
 - 恢复完成后会根据恢复后的设置重新调度每日提醒
-- 局域网同步通过传输完整备份 JSON 复用同一恢复链路，因此覆盖语义与手动恢复保持一致
+- 局域网同步与文件备份已完全分离；局域网同步使用配对、加密、增量 journal、冲突预览和 cursor 推进

@@ -26,6 +26,9 @@
 - `Card`
 - `Question`
 - `ReviewRecord`
+- `SyncChange`
+- `SyncPeer`
+- `SyncPeerCursor`
 
 ### 2.2 DataStore
 
@@ -35,10 +38,13 @@
 - 固定提醒时间
 - `schemaVersion`
 - 最近备份时间
+- 主题模式
+- 局域网同步本机显示名
 
 说明：
 
 - `AppSettings` 属于领域模型中的全局配置对象，但实现上不放入 Room 表。
+- 局域网同步身份信息与业务设置拆开存储，避免设备名、配对缓存和提醒主题互相污染。
 - 第一版不增加额外统计表，统计信息通过查询动态计算。
 
 ---
@@ -126,6 +132,9 @@ card
   1 -> n question
 question
   1 -> n review_record
+sync_peer
+  1 -> n sync_peer_cursor
+sync_change
 ```
 
 ---
@@ -292,6 +301,45 @@ question
 - 第一版拆成 `hour` 和 `minute` 比存储字符串更利于计算。
 - `schemaVersion` 主要用于内部数据结构识别。
 
+局域网同步单独使用独立 DataStore：
+
+| 键 | 类型 | 说明 |
+|---|---|---|
+| `displayName` | `String` | 本机同步页展示名称 |
+
+这样可以把“跨设备业务设置”和“本机同步身份信息”明确分层。
+
+---
+
+## 11.1 局域网同步表
+
+### `sync_change`
+
+用于记录本机同步 journal。
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| `seq` | `INTEGER` | 自增主键，表示本机变更顺序 |
+| `entityType` | `TEXT` | `SETTINGS/DECK/CARD/QUESTION/REVIEW_RECORD` |
+| `entityId` | `TEXT` | 业务实体 ID |
+| `operation` | `TEXT` | `UPSERT/DELETE` |
+| `summary` | `TEXT` | 供预览与冲突提示使用的短摘要 |
+| `payloadJson` | `TEXT?` | UPSERT 时的序列化载荷 |
+| `payloadHash` | `TEXT` | 统一哈希，供校验与冲突比较 |
+| `modifiedAt` | `INTEGER` | 业务更新时间 |
+
+### `sync_peer`
+
+用于保存已配对设备与共享密钥摘要。
+
+### `sync_peer_cursor`
+
+用于保存每个可信设备的双向游标：
+
+- `lastLocalSeqAckedByPeer`
+- `lastRemoteSeqAppliedLocally`
+- `lastSessionId`
+
 ---
 
 ## 12. 核心查询需求
@@ -387,6 +435,8 @@ question
 
 - 项目包含用户长期积累的数据
 - 即便是自用工具，也不应依赖破坏性迁移
+
+当前实现已落到 Room `version = 4`，对应新增局域网同步三张表的迁移代际。
 
 ---
 
