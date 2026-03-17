@@ -56,12 +56,12 @@ class BackupService(
     private val backupValidator: BackupValidator,
     private val timeProvider: TimeProvider,
     private val dispatchers: AppDispatchers
-) {
+) : BackupOperations {
     /**
      * 导出时即便数据为空也要写出合法备份文件，
      * 这样用户才能在“先备份配置、后逐步录入内容”的场景下获得稳定结果。
      */
-    suspend fun exportToUri(uri: Uri) = withContext(dispatchers.io) {
+    override suspend fun exportToUri(uri: Uri) = withContext(dispatchers.io) {
         val exportedAt = timeProvider.nowEpochMillis()
         val jsonString = exportToJsonString(exportedAtEpochMillis = exportedAt)
         application.contentResolver.openOutputStream(uri)?.use { outputStream ->
@@ -75,7 +75,7 @@ class BackupService(
      * 恢复前先做解析与校验，再执行全量覆盖；
      * 这样能把“文件非法”和“写库失败”两类风险明确分层，便于给用户稳定反馈。
      */
-    suspend fun restoreFromUri(uri: Uri) = withContext(dispatchers.io) {
+    override suspend fun restoreFromUri(uri: Uri) = withContext(dispatchers.io) {
         val jsonString = application.contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() }
             ?: throw FileNotFoundException("无法读取备份文件")
         restoreFromJsonString(jsonString)
@@ -84,7 +84,8 @@ class BackupService(
     /**
      * 导出文件名单独提供生成方法，是为了把命名规范固定下来并便于页面直接复用。
      */
-    fun createSuggestedFileName(nowEpochMillis: Long = timeProvider.nowEpochMillis()): String {
+    override fun createSuggestedFileName(): String {
+        val nowEpochMillis = timeProvider.nowEpochMillis()
         val stamp = BackupJson.formatEpochMillis(nowEpochMillis)
             .replace("-", "")
             .replace(":", "")

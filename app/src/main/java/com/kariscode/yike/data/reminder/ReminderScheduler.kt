@@ -18,11 +18,11 @@ class ReminderScheduler(
     private val workManager: WorkManager,
     private val appSettingsRepository: AppSettingsRepository,
     private val timeProvider: TimeProvider
-) {
+) : ReminderSyncScheduler {
     /**
      * 从仓储读取最新设置后再调度，能确保应用初始化或广播恢复时不依赖页面状态。
      */
-    suspend fun syncReminderFromRepository() {
+    override suspend fun syncReminderFromRepository() {
         val settings = appSettingsRepository.getSettings()
         syncReminder(settings)
     }
@@ -38,7 +38,7 @@ class ReminderScheduler(
     /**
      * 重新调度前始终先取消旧任务，是为了保证时间修改后只存在一个有效提醒。
      */
-    fun syncReminder(settings: AppSettings) {
+    override fun syncReminder(settings: AppSettings) {
         cancelReminder()
         if (!settings.dailyReminderEnabled) return
 

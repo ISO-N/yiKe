@@ -84,6 +84,51 @@ class BackupValidatorTest {
     }
 
     /**
+     * 非法评分值必须在恢复前被拒绝，
+     * 否则复习历史会带着未知枚举穿透到统计和同步链路。
+     */
+    @Test
+    fun validate_invalidRating_returnsFailure() {
+        val result = validator.validate(
+            createValidDocument().copy(
+                reviewRecords = listOf(
+                    BackupReviewRecord(
+                        id = "record_1",
+                        questionId = "question_1",
+                        rating = "PASS",
+                        oldStageIndex = 0,
+                        newStageIndex = 1,
+                        oldDueAt = "2026-03-15T20:30:00+08:00",
+                        newDueAt = "2026-03-16T20:30:00+08:00",
+                        reviewedAt = "2026-03-15T20:30:00+08:00",
+                        responseTimeMs = 800L,
+                        note = ""
+                    )
+                )
+            )
+        )
+
+        assertTrue(result.isFailure)
+    }
+
+    /**
+     * 非法 stageIndex 必须在校验阶段被拦下，
+     * 否则恢复后调度器会接收到超出支持范围的脏数据。
+     */
+    @Test
+    fun validate_invalidStageIndex_returnsFailure() {
+        val result = validator.validate(
+            createValidDocument().copy(
+                questions = listOf(
+                    createValidDocument().questions.first().copy(stageIndex = 99)
+                )
+            )
+        )
+
+        assertTrue(result.isFailure)
+    }
+
+    /**
      * 用固定的最小合法样本构造文档，能让测试聚焦在校验规则而不是样板数据准备。
      */
     private fun createValidDocument(): BackupDocument = BackupDocument(

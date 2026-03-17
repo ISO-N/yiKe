@@ -1,0 +1,381 @@
+package com.kariscode.yike.testsupport
+
+import com.kariscode.yike.core.time.TimeProvider
+import com.kariscode.yike.domain.model.AppSettings
+import com.kariscode.yike.domain.model.ArchivedCardSummary
+import com.kariscode.yike.domain.model.Card
+import com.kariscode.yike.domain.model.CardSummary
+import com.kariscode.yike.domain.model.Deck
+import com.kariscode.yike.domain.model.DeckSummary
+import com.kariscode.yike.domain.model.Question
+import com.kariscode.yike.domain.model.QuestionContext
+import com.kariscode.yike.domain.model.QuestionQueryFilters
+import com.kariscode.yike.domain.model.ReviewAnalyticsSnapshot
+import com.kariscode.yike.domain.model.ThemeMode
+import com.kariscode.yike.domain.model.TodayReviewSummary
+import com.kariscode.yike.domain.repository.AppSettingsRepository
+import com.kariscode.yike.domain.repository.CardRepository
+import com.kariscode.yike.domain.repository.DeckRepository
+import com.kariscode.yike.domain.repository.QuestionRepository
+import com.kariscode.yike.domain.repository.StudyInsightsRepository
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+
+/**
+ * 固定时间实现集中到测试支撑层，是为了让多个 ViewModel 测试围绕同一时点断言而不重复复制匿名类。
+ */
+class FixedTimeProvider(
+    private val nowEpochMillis: Long
+) : TimeProvider {
+    /**
+     * 测试里返回固定时间点，能让 dueAt 和时间范围断言稳定可复现。
+     */
+    override fun nowEpochMillis(): Long = nowEpochMillis
+}
+
+/**
+ * 设置仓储假实现只维护一份内存快照和观察流，便于页面层测试验证读写与提醒配置变化。
+ */
+open class FakeAppSettingsRepository(
+    initialSettings: AppSettings = defaultAppSettings()
+) : AppSettingsRepository {
+    private val settingsFlow = MutableStateFlow(initialSettings)
+
+    /**
+     * 观察流始终回放最新设置，是为了让依赖首帧订阅的 ViewModel 行为与真实仓储保持一致。
+     */
+    override fun observeSettings(): Flow<AppSettings> = settingsFlow
+
+    /**
+     * 快照读取直接返回内存状态，足以支撑页面层和调度层的主机测试。
+     */
+    override suspend fun getSettings(): AppSettings = settingsFlow.value
+
+    /**
+     * 单独开关写入保留真实仓储语义，便于测试“是否只改一个字段”。
+     */
+    override suspend fun setDailyReminderEnabled(enabled: Boolean) {
+        settingsFlow.value = settingsFlow.value.copy(dailyReminderEnabled = enabled)
+    }
+
+    /**
+     * 时间更新集中改写 hour/minute，便于断言提醒调度是否拿到最新值。
+     */
+    override suspend fun setDailyReminderTime(hour: Int, minute: Int) {
+        settingsFlow.value = settingsFlow.value.copy(
+            dailyReminderHour = hour,
+            dailyReminderMinute = minute
+        )
+    }
+
+    /**
+     * 整份设置替换用于模拟备份恢复与同步回放后的快照写入。
+     */
+    override suspend fun setSettings(settings: AppSettings) {
+        settingsFlow.value = settings
+    }
+
+    /**
+     * schemaVersion 的最小可变语义要保留，避免迁移相关测试不得不引入真实 DataStore。
+     */
+    override suspend fun setSchemaVersion(schemaVersion: Int) {
+        settingsFlow.value = settingsFlow.value.copy(schemaVersion = schemaVersion)
+    }
+
+    /**
+     * 最近备份时间允许写空，是为了让备份页测试能覆盖“未知/未备份”的状态。
+     */
+    override suspend fun setBackupLastAt(epochMillis: Long?) {
+        settingsFlow.value = settingsFlow.value.copy(backupLastAt = epochMillis)
+    }
+
+    /**
+     * 主题写入保留独立入口，便于统计和设置页测试共享同一份假仓储。
+     */
+    override suspend fun setThemeMode(mode: ThemeMode) {
+        settingsFlow.value = settingsFlow.value.copy(themeMode = mode)
+    }
+}
+
+/**
+ * QuestionRepository 假实现聚焦编辑页和提醒页关心的读写路径，避免为页面测试引入数据库样板。
+ */
+open class FakeQuestionRepository : QuestionRepository {
+    val questionsByCard = linkedMapOf<String, MutableList<Question>>()
+    var summary: TodayReviewSummary = TodayReviewSummary(dueCardCount = 0, dueQuestionCount = 0)
+    val upsertCalls = mutableListOf<List<Question>>()
+    val deleteCalls = mutableListOf<String>()
+    val deleteAllCalls = mutableListOf<List<String>>()
+    val requestedSummaryNow = mutableListOf<Long>()
+
+    /**
+     * 观察接口在页面测试中只需回放当前快照，因此直接用内存列表包成 flow 即可。
+     */
+    override fun observeQuestionsByCard(cardId: String): Flow<List<Question>> =
+        MutableStateFlow(questionsByCard[cardId].orEmpty().toList())
+
+    /**
+     * 单对象查询允许编辑页按 id 回填旧题数据。
+     */
+    override suspend fun findById(questionId: String): Question? =
+        questionsByCard.values.flatten().firstOrNull { question -> question.id == questionId }
+
+    /**
+     * 编辑页重新加载依赖一次性快照读取，这里直接返回当前卡片下的问题副本。
+     */
+    override suspend fun listByCard(cardId: String): List<Question> =
+        questionsByCard[cardId].orEmpty().toList()
+
+    /**
+     * 批量 upsert 既记录调用，也回写到内存快照，便于测试保存后的 reload 行为。
+     */
+    override suspend fun upsertAll(questions: List<Question>) {
+        upsertCalls += questions
+        questions.groupBy(Question::cardId).forEach { (cardId, groupedQuestions) ->
+            val current = questionsByCard.getOrPut(cardId) { mutableListOf() }
+            groupedQuestions.forEach { incoming ->
+                val index = current.indexOfFirst { it.id == incoming.id }
+                if (index >= 0) current[index] = incoming else current += incoming
+            }
+        }
+    }
+
+    /**
+     * 到期查询在当前这批页面测试里不是重点，因此默认返回空列表即可。
+     */
+    override suspend fun listDueQuestions(nowEpochMillis: Long): List<Question> = emptyList()
+
+    /**
+     * 下一张到期卡片在本组页面测试中不参与断言，因此返回空即可。
+     */
+    override suspend fun findNextDueCardId(nowEpochMillis: Long): String? = null
+
+    /**
+     * 首页与提醒的概览查询会记录请求时间点，便于测试是否真的发生过查询。
+     */
+    override suspend fun getTodayReviewSummary(nowEpochMillis: Long): TodayReviewSummary {
+        requestedSummaryNow += nowEpochMillis
+        return summary
+    }
+
+    /**
+     * 单条删除既记录调用，也同步从内存快照里移除对应问题。
+     */
+    override suspend fun delete(questionId: String) {
+        deleteCalls += questionId
+        questionsByCard.values.forEach { questions ->
+            questions.removeAll { question -> question.id == questionId }
+        }
+    }
+
+    /**
+     * 批量删除会保持与真实仓储一致的“按 id 集合删除”语义。
+     */
+    override suspend fun deleteAll(questionIds: Collection<String>) {
+        deleteAllCalls += questionIds.toList()
+        questionsByCard.values.forEach { questions ->
+            questions.removeAll { question -> question.id in questionIds }
+        }
+    }
+}
+
+/**
+ * StudyInsightsRepository 假实现把搜索、标签和统计数据拆成可直接配置的字段，便于页面测试聚焦状态编排。
+ */
+open class FakeStudyInsightsRepository : StudyInsightsRepository {
+    var searchResults: List<QuestionContext> = emptyList()
+    var availableTags: List<String> = emptyList()
+    var analytics: ReviewAnalyticsSnapshot = ReviewAnalyticsSnapshot(
+        totalReviews = 0,
+        againCount = 0,
+        hardCount = 0,
+        goodCount = 0,
+        easyCount = 0,
+        averageResponseTimeMs = null,
+        forgettingRate = 0f,
+        deckBreakdowns = emptyList()
+    )
+    var reviewTimestamps: List<Long> = emptyList()
+    var searchError: Throwable? = null
+    var analyticsError: Throwable? = null
+    val searchFilters = mutableListOf<QuestionQueryFilters>()
+    val analyticsRequests = mutableListOf<Long?>()
+
+    /**
+     * 搜索调用会记录筛选条件，便于断言 ViewModel 是否把状态正确映射成查询参数。
+     */
+    override suspend fun searchQuestionContexts(filters: QuestionQueryFilters): List<QuestionContext> {
+        searchFilters += filters
+        searchError?.let { throw it }
+        return searchResults
+    }
+
+    /**
+     * 今日预览不在当前页面测试覆盖范围内，因此默认返回空列表。
+     */
+    override suspend fun listDueQuestionContexts(nowEpochMillis: Long): List<QuestionContext> = emptyList()
+
+    /**
+     * 标签候选直接返回预设值，足以验证搜索页的元数据刷新逻辑。
+     */
+    override suspend fun listAvailableTags(limit: Int): List<String> = availableTags.take(limit)
+
+    /**
+     * 统计页会记录时间范围请求，便于测试 range 切换是否真的触发了重算。
+     */
+    override suspend fun getReviewAnalytics(startEpochMillis: Long?): ReviewAnalyticsSnapshot {
+        analyticsRequests += startEpochMillis
+        analyticsError?.let { throw it }
+        return analytics
+    }
+
+    /**
+     * 连续学习天数依赖原始时间戳列表，因此假实现直接回放预设集合。
+     */
+    override suspend fun listReviewTimestamps(startEpochMillis: Long?): List<Long> = reviewTimestamps
+}
+
+/**
+ * DeckRepository 假实现同时支持活动列表与回收站列表，便于内容管理和回收站测试共享。
+ */
+open class FakeDeckRepository : DeckRepository {
+    val activeSummariesFlow = MutableStateFlow<List<DeckSummary>>(emptyList())
+    val archivedSummariesFlow = MutableStateFlow<List<DeckSummary>>(emptyList())
+    var activeDecks: List<Deck> = emptyList()
+    var deckById = linkedMapOf<String, Deck>()
+    val upsertedDecks = mutableListOf<Deck>()
+    val setArchivedCalls = mutableListOf<Triple<String, Boolean, Long>>()
+    val deletedDeckIds = mutableListOf<String>()
+
+    /**
+     * 活动卡组流直接回放内存状态，足以覆盖列表类页面的订阅行为。
+     */
+    override fun observeActiveDecks(): Flow<List<Deck>> = MutableStateFlow(activeDecks)
+
+    /**
+     * 搜索页等一次性快照场景直接复用活动卡组列表。
+     */
+    override suspend fun listActiveDecks(): List<Deck> = activeDecks
+
+    /**
+     * 列表页活动摘要通过独立 flow 供测试手动推进状态变化。
+     */
+    override fun observeActiveDeckSummaries(nowEpochMillis: Long): Flow<List<DeckSummary>> = activeSummariesFlow
+
+    /**
+     * 回收站摘要同样走可控 flow，便于测试恢复与删除后的页面回写。
+     */
+    override fun observeArchivedDeckSummaries(nowEpochMillis: Long): Flow<List<DeckSummary>> = archivedSummariesFlow
+
+    /**
+     * 最近卡组在当前页面测试里只需返回活动摘要截断结果。
+     */
+    override suspend fun listRecentActiveDeckSummaries(nowEpochMillis: Long, limit: Int): List<DeckSummary> =
+        activeSummariesFlow.value.take(limit)
+
+    /**
+     * 单对象查询从内存索引中读取，便于卡片页和编辑页根据 id 载入所属卡组。
+     */
+    override suspend fun findById(deckId: String): Deck? = deckById[deckId]
+
+    /**
+     * upsert 会更新内存索引，便于测试保存后再读取的行为。
+     */
+    override suspend fun upsert(deck: Deck) {
+        upsertedDecks += deck
+        deckById[deck.id] = deck
+        activeDecks = deckById.values.filterNot(Deck::archived)
+    }
+
+    /**
+     * 归档操作只记录调用参数，由具体测试决定是否推进 flow 模拟数据变化。
+     */
+    override suspend fun setArchived(deckId: String, archived: Boolean, updatedAt: Long) {
+        setArchivedCalls += Triple(deckId, archived, updatedAt)
+    }
+
+    /**
+     * 物理删除只记录 id，用于断言高风险操作是否真的被触发。
+     */
+    override suspend fun delete(deckId: String) {
+        deletedDeckIds += deckId
+    }
+}
+
+/**
+ * CardRepository 假实现同时覆盖搜索、卡片页和回收站的基础读写路径，减少页面测试样板。
+ */
+open class FakeCardRepository : CardRepository {
+    val activeCardsByDeck = linkedMapOf<String, List<Card>>()
+    val activeSummariesFlow = MutableStateFlow<List<CardSummary>>(emptyList())
+    val archivedSummariesFlow = MutableStateFlow<List<ArchivedCardSummary>>(emptyList())
+    var cardById = linkedMapOf<String, Card>()
+    val upsertedCards = mutableListOf<Card>()
+    val setArchivedCalls = mutableListOf<Triple<String, Boolean, Long>>()
+    val deletedCardIds = mutableListOf<String>()
+
+    /**
+     * 卡片活动流回放当前卡组列表，便于列表页观察更新。
+     */
+    override fun observeActiveCards(deckId: String): Flow<List<Card>> =
+        MutableStateFlow(activeCardsByDeck[deckId].orEmpty())
+
+    /**
+     * 搜索页切卡组时会读取活动卡片快照，这里直接回放预设列表。
+     */
+    override suspend fun listActiveCards(deckId: String): List<Card> = activeCardsByDeck[deckId].orEmpty()
+
+    /**
+     * 卡片摘要流供卡片页手动推进聚合状态。
+     */
+    override fun observeActiveCardSummaries(deckId: String, nowEpochMillis: Long): Flow<List<CardSummary>> =
+        activeSummariesFlow
+
+    /**
+     * 回收站摘要流供删除与恢复测试复用。
+     */
+    override fun observeArchivedCardSummaries(nowEpochMillis: Long): Flow<List<ArchivedCardSummary>> =
+        archivedSummariesFlow
+
+    /**
+     * 单对象查询允许编辑与回收站等页面按 id 读取当前卡片。
+     */
+    override suspend fun findById(cardId: String): Card? = cardById[cardId]
+
+    /**
+     * upsert 记录后回写索引，便于测试保存成功后的二次读取。
+     */
+    override suspend fun upsert(card: Card) {
+        upsertedCards += card
+        cardById[card.id] = card
+        activeCardsByDeck[card.deckId] = cardById.values.filter { candidate ->
+            candidate.deckId == card.deckId && !candidate.archived
+        }
+    }
+
+    /**
+     * 归档调用保留参数记录，具体页面测试自行决定何时推进 flow。
+     */
+    override suspend fun setArchived(cardId: String, archived: Boolean, updatedAt: Long) {
+        setArchivedCalls += Triple(cardId, archived, updatedAt)
+    }
+
+    /**
+     * 物理删除只记录目标 id，便于断言确认删除分支是否真正执行。
+     */
+    override suspend fun delete(cardId: String) {
+        deletedCardIds += cardId
+    }
+}
+
+/**
+ * 默认设置构造函数集中在测试支撑层，是为了让多个测试类共享同一份稳定初始配置。
+ */
+fun defaultAppSettings(): AppSettings = AppSettings(
+    dailyReminderEnabled = true,
+    dailyReminderHour = 20,
+    dailyReminderMinute = 30,
+    schemaVersion = 4,
+    backupLastAt = null,
+    themeMode = ThemeMode.SYSTEM
+)

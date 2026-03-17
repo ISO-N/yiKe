@@ -20,7 +20,7 @@ import com.kariscode.yike.app.MainActivity
  */
 class NotificationHelper(
     private val context: Context
-) {
+) : ReminderNotifier {
     /**
      * 渠道创建需要幂等执行，集中在此处可以让应用启动与 Worker 发送前都安全调用。
      */
@@ -50,7 +50,7 @@ class NotificationHelper(
     /**
      * 通知点击回首页而不是直接进某张卡片，是为了让用户在数据可能已变化的情况下仍能回到稳定入口。
      */
-    fun showDailyReminder(dueCardCount: Int, dueQuestionCount: Int) {
+    override fun showDailyReminder(dueCardCount: Int, dueQuestionCount: Int) {
         ensureChannel()
         if (!canPostNotifications()) return
 

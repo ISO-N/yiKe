@@ -20,17 +20,7 @@ class ReminderCheckWorker(
     override suspend fun doWork(): Result {
         val container = (applicationContext as YikeApplication).container
         return runCatching {
-            val settings = container.appSettingsRepository.getSettings()
-            if (settings.dailyReminderEnabled) {
-                val summary = container.questionRepository.getTodayReviewSummary(container.timeProvider.nowEpochMillis())
-                if (summary.dueQuestionCount > 0) {
-                    container.notificationHelper.showDailyReminder(
-                        dueCardCount = summary.dueCardCount,
-                        dueQuestionCount = summary.dueQuestionCount
-                    )
-                }
-            }
-            container.reminderScheduler.syncReminder(settings)
+            container.reminderCheckRunner.run()
             Result.success()
         }.getOrElse { Result.retry() }
     }

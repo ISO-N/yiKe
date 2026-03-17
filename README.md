@@ -170,16 +170,34 @@ app/src/main/java/com/kariscode/yike/
 
 ## 🧪 测试
 
-```bash
-# 运行所有测试
-./gradlew test
+推荐优先使用统一校验脚本：
 
-# 运行复习调度器测试
-./gradlew test --tests "com.kariscode.yike.domain.scheduler.ReviewSchedulerTest"
-
-# 运行特定测试方法
-./gradlew test --tests "com.kariscode.yike.domain.scheduler.ReviewSchedulerTest.calculateNextStage_*"
+```powershell
+.\scripts\verify-testing.ps1
+.\scripts\verify-testing.ps1 -Connected
 ```
+
+脚本默认执行：
+
+```powershell
+.\gradlew.bat testDebugUnitTest
+.\gradlew.bat assembleDebugAndroidTest
+```
+
+只有在接了设备或模拟器时，才继续执行：
+
+```powershell
+.\gradlew.bat connectedDebugAndroidTest
+```
+
+如果只想跑某一组测试，可以继续使用 Gradle 的过滤能力：
+
+```powershell
+.\gradlew.bat testDebugUnitTest --tests "com.kariscode.yike.domain.scheduler.ReviewSchedulerV1Test"
+.\gradlew.bat testDebugUnitTest --tests "com.kariscode.yike.feature.editor.QuestionEditorViewModelTest"
+```
+
+设备权限、通知展示、文件选择器与局域网发现等平台行为，仍需结合 `docs/engineering/manual-acceptance-v0-1.md` 做手动验收。
 
 ---
 

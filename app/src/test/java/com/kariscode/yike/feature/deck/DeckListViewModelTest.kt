@@ -1,6 +1,7 @@
 package com.kariscode.yike.feature.deck
 
 import com.kariscode.yike.core.time.TimeProvider
+import com.kariscode.yike.core.message.ErrorMessages
 import com.kariscode.yike.domain.model.Deck
 import com.kariscode.yike.domain.model.DeckSummary
 import com.kariscode.yike.domain.repository.DeckRepository
@@ -105,6 +106,86 @@ class DeckListViewModelTest {
             advanceUntilIdle()
 
             assertEquals(listOf("高频", "线性 代数"), repository.upsertedDecks.single().tags)
+        } finally {
+            Dispatchers.resetMain()
+        }
+    }
+
+    /**
+     * 名称为空时必须停留在编辑态并回写校验信息，
+     * 否则用户会看到保存无效却不知道具体原因。
+     */
+    @Test
+    fun onConfirmSave_blankNameShowsValidationMessage() = runTest {
+        Dispatchers.setMain(UnconfinedTestDispatcher(testScheduler))
+        try {
+            val viewModel = DeckListViewModel(
+                deckRepository = FakeDeckRepository(),
+                studyInsightsRepository = FakeStudyInsightsRepository(),
+                timeProvider = object : TimeProvider {
+                    override fun nowEpochMillis(): Long = 456L
+                }
+            )
+
+            viewModel.onCreateDeckClick()
+            viewModel.onConfirmSave()
+
+            assertEquals(ErrorMessages.NAME_REQUIRED, viewModel.uiState.value.editor?.validationMessage)
+        } finally {
+            Dispatchers.resetMain()
+        }
+    }
+
+    /**
+     * 间隔步数越界时必须阻止保存，
+     * 否则卡组会落入调度器不支持的非法区间。
+     */
+    @Test
+    fun onConfirmSave_invalidIntervalStepCountShowsValidationMessage() = runTest {
+        Dispatchers.setMain(UnconfinedTestDispatcher(testScheduler))
+        try {
+            val viewModel = DeckListViewModel(
+                deckRepository = FakeDeckRepository(),
+                studyInsightsRepository = FakeStudyInsightsRepository(),
+                timeProvider = object : TimeProvider {
+                    override fun nowEpochMillis(): Long = 456L
+                }
+            )
+
+            viewModel.onCreateDeckClick()
+            viewModel.onDraftNameChange("数学")
+            viewModel.onDraftIntervalStepCountChange("99")
+            viewModel.onConfirmSave()
+
+            assertEquals(
+                ErrorMessages.INTERVAL_STEP_COUNT_INVALID,
+                viewModel.uiState.value.editor?.validationMessage
+            )
+        } finally {
+            Dispatchers.resetMain()
+        }
+    }
+
+    /**
+     * 关闭编辑器应丢弃当前草稿，
+     * 这样页面才能明确表达“未保存不生效”的交互语义。
+     */
+    @Test
+    fun onDismissEditor_clearsEditorState() = runTest {
+        Dispatchers.setMain(UnconfinedTestDispatcher(testScheduler))
+        try {
+            val viewModel = DeckListViewModel(
+                deckRepository = FakeDeckRepository(),
+                studyInsightsRepository = FakeStudyInsightsRepository(),
+                timeProvider = object : TimeProvider {
+                    override fun nowEpochMillis(): Long = 456L
+                }
+            )
+
+            viewModel.onCreateDeckClick()
+            viewModel.onDismissEditor()
+
+            assertNull(viewModel.uiState.value.editor)
         } finally {
             Dispatchers.resetMain()
         }

@@ -56,3 +56,26 @@ fun createTestSyncChangeRecorder(): LanSyncChangeRecorder = LanSyncChangeRecorde
     syncChangeDao = InMemorySyncChangeDao(),
     crypto = LanSyncCrypto()
 )
+
+/**
+ * 仓储测试有时既要写 journal，又要在断言阶段读取 journal，
+ * 因此提供 recorder 与 DAO 成组返回的构建入口，避免测试各自拼装样板。
+ */
+data class TestSyncRecorder(
+    val recorder: LanSyncChangeRecorder,
+    val syncChangeDao: InMemorySyncChangeDao
+)
+
+/**
+ * 组合构建入口把 recorder 与内存 DAO 绑在一起，便于测试直接读取写入后的增量流水。
+ */
+fun createInspectableTestSyncRecorder(): TestSyncRecorder {
+    val syncChangeDao = InMemorySyncChangeDao()
+    return TestSyncRecorder(
+        recorder = LanSyncChangeRecorder(
+            syncChangeDao = syncChangeDao,
+            crypto = LanSyncCrypto()
+        ),
+        syncChangeDao = syncChangeDao
+    )
+}

@@ -8,8 +8,8 @@ import com.kariscode.yike.core.message.ErrorMessages
 import com.kariscode.yike.core.message.SuccessMessages
 import com.kariscode.yike.core.viewmodel.launchResult
 import com.kariscode.yike.core.viewmodel.typedViewModelFactory
-import com.kariscode.yike.data.backup.BackupService
-import com.kariscode.yike.data.reminder.ReminderScheduler
+import com.kariscode.yike.data.backup.BackupOperations
+import com.kariscode.yike.data.reminder.ReminderSyncScheduler
 import com.kariscode.yike.domain.repository.AppSettingsRepository
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -47,9 +47,9 @@ sealed interface BackupRestoreEffect {
  * 以确保页面不会越过校验或遗漏恢复后的系统协同。
  */
 class BackupRestoreViewModel(
-    private val backupService: BackupService,
+    private val backupService: BackupOperations,
     private val appSettingsRepository: AppSettingsRepository,
-    private val reminderScheduler: ReminderScheduler
+    private val reminderScheduler: ReminderSyncScheduler
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(
         BackupRestoreUiState(
@@ -195,9 +195,9 @@ class BackupRestoreViewModel(
          * 工厂注入高风险服务依赖，可让页面测试时替换为假实现而不触碰真实文件与数据库。
          */
         fun factory(
-            backupService: BackupService,
+            backupService: BackupOperations,
             appSettingsRepository: AppSettingsRepository,
-            reminderScheduler: ReminderScheduler
+            reminderScheduler: ReminderSyncScheduler
         ): ViewModelProvider.Factory = typedViewModelFactory {
             BackupRestoreViewModel(
                 backupService = backupService,

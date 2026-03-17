@@ -9,8 +9,11 @@ import com.kariscode.yike.data.local.db.entity.DeckEntity
 import com.kariscode.yike.data.local.db.entity.QuestionEntity
 import com.kariscode.yike.data.local.db.entity.ReviewRecordEntity
 import com.kariscode.yike.data.repository.OfflineReviewRepository
+import com.kariscode.yike.data.sync.LanSyncChangeRecorder
+import com.kariscode.yike.data.sync.LanSyncCrypto
 import com.kariscode.yike.domain.model.ReviewRating
 import com.kariscode.yike.domain.scheduler.ReviewSchedulerV1
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -121,7 +124,11 @@ class YikeDatabaseIntegrationTest {
             questionDao = database.questionDao(),
             reviewRecordDao = database.reviewRecordDao(),
             reviewScheduler = ReviewSchedulerV1(),
-            dispatchers = DefaultAppDispatchers()
+            dispatchers = DefaultAppDispatchers(),
+            syncChangeRecorder = LanSyncChangeRecorder(
+                syncChangeDao = database.syncChangeDao(),
+                crypto = LanSyncCrypto()
+            )
         )
 
         val submission = repository.submitRating(
@@ -170,6 +177,94 @@ class YikeDatabaseIntegrationTest {
         assertEquals(1, deckBreakdowns.size)
         assertEquals("deck_math", deckBreakdowns.first().deckId)
         assertEquals(1, deckBreakdowns.first().againCount)
+    }
+
+    /**
+     * 回收站里的归档卡组必须保留题卡统计，
+     * 否则用户在恢复前无法判断这个归档项是否值得保留。
+     */
+    @Test
+    fun observeArchivedDeckSummaries_returnsArchivedDecksWithCounts() = runBlocking {
+        database.deckDao().upsert(createDeck(id = "deck_archived", archived = true))
+        database.cardDao().upsert(createCard(id = "card_archived", deckId = "deck_archived", archived = false))
+        database.questionDao().upsertAll(
+            listOf(
+                createQuestion(id = "q_due", cardId = "card_archived", dueAt = 1_000L),
+                createQuestion(id = "q_future", cardId = "card_archived", dueAt = 9_000L)
+            )
+        )
+
+        val summaries = database.deckDao().observeArchivedDeckSummaries(
+            activeStatus = QuestionEntity.STATUS_ACTIVE,
+            nowEpochMillis = 2_000L
+        ).first()
+
+        assertEquals(1, summaries.size)
+        assertEquals("deck_archived", summaries.first().id)
+        assertEquals(1, summaries.first().cardCount)
+        assertEquals(2, summaries.first().questionCount)
+        assertEquals(1, summaries.first().dueQuestionCount)
+    }
+
+    /**
+     * 归档卡片列表必须带出所属卡组名称与题量，
+     * 否则回收站无法给恢复动作提供足够上下文。
+     */
+    @Test
+    fun observeArchivedCardSummaries_returnsDeckContextAndCounts() = runBlocking {
+        database.deckDao().upsert(createDeck(id = "deck_math", archived = false).copy(name = "数学"))
+        database.cardDao().upsert(createCard(id = "card_archived", deckId = "deck_math", archived = true))
+        database.questionDao().upsertAll(
+            listOf(
+                createQuestion(id = "q_due", cardId = "card_archived", dueAt = 1_000L),
+                createQuestion(id = "q_future", cardId = "card_archived", dueAt = 9_000L)
+            )
+        )
+
+        val summaries = database.cardDao().observeArchivedCardSummaries(
+            activeStatus = QuestionEntity.STATUS_ACTIVE,
+            nowEpochMillis = 2_000L
+        ).first()
+
+        assertEquals(1, summaries.size)
+        assertEquals("card_archived", summaries.first().id)
+        assertEquals("数学", summaries.first().deckName)
+        assertEquals(2, summaries.first().questionCount)
+        assertEquals(1, summaries.first().dueQuestionCount)
+    }
+
+    /**
+     * 删除单张卡片后必须级联清理问题与复习记录，
+     * 否则回收站和统计页会继续读到失效的下层数据。
+     */
+    @Test
+    fun deleteCard_cascadesQuestionsAndReviewRecords() = runBlocking {
+        val deck = createDeck(id = "deck_keep", archived = false)
+        val card = createCard(id = "card_delete", deckId = deck.id, archived = false)
+        val question = createQuestion(id = "question_delete", cardId = card.id, dueAt = 1_000L)
+        val record = ReviewRecordEntity(
+            id = "record_delete",
+            questionId = question.id,
+            rating = ReviewRating.GOOD.name,
+            oldStageIndex = 0,
+            newStageIndex = 1,
+            oldDueAt = 1_000L,
+            newDueAt = 2_000L,
+            reviewedAt = 1_500L,
+            responseTimeMs = 600L,
+            note = ""
+        )
+
+        database.deckDao().upsert(deck)
+        database.cardDao().upsert(card)
+        database.questionDao().upsertAll(listOf(question))
+        database.reviewRecordDao().insert(record)
+
+        database.cardDao().deleteById(card.id)
+
+        assertNull(database.questionDao().findById(question.id))
+        assertEquals(0, database.reviewRecordDao().listAll().size)
+        assertNotNull(database.deckDao().findById(deck.id))
     }
 
     /**

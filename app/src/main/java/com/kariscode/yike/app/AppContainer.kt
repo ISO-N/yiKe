@@ -16,6 +16,7 @@ import com.kariscode.yike.data.repository.OfflineQuestionRepository
 import com.kariscode.yike.data.repository.OfflineReviewRepository
 import com.kariscode.yike.data.repository.OfflineStudyInsightsRepository
 import com.kariscode.yike.data.reminder.NotificationHelper
+import com.kariscode.yike.data.reminder.ReminderCheckRunner
 import com.kariscode.yike.data.reminder.ReminderScheduler
 import com.kariscode.yike.data.settings.DataStoreAppSettingsRepository
 import com.kariscode.yike.data.settings.appSettingsDataStore
@@ -23,6 +24,7 @@ import com.kariscode.yike.data.sync.LanSyncChangeRecorder
 import com.kariscode.yike.data.sync.LanSyncCrypto
 import com.kariscode.yike.data.sync.LanSyncLocalProfileStore
 import com.kariscode.yike.data.sync.LanSyncPortAllocator
+import com.kariscode.yike.data.sync.KeystoreLanSyncSharedSecretProtector
 import com.kariscode.yike.data.sync.LanSyncRepositoryImpl
 import com.kariscode.yike.domain.repository.AppSettingsRepository
 import com.kariscode.yike.domain.repository.CardRepository
@@ -82,6 +84,13 @@ class AppContainer(
      */
     val lanSyncCrypto: LanSyncCrypto by lazy {
         LanSyncCrypto()
+    }
+
+    /**
+     * 共享密钥保护策略单独装配后，同步仓储能解耦 Android Keystore 细节，同时继续保持默认安全策略。
+     */
+    val lanSyncSharedSecretProtector: KeystoreLanSyncSharedSecretProtector by lazy {
+        KeystoreLanSyncSharedSecretProtector(lanSyncCrypto)
     }
 
     /**
@@ -199,6 +208,19 @@ class AppContainer(
     }
 
     /**
+     * Worker 依赖独立执行器后，提醒主路径可以在不启动真实 Worker 的情况下完成单元测试。
+     */
+    val reminderCheckRunner: ReminderCheckRunner by lazy {
+        ReminderCheckRunner(
+            appSettingsRepository = appSettingsRepository,
+            questionRepository = questionRepository,
+            reminderNotifier = notificationHelper,
+            reminderScheduler = reminderScheduler,
+            timeProvider = timeProvider
+        )
+    }
+
+    /**
      * 备份服务聚合导出、校验与恢复，是为了把高风险数据操作从页面层彻底隔离出去。
      */
     val backupService: BackupService by lazy {
@@ -229,6 +251,7 @@ class AppContainer(
             dispatchers = dispatchers,
             localProfileStore = lanSyncLocalProfileStore,
             crypto = lanSyncCrypto,
+            sharedSecretProtector = lanSyncSharedSecretProtector,
             portAllocator = lanSyncPortAllocator,
             syncChangeDao = syncChangeDao,
             syncPeerDao = syncPeerDao,

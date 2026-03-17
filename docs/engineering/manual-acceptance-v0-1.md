@@ -4,11 +4,17 @@
 
 本清单用于在自动化测试之外，确认忆刻首版的关键主路径在真实设备上可理解、可恢复、可长期自用。
 
-## 1.1 当前验证记录（2026-03-15）
+## 1.1 历史验证记录（2026-03-15）
 
-- 已执行 `./gradlew.bat testDebugUnitTest`
-- 已执行 `./gradlew.bat connectedDebugAndroidTest`
-- 已通过连接设备 `RMX3852 / Android 16` 完成自动化 UI 与集成测试运行
+- 该记录仅代表 2026-03-15 当时的设备侧回归结果，不代表当前 HEAD 已自动满足以下全部手动项。
+- 当时已执行 `.\gradlew.bat testDebugUnitTest`
+- 当时已执行 `.\gradlew.bat connectedDebugAndroidTest`
+- 当时已通过连接设备 `RMX3852 / Android 16` 完成自动化 UI 与集成测试运行
+
+## 1.2 当前使用方式（2026-03-17）
+
+- 当前建议先执行 `.\scripts\verify-testing.ps1`
+- 若本轮改动涉及设备行为，再执行 `.\scripts\verify-testing.ps1 -Connected`
 - 以下手动验收项仍应由开发者或产品在真实点击路径中逐项勾选，不应由自动化结果直接替代
 
 ---
@@ -67,9 +73,20 @@
 
 ---
 
-## 7. 回归建议
+## 7. 局域网同步
 
-- [ ] 运行 `./gradlew.bat testDebugUnitTest`
-- [ ] 运行 `./gradlew.bat assembleDebugAndroidTest`
+- [ ] 两台设备进入同步页后，彼此都能在候选设备列表中看到对方
+- [ ] 首次配对输入相同配对码后，双方都进入可信状态并能继续同步
+- [ ] 一侧存在本地变更、另一侧存在远端变更时，同步预览能展示冲突与计数
+- [ ] 完成一次同步后，另一台设备可看到新增或更新的数据
+- [ ] 退出同步页或断开网络后，设备列表会在合理时间内清空或刷新
+
+---
+
+## 8. 回归建议
+
+- [ ] 运行 `.\scripts\verify-testing.ps1`
+- [ ] 如本轮涉及设备行为，运行 `.\scripts\verify-testing.ps1 -Connected`
 - [ ] 在至少一台 Android 13+ 设备上完成提醒与权限相关验收
 - [ ] 在至少一台存在历史数据的设备上完成导出 -> 清空 -> 恢复 -> 再次复习的完整回归
+- [ ] 在至少两台处于同一局域网的设备上完成发现 -> 配对 -> 同步的完整回归

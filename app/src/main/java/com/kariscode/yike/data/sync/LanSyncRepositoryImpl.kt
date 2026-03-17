@@ -1,7 +1,6 @@
 package com.kariscode.yike.data.sync
 
 import android.content.Context
-import androidx.room.withTransaction
 import com.kariscode.yike.core.dispatchers.AppDispatchers
 import com.kariscode.yike.core.time.TimeProvider
 import com.kariscode.yike.data.local.db.YikeDatabase
@@ -14,12 +13,7 @@ import com.kariscode.yike.data.local.db.dao.SyncPeerCursorDao
 import com.kariscode.yike.data.local.db.dao.SyncPeerDao
 import com.kariscode.yike.data.local.db.entity.SyncPeerCursorEntity
 import com.kariscode.yike.data.local.db.entity.SyncPeerEntity
-import com.kariscode.yike.data.mapper.RoomMappers
 import com.kariscode.yike.data.reminder.ReminderScheduler
-import com.kariscode.yike.data.settings.DataStoreAppSettingsRepository
-import com.kariscode.yike.domain.model.AppSettings
-import com.kariscode.yike.domain.model.LanSyncConflictChoice
-import com.kariscode.yike.domain.model.LanSyncConflictItem
 import com.kariscode.yike.domain.model.LanSyncConflictResolution
 import com.kariscode.yike.domain.model.LanSyncFailureReason
 import com.kariscode.yike.domain.model.LanSyncLocalProfile
@@ -30,9 +24,7 @@ import com.kariscode.yike.domain.model.LanSyncProgress
 import com.kariscode.yike.domain.model.LanSyncSessionState
 import com.kariscode.yike.domain.model.LanSyncStage
 import com.kariscode.yike.domain.model.LanSyncTrustState
-import com.kariscode.yike.domain.model.SyncChangeOperation
 import com.kariscode.yike.domain.model.SyncEntityType
-import com.kariscode.yike.domain.model.mergeSyncedSettings
 import com.kariscode.yike.domain.repository.AppSettingsRepository
 import com.kariscode.yike.domain.repository.LanSyncRepository
 import java.util.UUID
@@ -64,6 +56,7 @@ class LanSyncRepositoryImpl(
     private val dispatchers: AppDispatchers,
     private val localProfileStore: LanSyncLocalProfileStore,
     private val crypto: LanSyncCrypto,
+    private val sharedSecretProtector: LanSyncSharedSecretProtector = KeystoreLanSyncSharedSecretProtector(crypto),
     portAllocator: LanSyncPortAllocator,
     private val syncChangeDao: SyncChangeDao,
     private val syncPeerDao: SyncPeerDao,
@@ -71,11 +64,25 @@ class LanSyncRepositoryImpl(
     private val deckDao: DeckDao,
     private val cardDao: CardDao,
     private val questionDao: QuestionDao,
-    private val reviewRecordDao: ReviewRecordDao
+    private val reviewRecordDao: ReviewRecordDao,
+    discoveryService: LanSyncDiscoveryService? = null,
+    transportClient: LanSyncTransportClient? = null,
+    transportServer: LanSyncTransportServer? = null,
+    private val conflictResolver: LanSyncConflictResolver = LanSyncConflictResolver(),
+    private val changeApplier: LanSyncChangeApplier = LanSyncChangeApplier(
+        database = database,
+        appSettingsRepository = appSettingsRepository,
+        reminderScheduler = reminderScheduler,
+        deckDao = deckDao,
+        cardDao = cardDao,
+        questionDao = questionDao,
+        reviewRecordDao = reviewRecordDao,
+        conflictResolver = conflictResolver
+    )
 ) : LanSyncRepository {
     private val scope = CoroutineScope(SupervisorJob() + dispatchers.io)
-    private val nsdService = LanSyncNsdService(context = context)
-    private val httpClient = LanSyncHttpClient(crypto = crypto)
+    private val nsdService: LanSyncDiscoveryService = discoveryService ?: LanSyncNsdService(context = context)
+    private val httpClient: LanSyncTransportClient = transportClient ?: LanSyncHttpClient(crypto = crypto)
     private var discoveryJob: Job? = null
     private var heartbeatJob: Job? = null
     private var activeSyncJob: Job? = null
@@ -87,7 +94,7 @@ class LanSyncRepositoryImpl(
         pairingCode = "------"
     )
     private var isApplyingChanges: Boolean = false
-    private val httpServer = LanSyncHttpServer(
+    private val httpServer: LanSyncTransportServer = transportServer ?: LanSyncHttpServer(
         portAllocator = portAllocator,
         onHello = ::handleHello,
         onPairInit = ::handlePairInit,
@@ -237,8 +244,8 @@ class LanSyncRepositoryImpl(
         }
         val trustedPeer = sessionState.value.peers.first { it.deviceId == peer.deviceId }
         val cursor = syncPeerCursorDao.findById(peer.deviceId) ?: emptyCursor(peer.deviceId)
-        val localChanges = compressChanges(syncChangeDao.listAfter(cursor.lastLocalSeqAckedByPeer).map { it.toPayload() })
-        val remoteChanges = compressChanges(
+        val localChanges = conflictResolver.compressChanges(syncChangeDao.listAfter(cursor.lastLocalSeqAckedByPeer).map { it.toPayload() })
+        val remoteChanges = conflictResolver.compressChanges(
             httpClient.pullChanges(
                 hostAddress = trustedPeer.hostAddress,
                 port = trustedPeer.port,
@@ -248,7 +255,7 @@ class LanSyncRepositoryImpl(
                 headersOnly = true
             ).changes
         )
-        val conflicts = buildConflicts(localChanges = localChanges, remoteChanges = remoteChanges)
+        val conflicts = conflictResolver.buildConflicts(localChanges = localChanges, remoteChanges = remoteChanges)
         val preview = LanSyncPreview(
             peer = trustedPeer,
             localChangeCount = localChanges.size,
@@ -331,7 +338,7 @@ class LanSyncRepositoryImpl(
             }
             val cursor = syncPeerCursorDao.findById(preview.peer.deviceId) ?: emptyCursor(preview.peer.deviceId)
             val sharedSecret = readSharedSecret(preview.peer.deviceId)
-            val localChanges = compressChanges(syncChangeDao.listAfter(cursor.lastLocalSeqAckedByPeer).map { it.toPayload() })
+            val localChanges = conflictResolver.compressChanges(syncChangeDao.listAfter(cursor.lastLocalSeqAckedByPeer).map { it.toPayload() })
             val remoteChangesResponse = httpClient.pullChanges(
                 hostAddress = preview.peer.hostAddress,
                 port = preview.peer.port,
@@ -340,8 +347,8 @@ class LanSyncRepositoryImpl(
                 afterSeq = cursor.lastRemoteSeqAppliedLocally,
                 headersOnly = false
             )
-            val remoteChanges = compressChanges(remoteChangesResponse.changes)
-            val (localChangesToPush, remoteChangesToApply) = applyConflictResolution(
+            val remoteChanges = conflictResolver.compressChanges(remoteChangesResponse.changes)
+            val (localChangesToPush, remoteChangesToApply) = conflictResolver.applyConflictResolution(
                 localChanges = localChanges,
                 remoteChanges = remoteChanges,
                 resolutions = resolutions
@@ -382,7 +389,12 @@ class LanSyncRepositoryImpl(
                     )
                 )
             }
-            val appliedRemoteSeqMax = applyIncomingChanges(remoteChangesToApply)
+            isApplyingChanges = true
+            val appliedRemoteSeqMax = try {
+                changeApplier.applyIncomingChanges(remoteChangesToApply)
+            } finally {
+                isApplyingChanges = false
+            }
             if (appliedRemoteSeqMax > cursor.lastRemoteSeqAppliedLocally) {
                 httpClient.ack(
                     hostAddress = preview.peer.hostAddress,
@@ -476,7 +488,7 @@ class LanSyncRepositoryImpl(
                 deviceId = request.initiatorDeviceId,
                 displayName = request.initiatorDisplayName,
                 shortDeviceId = request.initiatorDeviceId.takeLast(6),
-                encryptedSharedSecret = crypto.encryptSharedSecret(payload.sharedSecret),
+                encryptedSharedSecret = sharedSecretProtector.encrypt(payload.sharedSecret),
                 protocolVersion = LanSyncConfig.PROTOCOL_VERSION,
                 lastSeenAt = timeProvider.nowEpochMillis(),
                 missCount = 0
@@ -501,7 +513,7 @@ class LanSyncRepositoryImpl(
             ?: error("未信任的设备无法访问局域网同步接口")
         decodeProtectedPayload(
             request = request,
-            sharedSecret = crypto.decryptSharedSecret(peer.encryptedSharedSecret),
+            sharedSecret = sharedSecretProtector.decrypt(peer.encryptedSharedSecret),
             serializer = LanSyncPingPayload.serializer()
         )
         syncPeerDao.updateHeartbeat(
@@ -512,7 +524,7 @@ class LanSyncRepositoryImpl(
             missCount = 0
         )
         return encodeProtectedResponse(
-            sharedSecret = crypto.decryptSharedSecret(peer.encryptedSharedSecret),
+            sharedSecret = sharedSecretProtector.decrypt(peer.encryptedSharedSecret),
             payload = LanSyncPingResponsePayload(
                 deviceId = currentLocalProfile.deviceId,
                 displayName = currentLocalProfile.displayName,
@@ -530,7 +542,7 @@ class LanSyncRepositoryImpl(
     private suspend fun handlePullChanges(request: LanSyncProtectedRequest): LanSyncProtectedResponse {
         val peer = syncPeerDao.findById(request.requesterDeviceId)
             ?: error("未信任的设备无法访问局域网同步接口")
-        val sharedSecret = crypto.decryptSharedSecret(peer.encryptedSharedSecret)
+        val sharedSecret = sharedSecretProtector.decrypt(peer.encryptedSharedSecret)
         val payload = decodeProtectedPayload(
             request = request,
             sharedSecret = sharedSecret,
@@ -559,7 +571,7 @@ class LanSyncRepositoryImpl(
     private suspend fun handlePushChanges(request: LanSyncProtectedRequest): LanSyncProtectedResponse {
         val peer = syncPeerDao.findById(request.requesterDeviceId)
             ?: error("未信任的设备无法访问局域网同步接口")
-        val sharedSecret = crypto.decryptSharedSecret(peer.encryptedSharedSecret)
+        val sharedSecret = sharedSecretProtector.decrypt(peer.encryptedSharedSecret)
         val payload = decodeProtectedPayload(
             request = request,
             sharedSecret = sharedSecret,
@@ -575,7 +587,12 @@ class LanSyncRepositoryImpl(
                 serializer = LanSyncPushChangesResponsePayload.serializer()
             )
         }
-        val appliedSeq = applyIncomingChanges(payload.changes)
+        isApplyingChanges = true
+        val appliedSeq = try {
+            changeApplier.applyIncomingChanges(payload.changes)
+        } finally {
+            isApplyingChanges = false
+        }
         syncPeerCursorDao.upsert(
             cursor.copy(
                 lastRemoteSeqAppliedLocally = maxOf(cursor.lastRemoteSeqAppliedLocally, appliedSeq),
@@ -595,7 +612,7 @@ class LanSyncRepositoryImpl(
     private suspend fun handleAck(request: LanSyncProtectedRequest): LanSyncProtectedResponse {
         val peer = syncPeerDao.findById(request.requesterDeviceId)
             ?: error("未信任的设备无法访问局域网同步接口")
-        val sharedSecret = crypto.decryptSharedSecret(peer.encryptedSharedSecret)
+        val sharedSecret = sharedSecretProtector.decrypt(peer.encryptedSharedSecret)
         val payload = decodeProtectedPayload(
             request = request,
             sharedSecret = sharedSecret,
@@ -636,7 +653,7 @@ class LanSyncRepositoryImpl(
                 deviceId = hello.deviceId,
                 displayName = hello.displayName,
                 shortDeviceId = hello.shortDeviceId,
-                encryptedSharedSecret = crypto.encryptSharedSecret(sharedSecret),
+                encryptedSharedSecret = sharedSecretProtector.encrypt(sharedSecret),
                 protocolVersion = hello.protocolVersion,
                 lastSeenAt = timeProvider.nowEpochMillis(),
                 missCount = 0
@@ -649,7 +666,7 @@ class LanSyncRepositoryImpl(
      * 发现层候选地址和可信设备表需要合并后才能生成真正可展示的 peer 列表，
      * 因此刷新逻辑集中在单点可以避免 UI 看到时而只剩地址、时而只剩信任状态的半成品。
      */
-    private suspend fun refreshPeers(services: List<LanSyncNsdService.DiscoveredLanService>) {
+    private suspend fun refreshPeers(services: List<LanSyncDiscoveredService>) {
         val trustedPeers = syncPeerDao.listAll().associateBy { peer -> peer.deviceId }
         val peers = buildList {
             services.forEach { service ->
@@ -690,7 +707,7 @@ class LanSyncRepositoryImpl(
         val peers = sessionState.value.peers.filter { peer -> peer.trustState == LanSyncTrustState.TRUSTED }
         peers.forEach { peer ->
             val trustedPeer = syncPeerDao.findById(peer.deviceId) ?: return@forEach
-            val sharedSecret = crypto.decryptSharedSecret(trustedPeer.encryptedSharedSecret)
+            val sharedSecret = sharedSecretProtector.decrypt(trustedPeer.encryptedSharedSecret)
             runCatching {
                 httpClient.ping(
                     hostAddress = peer.hostAddress,
@@ -724,187 +741,6 @@ class LanSyncRepositoryImpl(
     /**
      * 冲突检测只比较同一实体最新的一条变更，是为了避免中间态编辑把预览列表刷成多条重复提示。
      */
-    private fun buildConflicts(
-        localChanges: List<SyncChangePayload>,
-        remoteChanges: List<SyncChangePayload>
-    ): List<LanSyncConflictItem> {
-        val localByKey = latestMutableChanges(localChanges)
-        val remoteByKey = latestMutableChanges(remoteChanges)
-        return localByKey.keys.intersect(remoteByKey.keys).mapNotNull { key ->
-            val local = localByKey.getValue(key)
-            val remote = remoteByKey.getValue(key)
-            val bothDelete = local.operation == SyncChangeOperation.DELETE.name &&
-                remote.operation == SyncChangeOperation.DELETE.name
-            val samePayload = local.payloadHash == remote.payloadHash && local.operation == remote.operation
-            if (bothDelete || samePayload) {
-                return@mapNotNull null
-            }
-            val reason = when {
-                local.operation == SyncChangeOperation.DELETE.name || remote.operation == SyncChangeOperation.DELETE.name ->
-                    "一端删除了该对象，另一端仍有修改"
-                else -> "两端都修改了同一对象"
-            }
-            LanSyncConflictItem(
-                entityType = SyncEntityType.valueOf(local.entityType),
-                entityId = local.entityId,
-                summary = local.summary.ifBlank { remote.summary },
-                localSummary = local.summary,
-                remoteSummary = remote.summary,
-                reason = reason
-            )
-        }.sortedBy { conflict -> "${conflict.entityType.name}:${conflict.summary}" }
-    }
-
-    /**
-     * 根据用户决议分别裁剪本地上传集合和远端应用集合，是为了让执行阶段不需要再次理解 UI 交互选择。
-     */
-    private fun applyConflictResolution(
-        localChanges: List<SyncChangePayload>,
-        remoteChanges: List<SyncChangePayload>,
-        resolutions: List<LanSyncConflictResolution>
-    ): Pair<List<SyncChangePayload>, List<SyncChangePayload>> {
-        val resolutionMap = resolutions.associateBy { resolution ->
-            "${resolution.entityType.name}:${resolution.entityId}"
-        }
-        val filteredLocal = localChanges.filter { change ->
-            when (resolutionMap["${change.entityType}:${change.entityId}"]?.choice) {
-                LanSyncConflictChoice.KEEP_REMOTE, LanSyncConflictChoice.SKIP -> false
-                else -> true
-            }
-        }
-        val filteredRemote = remoteChanges.filter { change ->
-            when (resolutionMap["${change.entityType}:${change.entityId}"]?.choice) {
-                LanSyncConflictChoice.KEEP_LOCAL, LanSyncConflictChoice.SKIP -> false
-                else -> true
-            }
-        }
-        return filteredLocal to filteredRemote
-    }
-
-    /**
-     * 远端变更在真正写库前先按实体类型和操作排序，是为了让外键链路始终保持可应用状态。
-     */
-    private suspend fun applyIncomingChanges(changes: List<SyncChangePayload>): Long {
-        if (changes.isEmpty()) {
-            return 0L
-        }
-        val compressed = compressChanges(changes)
-        val latestRemoteSeq = compressed.maxOfOrNull { it.seq } ?: 0L
-        val settingsPayload = compressed
-            .lastOrNull { it.entityType == SyncEntityType.SETTINGS.name && it.operation == SyncChangeOperation.UPSERT.name }
-            ?.payloadJson
-            ?.let { payloadJson ->
-                LanSyncJson.json.decodeFromString(SyncSettingsPayload.serializer(), payloadJson)
-            }
-
-        val deckUpserts = compressed.filterType(SyncEntityType.DECK, SyncChangeOperation.UPSERT).map { change ->
-            val payload = LanSyncJson.json.decodeFromString(SyncDeckPayload.serializer(), change.payloadJson.orEmpty())
-            RoomMappers.run {
-                com.kariscode.yike.domain.model.Deck(
-                    id = payload.id,
-                    name = payload.name,
-                    description = payload.description,
-                    tags = payload.tags,
-                    intervalStepCount = payload.intervalStepCount,
-                    archived = payload.archived,
-                    sortOrder = payload.sortOrder,
-                    createdAt = payload.createdAt,
-                    updatedAt = payload.updatedAt
-                ).toEntity()
-            }
-        }
-        val cardUpserts = compressed.filterType(SyncEntityType.CARD, SyncChangeOperation.UPSERT).map { change ->
-            val payload = LanSyncJson.json.decodeFromString(SyncCardPayload.serializer(), change.payloadJson.orEmpty())
-            RoomMappers.run {
-                com.kariscode.yike.domain.model.Card(
-                    id = payload.id,
-                    deckId = payload.deckId,
-                    title = payload.title,
-                    description = payload.description,
-                    archived = payload.archived,
-                    sortOrder = payload.sortOrder,
-                    createdAt = payload.createdAt,
-                    updatedAt = payload.updatedAt
-                ).toEntity()
-            }
-        }
-        val questionUpserts = compressed.filterType(SyncEntityType.QUESTION, SyncChangeOperation.UPSERT).map { change ->
-            val payload = LanSyncJson.json.decodeFromString(SyncQuestionPayload.serializer(), change.payloadJson.orEmpty())
-            RoomMappers.run { payload.toDomain().toEntity() }
-        }
-        val reviewRecordUpserts = compressed.filterType(SyncEntityType.REVIEW_RECORD, SyncChangeOperation.UPSERT).map { change ->
-            val payload = LanSyncJson.json.decodeFromString(SyncReviewRecordPayload.serializer(), change.payloadJson.orEmpty())
-            RoomMappers.run { payload.toDomain().toEntity() }
-        }
-        val questionDeletes = compressed.filterType(SyncEntityType.QUESTION, SyncChangeOperation.DELETE).map { it.entityId }
-        val cardDeletes = compressed.filterType(SyncEntityType.CARD, SyncChangeOperation.DELETE).map { it.entityId }
-        val deckDeletes = compressed.filterType(SyncEntityType.DECK, SyncChangeOperation.DELETE).map { it.entityId }
-
-        isApplyingChanges = true
-        try {
-            database.withTransaction {
-                if (deckUpserts.isNotEmpty()) deckDao.upsertAll(deckUpserts)
-                if (cardUpserts.isNotEmpty()) cardDao.upsertAll(cardUpserts)
-                if (questionUpserts.isNotEmpty()) questionDao.upsertAll(questionUpserts)
-                if (reviewRecordUpserts.isNotEmpty()) reviewRecordDao.insertAll(reviewRecordUpserts)
-                questionDeletes.forEach { questionId -> questionDao.deleteById(questionId) }
-                cardDeletes.forEach { cardId -> cardDao.deleteById(cardId) }
-                deckDeletes.forEach { deckId -> deckDao.deleteById(deckId) }
-            }
-            if (settingsPayload != null) {
-                val currentSettings = appSettingsRepository.getSettings()
-                val mergedSettings = currentSettings.mergeSyncedSettings(settingsPayload.toDomain())
-                applySyncedSettingsWithoutRecording(mergedSettings)
-                reminderScheduler.syncReminder(mergedSettings)
-            }
-            return latestRemoteSeq
-        } finally {
-            isApplyingChanges = false
-        }
-    }
-
-    /**
-     * 同步设置应用时必须绕过本地 journal，才能避免“收到远端设置后再次被记录为本地变更”的回声。
-     */
-    private suspend fun applySyncedSettingsWithoutRecording(settings: AppSettings) {
-        val settingsRepository = appSettingsRepository
-        if (settingsRepository is DataStoreAppSettingsRepository) {
-            settingsRepository.applySyncedSettingsWithoutRecording(settings)
-        } else {
-            settingsRepository.setSettings(settings)
-        }
-    }
-
-    /**
-     * 可变实体在一个同步窗口内只保留最新一条变更，是为了减少不必要的中间态传输和冲突噪音。
-     */
-    private fun compressChanges(changes: List<SyncChangePayload>): List<SyncChangePayload> {
-        val mutableLatest = latestMutableChanges(changes).values.toList()
-        val reviewRecords = changes
-            .filter { change -> change.entityType == SyncEntityType.REVIEW_RECORD.name }
-            .sortedBy { change -> change.seq }
-        return (mutableLatest + reviewRecords).sortedBy { change -> change.seq }
-    }
-
-    /**
-     * 最新可变实体映射统一按 entityType + entityId 聚合，是为了让 preview 和执行阶段共享同一压缩规则。
-     */
-    private fun latestMutableChanges(changes: List<SyncChangePayload>): Map<String, SyncChangePayload> =
-        changes
-            .filter { change -> change.entityType != SyncEntityType.REVIEW_RECORD.name }
-            .groupBy { change -> "${change.entityType}:${change.entityId}" }
-            .mapValues { (_, groupedChanges) -> groupedChanges.maxBy { change -> change.seq } }
-
-    /**
-     * 只过滤特定类型和操作的帮助函数抽成单点，是为了让应用顺序代码保持可读而不是堆满相同谓词。
-     */
-    private fun List<SyncChangePayload>.filterType(
-        entityType: SyncEntityType,
-        operation: SyncChangeOperation
-    ): List<SyncChangePayload> = filter { change ->
-        change.entityType == entityType.name && change.operation == operation.name
-    }
-
     /**
      * 受保护请求统一先查可信设备再解密，是为了把“未配对设备直接访问同步端点”的风险拦在同一入口。
      */
@@ -959,7 +795,7 @@ class LanSyncRepositoryImpl(
      * 已信任设备的共享密钥读取集中在单点，是为了把解密数据库字段的细节从业务流程中剥离出去。
      */
     private suspend fun readSharedSecret(deviceId: String): String = syncPeerDao.findById(deviceId)
-        ?.let { peer -> crypto.decryptSharedSecret(peer.encryptedSharedSecret) }
+        ?.let { peer -> sharedSecretProtector.decrypt(peer.encryptedSharedSecret) }
         ?: error("设备未完成配对，无法继续同步")
 
     /**

@@ -7,8 +7,12 @@ import com.kariscode.yike.data.local.db.YikeDatabase
 import com.kariscode.yike.data.local.db.entity.CardEntity
 import com.kariscode.yike.data.local.db.entity.DeckEntity
 import com.kariscode.yike.data.local.db.entity.QuestionEntity
-import com.kariscode.yike.data.sync.createTestSyncChangeRecorder
+import com.kariscode.yike.data.sync.InMemorySyncChangeDao
+import com.kariscode.yike.data.sync.createInspectableTestSyncRecorder
+import com.kariscode.yike.data.sync.storageValue
 import com.kariscode.yike.domain.model.ReviewRating
+import com.kariscode.yike.domain.model.SyncChangeOperation
+import com.kariscode.yike.domain.model.SyncEntityType
 import com.kariscode.yike.domain.scheduler.ReviewSchedulerV1
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -32,6 +36,7 @@ class OfflineReviewRepositoryTest {
 
     private lateinit var database: YikeDatabase
     private lateinit var repository: OfflineReviewRepository
+    private lateinit var syncChangeDao: InMemorySyncChangeDao
 
     @Before
     fun setUp() {
@@ -41,6 +46,8 @@ class OfflineReviewRepositoryTest {
             YikeDatabase::class.java
         ).allowMainThreadQueries().build()
 
+        val testSyncRecorder = createInspectableTestSyncRecorder()
+        syncChangeDao = testSyncRecorder.syncChangeDao
         repository = OfflineReviewRepository(
             database = database,
             questionDao = database.questionDao(),
@@ -51,7 +58,7 @@ class OfflineReviewRepositoryTest {
                 override val io: CoroutineDispatcher = testDispatcher
                 override val default: CoroutineDispatcher = testDispatcher
             },
-            syncChangeRecorder = createTestSyncChangeRecorder()
+            syncChangeRecorder = testSyncRecorder.recorder
         )
     }
 
@@ -337,6 +344,70 @@ class OfflineReviewRepositoryTest {
         )
     }
 
+    /**
+     * 按卡片读取待复习问题时必须排除未到期、已归档和非激活内容，
+     * 否则复习页会把不应进入本轮的问题混进来。
+     */
+    @Test
+    fun listDueQuestionsByCard_returnsOnlyActiveUnarchivedDueQuestions() = runTest {
+        seedHierarchy(deckId = "deck_active", cardId = "card_active")
+        seedHierarchy(deckId = "deck_other", cardId = "card_other")
+        database.cardDao().upsert(
+            CardEntity(
+                id = "card_archived",
+                deckId = "deck_active",
+                title = "card_archived",
+                description = "",
+                archived = true,
+                sortOrder = 0,
+                createdAt = 1L,
+                updatedAt = 1L
+            )
+        )
+        seedQuestion(id = "q_due", cardId = "card_active", stageIndex = 1, dueAt = 1_000L)
+        seedQuestion(id = "q_future", cardId = "card_active", stageIndex = 1, dueAt = 9_000L)
+        seedQuestion(id = "q_archived_card", cardId = "card_archived", stageIndex = 1, dueAt = 1_000L)
+        seedQuestion(
+            id = "q_inactive",
+            cardId = "card_active",
+            stageIndex = 1,
+            dueAt = 1_000L,
+            status = QuestionEntity.STATUS_ARCHIVED
+        )
+        seedQuestion(id = "q_other_card", cardId = "card_other", stageIndex = 1, dueAt = 1_000L)
+
+        val dueQuestions = repository.listDueQuestionsByCard(cardId = "card_active", nowEpochMillis = 2_000L)
+
+        assertEquals(listOf("q_due"), dueQuestions.map { it.id })
+    }
+
+    /**
+     * 评分提交除了改题目和写历史外，还必须写入同步 journal，
+     * 否则后续局域网同步无法把这次评分传播到其他设备。
+     */
+    @Test
+    fun submitRating_recordsQuestionAndReviewRecordJournalEntries() = runTest {
+        seedHierarchy(deckId = "deck_sync", cardId = "card_sync")
+        seedQuestion(id = "q_sync", cardId = "card_sync", stageIndex = 2, dueAt = 1_000L)
+
+        repository.submitRating(
+            questionId = "q_sync",
+            rating = ReviewRating.HARD,
+            reviewedAtEpochMillis = 130_000L,
+            responseTimeMs = 700L
+        )
+
+        val changes = syncChangeDao.listAfter(afterSeq = 0L)
+
+        assertEquals(2, changes.size)
+        assertEquals(SyncEntityType.QUESTION.storageValue(), changes[0].entityType)
+        assertEquals(SyncChangeOperation.UPSERT.storageValue(), changes[0].operation)
+        assertEquals("q_sync", changes[0].entityId)
+        assertEquals(SyncEntityType.REVIEW_RECORD.storageValue(), changes[1].entityType)
+        assertEquals(SyncChangeOperation.UPSERT.storageValue(), changes[1].operation)
+        assertEquals(130_000L, changes[1].modifiedAt)
+    }
+
     // ── helpers ────────────────────────────────────────────────
 
     private suspend fun seedHierarchy(
@@ -364,13 +435,14 @@ class OfflineReviewRepositoryTest {
         cardId: String,
         stageIndex: Int,
         lapseCount: Int = 0,
-        dueAt: Long = 1_000L
+        dueAt: Long = 1_000L,
+        status: String = QuestionEntity.STATUS_ACTIVE
     ) {
         database.questionDao().upsertAll(
             listOf(
                 QuestionEntity(
                     id = id, cardId = cardId, prompt = id, answer = "",
-                    tagsJson = "[]", status = QuestionEntity.STATUS_ACTIVE,
+                    tagsJson = "[]", status = status,
                     stageIndex = stageIndex, dueAt = dueAt,
                     lastReviewedAt = null, reviewCount = 0, lapseCount = lapseCount,
                     createdAt = 1L, updatedAt = 1L

@@ -39,7 +39,8 @@ docs/
 9. `engineering/notification-and-reminder.md`
 10. `engineering/storage-and-backup.md`
 11. `engineering/testing-strategy-v1.md`
-12. `project/implementation-roadmap-v1.md`
+12. `engineering/testing-coverage-report.md`
+13. `project/implementation-roadmap-v1.md`
 
 这个顺序基本对应：
 
@@ -77,6 +78,7 @@ docs/
 | `notification-and-reminder.md` | 定义每日提醒能力与 Android 落地方案 |
 | `storage-and-backup.md` | 定义本地存储、JSON 备份与恢复策略 |
 | `testing-strategy-v1.md` | 定义测试层次、最低验收与重点场景 |
+| `testing-coverage-report.md` | 记录当前测试门禁覆盖、真实空白与回归入口 |
 | `manual-acceptance-v0-1.md` | 首版设备手动验收清单 |
 | `error-handling-and-empty-states.md` | 统一错误状态、空状态与交互文案 |
 
