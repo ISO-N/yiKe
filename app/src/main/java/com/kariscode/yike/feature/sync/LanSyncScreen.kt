@@ -33,6 +33,7 @@ import com.kariscode.yike.domain.model.LanSyncConflictChoice
 import com.kariscode.yike.domain.model.LanSyncPeer
 import com.kariscode.yike.domain.model.LanSyncPreview
 import com.kariscode.yike.domain.model.LanSyncStage
+import com.kariscode.yike.navigation.YikeNavigator
 import com.kariscode.yike.ui.component.YikeFlowScaffold
 import com.kariscode.yike.ui.component.YikeListItemCard
 import com.kariscode.yike.ui.component.YikeOperationFeedback
@@ -49,7 +50,7 @@ import com.kariscode.yike.ui.component.backNavigationAction
  */
 @Composable
 fun LanSyncScreen(
-    onBack: () -> Unit,
+    navigator: YikeNavigator,
     modifier: Modifier = Modifier
 ) {
     val container = LocalAppContainer.current
@@ -86,7 +87,7 @@ fun LanSyncScreen(
     YikeFlowScaffold(
         title = "局域网同步",
         subtitle = "在同一 Wi-Fi 下发现设备，配对后同步学习数据。",
-        navigationAction = backNavigationAction(onClick = onBack)
+        navigationAction = backNavigationAction(onClick = navigator::back)
     ) { padding ->
         LanSyncContent(
             uiState = uiState,

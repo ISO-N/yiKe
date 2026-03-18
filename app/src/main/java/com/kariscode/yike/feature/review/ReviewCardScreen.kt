@@ -14,6 +14,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.kariscode.yike.app.LocalAppContainer
 import com.kariscode.yike.domain.model.ReviewRating
+import com.kariscode.yike.navigation.YikeNavigator
 import com.kariscode.yike.ui.component.CollectFlowEffect
 import com.kariscode.yike.ui.component.YikeBadge
 import com.kariscode.yike.ui.component.YikeDangerConfirmationDialog
@@ -36,8 +37,7 @@ import com.kariscode.yike.ui.component.backNavigationAction
 @Composable
 fun ReviewCardScreen(
     cardId: String,
-    onExit: () -> Unit,
-    onNextCard: () -> Unit,
+    navigator: YikeNavigator,
     modifier: Modifier = Modifier
 ) {
     val container = LocalAppContainer.current
@@ -55,8 +55,8 @@ fun ReviewCardScreen(
 
     CollectFlowEffect(effectFlow = viewModel.effects) { effect ->
         when (effect) {
-            ReviewCardEffect.NavigateHome -> onExit()
-            ReviewCardEffect.NavigateToQueue -> onNextCard()
+            ReviewCardEffect.NavigateHome -> navigator.backToHome()
+            ReviewCardEffect.NavigateToQueue -> navigator.openReviewQueue()
         }
     }
 

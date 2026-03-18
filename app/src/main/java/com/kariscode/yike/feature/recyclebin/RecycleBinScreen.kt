@@ -13,6 +13,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.kariscode.yike.app.LocalAppContainer
 import com.kariscode.yike.domain.model.ArchivedCardSummary
 import com.kariscode.yike.domain.model.DeckSummary
+import com.kariscode.yike.navigation.YikeNavigator
 import com.kariscode.yike.ui.component.YikeDangerButton
 import com.kariscode.yike.ui.component.YikeDangerConfirmationDialog
 import com.kariscode.yike.ui.component.YikeFlowScaffold
@@ -31,7 +32,7 @@ import com.kariscode.yike.ui.theme.LocalYikeSpacing
  */
 @Composable
 fun RecycleBinScreen(
-    onBack: () -> Unit,
+    navigator: YikeNavigator,
     modifier: Modifier = Modifier
 ) {
     val container = LocalAppContainer.current
@@ -47,7 +48,7 @@ fun RecycleBinScreen(
     YikeFlowScaffold(
         title = "已归档内容",
         subtitle = "这里集中保留归档内容，恢复后会重新回到原来的列表里。",
-        navigationAction = backNavigationAction(onBack)
+        navigationAction = backNavigationAction(navigator::back)
     ) { padding ->
         RecycleBinContent(
             uiState = uiState,

@@ -11,6 +11,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.kariscode.yike.app.LocalAppContainer
 import com.kariscode.yike.core.message.ErrorMessages
+import com.kariscode.yike.navigation.YikeNavigator
 import com.kariscode.yike.ui.component.YikeFlowScaffold
 import com.kariscode.yike.ui.component.YikePrimaryButton
 import com.kariscode.yike.ui.component.YikeSecondaryButton
@@ -24,10 +25,7 @@ import com.kariscode.yike.ui.theme.LocalYikeSpacing
  */
 @Composable
 fun TodayPreviewScreen(
-    onBack: () -> Unit,
-    onStartReview: () -> Unit,
-    onOpenAnalytics: () -> Unit,
-    onOpenSearch: () -> Unit,
+    navigator: YikeNavigator,
     modifier: Modifier = Modifier
 ) {
     val container = LocalAppContainer.current
@@ -42,14 +40,14 @@ fun TodayPreviewScreen(
     YikeFlowScaffold(
         title = "今日复习预览",
         subtitle = "开始前先看清今天要复习的规模和重点，能减少进入任务后的挫败感。",
-        navigationAction = backNavigationAction(onBack)
+        navigationAction = backNavigationAction(navigator::back)
     ) { padding ->
         TodayPreviewContent(
             uiState = uiState,
             onRetry = viewModel::refresh,
-            onStartReview = onStartReview,
-            onOpenAnalytics = onOpenAnalytics,
-            onOpenSearch = onOpenSearch,
+            onStartReview = navigator::openReviewQueue,
+            onOpenAnalytics = navigator::openAnalytics,
+            onOpenSearch = { navigator.openQuestionSearch() },
             modifier = modifier.padding(padding)
         )
     }

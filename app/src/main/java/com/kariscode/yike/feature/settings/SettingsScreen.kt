@@ -24,6 +24,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.kariscode.yike.BuildConfig
 import com.kariscode.yike.app.LocalAppContainer
 import com.kariscode.yike.domain.model.ThemeMode
+import com.kariscode.yike.navigation.YikeNavigator
 import com.kariscode.yike.ui.component.CollectFlowEffect
 import com.kariscode.yike.ui.component.YikeBadge
 import com.kariscode.yike.ui.component.YikeListItemCard
@@ -43,9 +44,7 @@ import com.kariscode.yike.ui.theme.LocalYikeSpacing
  */
 @Composable
 fun SettingsScreen(
-    onOpenBackupRestore: () -> Unit,
-    onOpenLanSync: () -> Unit,
-    onOpenRecycleBin: () -> Unit,
+    navigator: YikeNavigator,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -70,8 +69,8 @@ fun SettingsScreen(
 
     CollectFlowEffect(effectFlow = viewModel.effects) { effect ->
         when (effect) {
-            SettingsEffect.OpenBackupRestore -> onOpenBackupRestore()
-            SettingsEffect.OpenLanSync -> onOpenLanSync()
+            SettingsEffect.OpenBackupRestore -> navigator.openBackupRestore()
+            SettingsEffect.OpenLanSync -> navigator.openLanSync()
             SettingsEffect.RequestNotificationPermission -> permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
         }
     }
@@ -102,7 +101,7 @@ fun SettingsScreen(
             onThemeModeChange = viewModel::onThemeModeChange,
             onOpenBackupRestore = viewModel::onBackupRestoreClick,
             onOpenLanSync = viewModel::onLanSyncClick,
-            onOpenRecycleBin = onOpenRecycleBin,
+            onOpenRecycleBin = navigator::openRecycleBin,
             modifier = modifier,
             contentPadding = padding
         )

@@ -14,6 +14,7 @@ import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.kariscode.yike.app.LocalAppContainer
+import com.kariscode.yike.navigation.YikeNavigator
 import com.kariscode.yike.ui.component.CollectFlowEffect
 import com.kariscode.yike.ui.component.backNavigationAction
 import com.kariscode.yike.ui.component.YikeBadge
@@ -33,7 +34,7 @@ import com.kariscode.yike.ui.format.formatLocalDateTime
  */
 @Composable
 fun BackupRestoreScreen(
-    onBack: () -> Unit,
+    navigator: YikeNavigator,
     modifier: Modifier = Modifier
 ) {
     val container = LocalAppContainer.current
@@ -64,7 +65,7 @@ fun BackupRestoreScreen(
     YikeFlowScaffold(
         title = "备份与恢复",
         subtitle = "导出完整 JSON，或在确认风险后从本地备份恢复全部数据。",
-        navigationAction = backNavigationAction(onBack)
+        navigationAction = backNavigationAction(navigator::back)
     ) { padding ->
         BackupRestoreContent(
             uiState = uiState,

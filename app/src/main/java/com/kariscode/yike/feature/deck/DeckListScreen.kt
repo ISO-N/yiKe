@@ -16,6 +16,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.kariscode.yike.app.LocalAppContainer
 import com.kariscode.yike.core.message.ErrorMessages
 import com.kariscode.yike.domain.model.DeckSummary
+import com.kariscode.yike.navigation.YikeNavigator
 import com.kariscode.yike.ui.component.YikeBadge
 import com.kariscode.yike.ui.component.YikeFab
 import com.kariscode.yike.ui.component.YikeHeroCard
@@ -38,7 +39,7 @@ import com.kariscode.yike.ui.theme.LocalYikeSpacing
  */
 @Composable
 fun DeckListScreen(
-    onOpenDeck: (deckId: String) -> Unit,
+    navigator: YikeNavigator,
     modifier: Modifier = Modifier
 ) {
     val container = LocalAppContainer.current
@@ -65,7 +66,7 @@ fun DeckListScreen(
         DeckListContent(
             uiState = uiState,
             onCreateDeck = viewModel::onCreateDeckClick,
-            onOpenDeck = onOpenDeck,
+            navigator = navigator,
             onKeywordChange = viewModel::onKeywordChange,
             onNameChange = viewModel::onDraftNameChange,
             onDescriptionChange = viewModel::onDraftDescriptionChange,
@@ -88,7 +89,7 @@ fun DeckListScreen(
 private fun DeckListContent(
     uiState: DeckListUiState,
     onCreateDeck: () -> Unit,
-    onOpenDeck: (deckId: String) -> Unit,
+    navigator: YikeNavigator,
     onKeywordChange: (String) -> Unit,
     onNameChange: (String) -> Unit,
     onDescriptionChange: (String) -> Unit,
@@ -157,7 +158,7 @@ private fun DeckListContent(
                 visibleItems.forEach { item ->
                     DeckSummaryCard(
                         item = item,
-                        onOpen = { onOpenDeck(item.deck.id) },
+                        onOpen = { navigator.openCardList(item.deck.id) },
                         onEdit = { onEditDeck(item) },
                         onArchive = { onToggleArchive(item) }
                     )

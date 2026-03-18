@@ -13,6 +13,7 @@ import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.kariscode.yike.app.LocalAppContainer
+import com.kariscode.yike.navigation.YikeNavigator
 import com.kariscode.yike.ui.component.backNavigationAction
 import com.kariscode.yike.ui.component.YikeBadge
 import com.kariscode.yike.ui.component.YikeFlowScaffold
@@ -31,7 +32,7 @@ import com.kariscode.yike.ui.theme.LocalYikeSpacing
 fun QuestionEditorScreen(
     cardId: String,
     deckId: String?,
-    onBack: () -> Unit,
+    navigator: YikeNavigator,
     modifier: Modifier = Modifier
 ) {
     val container = LocalAppContainer.current
@@ -50,7 +51,7 @@ fun QuestionEditorScreen(
     YikeFlowScaffold(
         title = "编辑卡片",
         subtitle = "先把卡片信息写清楚，再逐条维护问题和答案。",
-        navigationAction = backNavigationAction(onBack),
+        navigationAction = backNavigationAction(navigator::back),
         actionText = if (uiState.isSaving) "保存中" else "保存",
         onActionClick = if (uiState.isSaving) null else viewModel::onSaveClick
     ) { padding ->

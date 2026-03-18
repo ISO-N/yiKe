@@ -15,6 +15,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.kariscode.yike.app.LocalAppContainer
 import com.kariscode.yike.core.message.ErrorMessages
 import com.kariscode.yike.domain.model.CardSummary
+import com.kariscode.yike.navigation.YikeNavigator
 import com.kariscode.yike.ui.component.backNavigationAction
 import com.kariscode.yike.ui.component.YikeBadge
 import com.kariscode.yike.ui.component.YikeFab
@@ -37,10 +38,7 @@ import com.kariscode.yike.ui.theme.LocalYikeSpacing
 @Composable
 fun CardListScreen(
     deckId: String,
-    onBack: () -> Unit,
-    onOpenTodayPreview: () -> Unit,
-    onOpenSearch: (cardId: String?) -> Unit,
-    onEditCard: (cardId: String) -> Unit,
+    navigator: YikeNavigator,
     modifier: Modifier = Modifier
 ) {
     val container = LocalAppContainer.current
@@ -58,14 +56,13 @@ fun CardListScreen(
     YikeFlowScaffold(
         title = uiState.deckName ?: "卡片列表",
         subtitle = "按章节或知识块拆分卡片，能让复习时更容易进入上下文。",
-        navigationAction = backNavigationAction(onBack)
+        navigationAction = backNavigationAction(navigator::back)
     ) { padding ->
         CardListContent(
+            deckId = deckId,
             uiState = uiState,
+            navigator = navigator,
             onCreateCard = viewModel::onCreateCardClick,
-            onOpenTodayPreview = onOpenTodayPreview,
-            onOpenSearch = onOpenSearch,
-            onOpenEditor = onEditCard,
             onTitleChange = viewModel::onDraftTitleChange,
             onDescriptionChange = viewModel::onDraftDescriptionChange,
             onDismissEditor = viewModel::onDismissEditor,
@@ -85,11 +82,10 @@ fun CardListScreen(
  */
 @Composable
 private fun CardListContent(
+    deckId: String,
     uiState: CardListUiState,
+    navigator: YikeNavigator,
     onCreateCard: () -> Unit,
-    onOpenTodayPreview: () -> Unit,
-    onOpenSearch: (cardId: String?) -> Unit,
-    onOpenEditor: (cardId: String) -> Unit,
     onTitleChange: (String) -> Unit,
     onDescriptionChange: (String) -> Unit,
     onDismissEditor: () -> Unit,
@@ -101,12 +97,19 @@ private fun CardListContent(
     onConfirmDelete: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val openTodayPreview: () -> Unit = navigator::openTodayPreview
+    val openSearch: (String?) -> Unit = { cardId ->
+        navigator.openQuestionSearch(deckId = deckId, cardId = cardId)
+    }
+    val openEditor: (String) -> Unit = { cardId ->
+        navigator.openQuestionEditor(cardId = cardId, deckId = deckId)
+    }
     YikeScrollableColumn(modifier = modifier) {
         CardOverviewSection(
             items = uiState.items,
             onCreateCard = onCreateCard,
-            onOpenTodayPreview = onOpenTodayPreview,
-            onOpenSearch = { onOpenSearch(null) }
+            onOpenTodayPreview = openTodayPreview,
+            onOpenSearch = { openSearch(null) }
         )
         uiState.masterySummary?.let { summary ->
             CardMasterySection(summary = summary)
@@ -144,8 +147,8 @@ private fun CardListContent(
                 uiState.items.forEach { item ->
                     CardSummaryCard(
                         item = item,
-                        onOpenEditor = { onOpenEditor(item.card.id) },
-                        onOpenSearch = { onOpenSearch(item.card.id) },
+                        onOpenEditor = { openEditor(item.card.id) },
+                        onOpenSearch = { openSearch(item.card.id) },
                         onEditMeta = { onEditCardMeta(item) },
                         onArchive = { onArchive(item) },
                         onDelete = { onDelete(item) }

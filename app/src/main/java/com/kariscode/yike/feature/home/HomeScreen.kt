@@ -11,9 +11,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.kariscode.yike.BuildConfig
 import com.kariscode.yike.app.LocalAppContainer
 import com.kariscode.yike.core.message.ErrorMessages
 import com.kariscode.yike.domain.model.DeckSummary
+import com.kariscode.yike.navigation.YikeNavigator
 import com.kariscode.yike.ui.component.YikeBadge
 import com.kariscode.yike.ui.component.YikeHeaderBlock
 import com.kariscode.yike.ui.component.YikeHeroCard
@@ -34,13 +36,7 @@ import com.kariscode.yike.ui.theme.LocalYikeSpacing
  */
 @Composable
 fun HomeScreen(
-    onStartReview: () -> Unit,
-    onOpenTodayPreview: () -> Unit,
-    onOpenAnalytics: () -> Unit,
-    onOpenSearch: () -> Unit,
-    onOpenDeckList: () -> Unit,
-    onOpenSettings: () -> Unit,
-    onOpenDebug: () -> Unit = {},
+    navigator: YikeNavigator,
     modifier: Modifier = Modifier
 ) {
     val container = LocalAppContainer.current
@@ -61,13 +57,7 @@ fun HomeScreen(
         HomeContent(
             uiState = uiState,
             onRetry = viewModel::refresh,
-            onStartReview = onStartReview,
-            onOpenTodayPreview = onOpenTodayPreview,
-            onOpenAnalytics = onOpenAnalytics,
-            onOpenSearch = onOpenSearch,
-            onOpenDeckList = onOpenDeckList,
-            onOpenSettings = onOpenSettings,
-            onOpenDebug = onOpenDebug,
+            navigator = navigator,
             modifier = modifier,
             contentPadding = padding
         )
@@ -81,13 +71,7 @@ fun HomeScreen(
 fun HomeContent(
     uiState: HomeUiState,
     onRetry: () -> Unit,
-    onStartReview: () -> Unit,
-    onOpenTodayPreview: () -> Unit,
-    onOpenAnalytics: () -> Unit,
-    onOpenSearch: () -> Unit,
-    onOpenDeckList: () -> Unit,
-    onOpenSettings: () -> Unit,
-    onOpenDebug: () -> Unit,
+    navigator: YikeNavigator,
     modifier: Modifier = Modifier,
     contentPadding: PaddingValues = PaddingValues()
 ) {
@@ -117,7 +101,7 @@ fun HomeContent(
                         )
                         YikeSecondaryButton(
                             text = "进入卡组",
-                            onClick = onOpenDeckList,
+                            onClick = navigator::openDeckList,
                             modifier = Modifier.weight(1f)
                         )
                     }
@@ -131,29 +115,26 @@ fun HomeContent(
                 HomeHeroSection(
                     dueCards = dueCards,
                     dueQuestions = dueQuestions,
-                    onStartReview = onStartReview,
-                    onOpenTodayPreview = onOpenTodayPreview
+                    navigator = navigator
                 )
                 HomeRhythmSection(
                     dueQuestions = dueQuestions,
                     totalRecentDecks = uiState.recentDecks.size,
-                    onOpenAnalytics = onOpenAnalytics,
-                    onOpenSearch = onOpenSearch,
-                    onOpenDeckList = onOpenDeckList
+                    navigator = navigator
                 )
                 RecentDeckSection(
                     recentDecks = uiState.recentDecks,
-                    onOpenDeckList = onOpenDeckList
+                    navigator = navigator
                 )
             }
         }
 
         YikeSecondaryButton(
             text = "进入设置",
-            onClick = onOpenSettings,
+            onClick = navigator::openSettings,
             modifier = Modifier.fillMaxWidth()
         )
-        HomeDebugEntry(onOpenDebug = onOpenDebug)
+        HomeDebugEntry(navigator = navigator)
     }
 }
 
@@ -164,13 +145,12 @@ fun HomeContent(
 private fun HomeHeroSection(
     dueCards: Int,
     dueQuestions: Int,
-    onStartReview: () -> Unit,
-    onOpenTodayPreview: () -> Unit
+    navigator: YikeNavigator
 ) {
     val spacing = LocalYikeSpacing.current
     val hasDueItems = dueQuestions > 0
     val primaryActionText = if (hasDueItems) "开始复习" else "今日预览"
-    val primaryAction = if (hasDueItems) onStartReview else onOpenTodayPreview
+    val primaryAction: () -> Unit = if (hasDueItems) navigator::openReviewQueue else navigator::openTodayPreview
     YikeHeroCard(
         eyebrow = "Today Review",
         title = if (hasDueItems) "$dueQuestions 个问题待复习" else "今日暂无待复习",
@@ -200,7 +180,7 @@ private fun HomeHeroSection(
             )
             YikeSecondaryButton(
                 text = "今日预览",
-                onClick = onOpenTodayPreview,
+                onClick = navigator::openTodayPreview,
                 modifier = Modifier.weight(1f)
             )
         }
@@ -215,9 +195,7 @@ private fun HomeHeroSection(
 private fun HomeRhythmSection(
     dueQuestions: Int,
     totalRecentDecks: Int,
-    onOpenAnalytics: () -> Unit,
-    onOpenSearch: () -> Unit,
-    onOpenDeckList: () -> Unit
+    navigator: YikeNavigator
 ) {
     val spacing = LocalYikeSpacing.current
     YikeStateBanner(
@@ -238,18 +216,18 @@ private fun HomeRhythmSection(
             Row(horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
                 YikeSecondaryButton(
                     text = "复习统计",
-                    onClick = onOpenAnalytics,
+                    onClick = navigator::openAnalytics,
                     modifier = Modifier.weight(1f)
                 )
                 YikeSecondaryButton(
                     text = "问题检索",
-                    onClick = onOpenSearch,
+                    onClick = { navigator.openQuestionSearch() },
                     modifier = Modifier.weight(1f)
                 )
             }
             YikeSecondaryButton(
                 text = "浏览卡组",
-                onClick = onOpenDeckList,
+                onClick = navigator::openDeckList,
                 modifier = Modifier.fillMaxWidth()
             )
         }
@@ -262,7 +240,7 @@ private fun HomeRhythmSection(
 @Composable
 private fun RecentDeckSection(
     recentDecks: List<DeckSummary>,
-    onOpenDeckList: () -> Unit
+    navigator: YikeNavigator
 ) {
     val spacing = LocalYikeSpacing.current
     if (recentDecks.isEmpty()) {
@@ -272,7 +250,7 @@ private fun RecentDeckSection(
         ) {
             YikePrimaryButton(
                 text = "创建内容",
-                onClick = onOpenDeckList,
+                onClick = navigator::openDeckList,
                 modifier = Modifier.fillMaxWidth()
             )
         }
@@ -302,11 +280,33 @@ private fun RecentDeckSection(
             ) {
                 YikeSecondaryButton(
                     text = "查看全部",
-                    onClick = onOpenDeckList,
+                    onClick = navigator::openDeckList,
                     modifier = Modifier.fillMaxWidth()
                 )
             }
         }
+    }
+}
+
+/**
+ * 调试入口只在 Debug 构建可见，是为了让正常用户不被打扰，同时让开发时能快速进入诊断页面。
+ */
+@Composable
+private fun HomeDebugEntry(
+    navigator: YikeNavigator
+) {
+    if (!BuildConfig.DEBUG) {
+        return
+    }
+    YikeStateBanner(
+        title = "调试工具",
+        description = "开发调试入口仅在 Debug 构建开放，用于快速验证数据与状态。"
+    ) {
+        YikeSecondaryButton(
+            text = "打开调试页",
+            onClick = navigator::openDebug,
+            modifier = Modifier.fillMaxWidth()
+        )
     }
 }
 

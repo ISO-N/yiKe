@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.ui.Modifier
 import androidx.navigation.NavBackStackEntry
-import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -52,11 +51,7 @@ fun YikeNavGraph(
 ) {
     val currentBackStackEntry by navController.currentBackStackEntryAsState()
     val currentPrimaryDestination = primaryDestinationForRoute(currentBackStackEntry?.destination?.route)
-    val popBack: () -> Unit = { navController.popBackStack() }
-    val openTodayPreview: () -> Unit = { navController.navigate(YikeDestination.TODAY_PREVIEW) }
-    val openAnalytics: () -> Unit = { navController.navigate(YikeDestination.REVIEW_ANALYTICS) }
-    val openSearch: () -> Unit = { navController.navigate(YikeDestination.questionSearch()) }
-    val openReviewQueue: () -> Unit = { navController.navigate(YikeDestination.REVIEW_QUEUE) }
+    val navigator = rememberYikeNavigator(navController)
 
     Box(modifier = modifier.fillMaxSize()) {
         NavHost(
@@ -70,19 +65,13 @@ fun YikeNavGraph(
         ) {
             composable(route = YikeDestination.HOME) {
                 HomeScreen(
-                    onStartReview = openReviewQueue,
-                    onOpenTodayPreview = openTodayPreview,
-                    onOpenAnalytics = openAnalytics,
-                    onOpenSearch = openSearch,
-                    onOpenDeckList = { navController.navigatePrimaryDestination(YikeDestination.DECK_LIST) },
-                    onOpenSettings = { navController.navigatePrimaryDestination(YikeDestination.SETTINGS) },
-                    onOpenDebug = { navController.navigate(YikeDestination.DEBUG) }
+                    navigator = navigator
                 )
             }
 
             composable(route = YikeDestination.DECK_LIST) {
                 DeckListScreen(
-                    onOpenDeck = { deckId -> navController.navigate(YikeDestination.cardList(deckId)) }
+                    navigator = navigator
                 )
             }
 
@@ -93,14 +82,7 @@ fun YikeNavGraph(
                 val deckId = entry.requireStringArg(NavArguments.DECK_ID)
                 CardListScreen(
                     deckId = deckId,
-                    onBack = popBack,
-                    onOpenTodayPreview = openTodayPreview,
-                    onOpenSearch = { cardId ->
-                        navController.navigate(YikeDestination.questionSearch(deckId = deckId, cardId = cardId))
-                    },
-                    onEditCard = { cardId ->
-                        navController.navigate(YikeDestination.questionEditor(cardId = cardId, deckId = deckId))
-                    }
+                    navigator = navigator
                 )
             }
 
@@ -120,17 +102,13 @@ fun YikeNavGraph(
                 QuestionEditorScreen(
                     cardId = cardId,
                     deckId = deckId,
-                    onBack = popBack
+                    navigator = navigator
                 )
             }
 
             composable(route = YikeDestination.REVIEW_QUEUE) {
                 ReviewQueueScreen(
-                    onBack = popBack,
-                    onOpenNextCard = { cardId -> navController.navigate(YikeDestination.reviewCard(cardId)) },
-                    onBackToHome = {
-                        navController.popBackStack(route = YikeDestination.HOME, inclusive = false)
-                    }
+                    navigator = navigator
                 )
             }
 
@@ -141,51 +119,43 @@ fun YikeNavGraph(
                 val cardId = entry.requireStringArg(NavArguments.CARD_ID)
                 ReviewCardScreen(
                     cardId = cardId,
-                    onExit = { navController.popBackStack(route = YikeDestination.HOME, inclusive = false) },
-                    onNextCard = { navController.navigate(YikeDestination.REVIEW_QUEUE) }
+                    navigator = navigator
                 )
             }
 
             composable(route = YikeDestination.SETTINGS) {
                 SettingsScreen(
-                    onOpenBackupRestore = { navController.navigate(YikeDestination.BACKUP_RESTORE) },
-                    onOpenLanSync = { navController.navigate(YikeDestination.LAN_SYNC) },
-                    onOpenRecycleBin = { navController.navigate(YikeDestination.RECYCLE_BIN) }
+                    navigator = navigator
                 )
             }
 
             composable(route = YikeDestination.BACKUP_RESTORE) {
                 BackupRestoreScreen(
-                    onBack = popBack
+                    navigator = navigator
                 )
             }
 
             composable(route = YikeDestination.LAN_SYNC) {
                 LanSyncScreen(
-                    onBack = popBack
+                    navigator = navigator
                 )
             }
 
             composable(route = YikeDestination.RECYCLE_BIN) {
                 RecycleBinScreen(
-                    onBack = popBack
+                    navigator = navigator
                 )
             }
 
             composable(route = YikeDestination.TODAY_PREVIEW) {
                 TodayPreviewScreen(
-                    onBack = popBack,
-                    onStartReview = openReviewQueue,
-                    onOpenAnalytics = openAnalytics,
-                    onOpenSearch = openSearch
+                    navigator = navigator
                 )
             }
 
             composable(route = YikeDestination.REVIEW_ANALYTICS) {
                 AnalyticsScreen(
-                    onBack = popBack,
-                    onOpenPreview = openTodayPreview,
-                    onOpenSearch = openSearch
+                    navigator = navigator
                 )
             }
 
@@ -207,53 +177,25 @@ fun YikeNavGraph(
                 QuestionSearchScreen(
                     initialDeckId = entry.optionalStringArg(NavArguments.DECK_ID),
                     initialCardId = entry.optionalStringArg(NavArguments.CARD_ID),
-                    onBack = popBack,
-                    onOpenEditor = { cardId ->
-                        navController.navigate(
-                            YikeDestination.questionEditor(
-                                cardId = cardId,
-                                deckId = entry.optionalStringArg(NavArguments.DECK_ID)
-                            )
-                        )
-                    },
-                    onOpenReview = { cardId ->
-                        navController.navigate(YikeDestination.reviewCard(cardId))
-                    }
+                    navigator = navigator,
+                    deckIdForEditor = entry.optionalStringArg(NavArguments.DECK_ID)
                 )
             }
 
-            addDebugDestination(onBack = popBack)
+            addDebugDestination(onBack = navigator::back)
         }
 
         currentPrimaryDestination?.let { destination ->
             YikePrimaryNavigationChrome(
                 currentDestination = destination,
                 onNavigate = { primaryDestination ->
-                    navController.navigatePrimaryDestination(primaryDestination.route)
+                    navigator.openPrimary(primaryDestination.route)
                 }
             )
         }
     }
 }
 
-/**
- * 一级入口切换统一走单一导航策略，是为了避免首页、卡组和设置在快速连点时
- * 一部分走 push、一部分走 pop，最终把转场节奏打散成“偶尔直接展开”的状态。
- */
-private fun NavHostController.navigatePrimaryDestination(
-    route: String
-) {
-    if (currentDestination?.route == route) {
-        return
-    }
-    navigate(route) {
-        launchSingleTop = true
-        restoreState = true
-        popUpTo(graph.findStartDestination().id) {
-            saveState = true
-        }
-    }
-}
 
 /**
  * 一级入口的顺序被单独抽出来，是为了让首页、卡组和设置能够稳定复用同一套左右切换方向，
