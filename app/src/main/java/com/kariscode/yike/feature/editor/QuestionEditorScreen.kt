@@ -2,9 +2,9 @@ package com.kariscode.yike.feature.editor
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -64,7 +64,8 @@ fun QuestionEditorScreen(
             onPromptChange = viewModel::onQuestionPromptChange,
             onAnswerChange = viewModel::onQuestionAnswerChange,
             onDeleteQuestion = viewModel::onDeleteQuestionClick,
-            modifier = modifier.padding(padding)
+            modifier = modifier,
+            contentPadding = padding
         )
     }
 }
@@ -82,10 +83,14 @@ private fun QuestionEditorContent(
     onPromptChange: (String, String) -> Unit,
     onAnswerChange: (String, String) -> Unit,
     onDeleteQuestion: (String) -> Unit,
+    contentPadding: PaddingValues = PaddingValues(),
     modifier: Modifier = Modifier
 ) {
     val spacing = LocalYikeSpacing.current
-    YikeScrollableColumn(modifier = modifier) {
+    YikeScrollableColumn(
+        modifier = modifier,
+        contentPadding = contentPadding
+    ) {
         when {
             uiState.isLoading -> {
                 YikeStateBanner(

@@ -8,10 +8,13 @@ import com.kariscode.yike.core.viewmodel.launchResult
 import com.kariscode.yike.core.viewmodel.typedViewModelFactory
 import com.kariscode.yike.domain.model.LanSyncConflictChoice
 import com.kariscode.yike.domain.model.LanSyncConflictResolution
+import com.kariscode.yike.domain.model.LanSyncLocalProfile
 import com.kariscode.yike.domain.model.LanSyncPeer
 import com.kariscode.yike.domain.model.LanSyncPreview
+import com.kariscode.yike.domain.model.LanSyncProgress
 import com.kariscode.yike.domain.model.LanSyncSessionState
 import com.kariscode.yike.domain.model.LanSyncStage
+import com.kariscode.yike.domain.model.LanSyncTrustState
 import com.kariscode.yike.domain.repository.LanSyncRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -44,7 +47,7 @@ class LanSyncViewModel(
     private val _uiState = MutableStateFlow(
         LanSyncUiState(
             session = LanSyncSessionState(
-                localProfile = com.kariscode.yike.domain.model.LanSyncLocalProfile(
+                localProfile = LanSyncLocalProfile(
                     deviceId = "loading",
                     displayName = "当前设备",
                     shortDeviceId = "------",
@@ -53,7 +56,7 @@ class LanSyncViewModel(
                 peers = emptyList(),
                 isSessionActive = false,
                 preview = null,
-                progress = com.kariscode.yike.domain.model.LanSyncProgress(
+                progress = LanSyncProgress(
                     stage = LanSyncStage.IDLE,
                     message = "等待开始发现",
                     bytesTransferred = 0L,
@@ -117,7 +120,7 @@ class LanSyncViewModel(
      * 设备点击先决定是否需要配对，是为了让未信任设备先走授权，再进入真正的同步预览。
      */
     fun onPeerClick(peer: LanSyncPeer) {
-        if (peer.trustState == com.kariscode.yike.domain.model.LanSyncTrustState.UNTRUSTED) {
+        if (peer.trustState == LanSyncTrustState.UNTRUSTED) {
             _uiState.update {
                 it.copy(
                     pendingPairingPeer = peer,

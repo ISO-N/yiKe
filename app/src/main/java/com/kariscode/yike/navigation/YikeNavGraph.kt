@@ -40,6 +40,12 @@ private val primaryDestinationMetadata = listOf(
     YikeDestination.SETTINGS to YikePrimaryDestination.SETTINGS
 )
 
+private val primaryDestinationOrderMap: Map<String, Int> = primaryDestinationMetadata
+    .mapIndexed { index, (route, _) -> route to index }
+    .toMap()
+
+private val primaryDestinationRouteMap: Map<String, YikePrimaryDestination> = primaryDestinationMetadata.toMap()
+
 /**
  * 将导航图独立出来，能避免在 Activity 或某个页面中堆叠路由逻辑，
  * 同时也让后续为导航加测试或深链路支持更容易。
@@ -203,8 +209,7 @@ fun YikeNavGraph(
  */
 private fun primaryDestinationOrder(
     route: String?
-): Int? = primaryDestinationMetadata.indexOfFirst { (candidateRoute, _) -> candidateRoute == route }
-    .takeIf { index -> index >= 0 }
+): Int? = route?.let(primaryDestinationOrderMap::get)
 
 /**
  * 一级目标映射单独集中，是为了让共享导航壳层能够只根据当前 route 判断自身状态，
@@ -212,9 +217,7 @@ private fun primaryDestinationOrder(
  */
 private fun primaryDestinationForRoute(
     route: String?
-): YikePrimaryDestination? = primaryDestinationMetadata
-    .firstOrNull { (candidateRoute, _) -> candidateRoute == route }
-    ?.second
+): YikePrimaryDestination? = route?.let(primaryDestinationRouteMap::get)
 
 /**
  * 一级入口切换是否成立统一由同一入口判断，是为了让一级导航动画和普通流内动画共享一份边界定义。

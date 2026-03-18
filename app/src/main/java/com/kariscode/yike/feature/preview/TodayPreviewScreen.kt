@@ -2,8 +2,8 @@ package com.kariscode.yike.feature.preview
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
@@ -48,7 +48,8 @@ fun TodayPreviewScreen(
             onStartReview = navigator::openReviewQueue,
             onOpenAnalytics = navigator::openAnalytics,
             onOpenSearch = { navigator.openQuestionSearch() },
-            modifier = modifier.padding(padding)
+            modifier = modifier,
+            contentPadding = padding
         )
     }
 }
@@ -63,10 +64,14 @@ private fun TodayPreviewContent(
     onStartReview: () -> Unit,
     onOpenAnalytics: () -> Unit,
     onOpenSearch: () -> Unit,
+    contentPadding: PaddingValues = PaddingValues(),
     modifier: Modifier = Modifier
 ) {
     val spacing = LocalYikeSpacing.current
-    YikeScrollableColumn(modifier = modifier) {
+    YikeScrollableColumn(
+        modifier = modifier,
+        contentPadding = contentPadding
+    ) {
         when {
             uiState.isLoading -> {
                 YikeStateBanner(

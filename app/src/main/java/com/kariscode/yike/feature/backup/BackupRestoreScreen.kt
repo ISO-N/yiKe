@@ -4,9 +4,9 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -71,7 +71,8 @@ fun BackupRestoreScreen(
             uiState = uiState,
             onExport = viewModel::onExportClick,
             onImport = viewModel::onImportClick,
-            modifier = modifier.padding(padding)
+            modifier = modifier,
+            contentPadding = padding
         )
     }
 
@@ -94,9 +95,13 @@ fun BackupRestoreContent(
     uiState: BackupRestoreUiState,
     onExport: () -> Unit,
     onImport: () -> Unit,
+    contentPadding: PaddingValues = PaddingValues(),
     modifier: Modifier = Modifier
 ) {
-    YikeScrollableColumn(modifier = modifier) {
+    YikeScrollableColumn(
+        modifier = modifier,
+        contentPadding = contentPadding
+    ) {
         YikeWarningCard(
             title = "恢复会覆盖当前本地全部数据",
             description = uiState.warningMessage

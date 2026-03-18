@@ -2,9 +2,9 @@ package com.kariscode.yike.feature.card
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -72,7 +72,8 @@ fun CardListScreen(
             onDelete = viewModel::onDeleteCardClick,
             onDismissDelete = viewModel::onDismissDelete,
             onConfirmDelete = viewModel::onConfirmDelete,
-            modifier = modifier.padding(padding)
+            modifier = modifier,
+            contentPadding = padding
         )
     }
 }
@@ -95,6 +96,7 @@ private fun CardListContent(
     onDelete: (CardSummary) -> Unit,
     onDismissDelete: () -> Unit,
     onConfirmDelete: () -> Unit,
+    contentPadding: PaddingValues = PaddingValues(),
     modifier: Modifier = Modifier
 ) {
     val openTodayPreview: () -> Unit = navigator::openTodayPreview
@@ -104,7 +106,10 @@ private fun CardListContent(
     val openEditor: (String) -> Unit = { cardId ->
         navigator.openQuestionEditor(cardId = cardId, deckId = deckId)
     }
-    YikeScrollableColumn(modifier = modifier) {
+    YikeScrollableColumn(
+        modifier = modifier,
+        contentPadding = contentPadding
+    ) {
         CardOverviewSection(
             items = uiState.items,
             onCreateCard = onCreateCard,

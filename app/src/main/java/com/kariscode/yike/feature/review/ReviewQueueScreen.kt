@@ -2,6 +2,7 @@ package com.kariscode.yike.feature.review
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
@@ -52,7 +53,8 @@ fun ReviewQueueScreen(
             uiState = uiState,
             onRetry = viewModel::loadNext,
             onBackToHome = navigator::backToHome,
-            modifier = modifier.padding(padding)
+            modifier = modifier,
+            contentPadding = padding
         )
     }
 }
@@ -65,11 +67,12 @@ private fun ReviewQueueContent(
     uiState: ReviewQueueUiState,
     onRetry: () -> Unit,
     onBackToHome: () -> Unit,
+    contentPadding: PaddingValues = PaddingValues(),
     modifier: Modifier = Modifier
 ) {
     val spacing = LocalYikeSpacing.current
     Column(
-        modifier = modifier,
+        modifier = modifier.padding(contentPadding),
         verticalArrangement = Arrangement.spacedBy(spacing.lg)
     ) {
         when {

@@ -2,8 +2,8 @@ package com.kariscode.yike.feature.analytics
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
@@ -48,7 +48,8 @@ fun AnalyticsScreen(
             onRangeSelected = viewModel::onRangeSelected,
             onOpenPreview = navigator::openTodayPreview,
             onOpenSearch = { navigator.openQuestionSearch() },
-            modifier = modifier.padding(padding)
+            modifier = modifier,
+            contentPadding = padding
         )
     }
 }
@@ -63,10 +64,14 @@ private fun AnalyticsContent(
     onRangeSelected: (AnalyticsRange) -> Unit,
     onOpenPreview: () -> Unit,
     onOpenSearch: () -> Unit,
+    contentPadding: PaddingValues = PaddingValues(),
     modifier: Modifier = Modifier
 ) {
     val spacing = LocalYikeSpacing.current
-    YikeScrollableColumn(modifier = modifier) {
+    YikeScrollableColumn(
+        modifier = modifier,
+        contentPadding = contentPadding
+    ) {
         when {
             uiState.isLoading -> {
                 YikeStateBanner(
