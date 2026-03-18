@@ -65,6 +65,50 @@ fun YikeTextMetadataDialog(
 }
 
 /**
+ * 单字段输入弹窗作为共享组件收敛后，页面只需要表达文案与校验语义，
+ * 不必在每个流程页里重复维护同一套 AlertDialog 和输入框骨架。
+ */
+@Composable
+fun YikeSingleInputDialog(
+    title: String,
+    label: String,
+    value: String,
+    onValueChange: (String) -> Unit,
+    confirmText: String,
+    validationMessage: String? = null,
+    dismissText: String = "取消",
+    onDismiss: () -> Unit,
+    onConfirm: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    AlertDialog(
+        modifier = modifier,
+        onDismissRequest = onDismiss,
+        title = { Text(title) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(LocalYikeSpacing.current.md)) {
+                OutlinedTextField(
+                    value = value,
+                    onValueChange = onValueChange,
+                    label = { Text(label) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                validationMessage?.let { message ->
+                    Text(text = message)
+                }
+            }
+        },
+        confirmButton = {
+            YikePrimaryButton(text = confirmText, onClick = onConfirm)
+        },
+        dismissButton = {
+            YikeSecondaryButton(text = dismissText, onClick = onDismiss)
+        }
+    )
+}
+
+/**
  * 不可逆删除在多个页面都需要同样明确的风险提示，
  * 共享确认弹窗可以减少文案和按钮语义在不同页面里逐渐漂移的维护成本。
  */

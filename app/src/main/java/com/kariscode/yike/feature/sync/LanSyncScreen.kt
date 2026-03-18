@@ -38,6 +38,7 @@ import com.kariscode.yike.ui.component.YikeListItemCard
 import com.kariscode.yike.ui.component.YikeOperationFeedback
 import com.kariscode.yike.ui.component.YikePrimaryButton
 import com.kariscode.yike.ui.component.YikeScrollableColumn
+import com.kariscode.yike.ui.component.YikeSingleInputDialog
 import com.kariscode.yike.ui.component.YikeSecondaryButton
 import com.kariscode.yike.ui.component.YikeStateBanner
 import com.kariscode.yike.ui.component.YikeWarningCard
@@ -343,23 +344,14 @@ private fun PairingDialog(
     onDismiss: () -> Unit,
     onConfirm: () -> Unit
 ) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(text = "输入 ${peer.displayName} 的配对码") },
-        text = {
-            OutlinedTextField(
-                value = pairingCode,
-                onValueChange = onPairingCodeChange,
-                modifier = Modifier.fillMaxWidth(),
-                label = { Text(text = "6 位配对码") }
-            )
-        },
-        confirmButton = {
-            YikePrimaryButton(text = "继续预览", onClick = onConfirm)
-        },
-        dismissButton = {
-            YikeSecondaryButton(text = "取消", onClick = onDismiss)
-        }
+    YikeSingleInputDialog(
+        title = "输入 ${peer.displayName} 的配对码",
+        label = "6 位配对码",
+        value = pairingCode,
+        onValueChange = onPairingCodeChange,
+        confirmText = "继续预览",
+        onDismiss = onDismiss,
+        onConfirm = onConfirm
     )
 }
 
@@ -475,23 +467,14 @@ private fun LocalNameDialog(
     onDismiss: () -> Unit,
     onConfirm: () -> Unit
 ) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(text = "修改本机设备名") },
-        text = {
-            OutlinedTextField(
-                value = value,
-                onValueChange = onValueChange,
-                modifier = Modifier.fillMaxWidth(),
-                label = { Text(text = "设备名") }
-            )
-        },
-        confirmButton = {
-            YikePrimaryButton(text = "保存", onClick = onConfirm)
-        },
-        dismissButton = {
-            YikeSecondaryButton(text = "取消", onClick = onDismiss)
-        }
+    YikeSingleInputDialog(
+        title = "修改本机设备名",
+        label = "设备名",
+        value = value,
+        onValueChange = onValueChange,
+        confirmText = "保存",
+        onDismiss = onDismiss,
+        onConfirm = onConfirm
     )
 }
 

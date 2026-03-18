@@ -1,10 +1,7 @@
 package com.kariscode.yike.feature.deck
 
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.FilterChip
@@ -23,6 +20,7 @@ import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import com.kariscode.yike.ui.component.YikeScrollableRow
 import com.kariscode.yike.ui.theme.LocalYikeSpacing
 
 /**
@@ -80,10 +78,7 @@ fun DeckTagEditor(
         /**
          * 补全候选限制在一行滚动，是为了在弹窗里保留手机端可扫读性，不把标签编辑撑成二级页面。
          */
-        Row(
-            modifier = Modifier.horizontalScroll(rememberScrollState()),
-            horizontalArrangement = Arrangement.spacedBy(spacing.sm)
-        ) {
+        YikeScrollableRow(horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
             suggestionTags.forEach { tag ->
                 FilterChip(
                     selected = false,
@@ -97,10 +92,7 @@ fun DeckTagEditor(
         /**
          * 已选标签使用可移除芯片展示，是为了让用户直接看见“保存后会有哪些分类”并随手修正。
          */
-        Row(
-            modifier = Modifier.horizontalScroll(rememberScrollState()),
-            horizontalArrangement = Arrangement.spacedBy(spacing.sm)
-        ) {
+        YikeScrollableRow(horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
             tags.forEach { tag ->
                 InputChip(
                     selected = true,

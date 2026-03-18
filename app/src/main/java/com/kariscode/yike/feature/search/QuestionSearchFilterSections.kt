@@ -3,10 +3,7 @@ package com.kariscode.yike.feature.search
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -16,6 +13,7 @@ import androidx.compose.ui.Modifier
 import com.kariscode.yike.domain.model.QuestionMasteryLevel
 import com.kariscode.yike.domain.model.QuestionStatus
 import com.kariscode.yike.ui.component.YikeBadge
+import com.kariscode.yike.ui.component.YikeScrollableRow
 import com.kariscode.yike.ui.component.YikeStateBanner
 import com.kariscode.yike.ui.component.YikeSurfaceCard
 import com.kariscode.yike.ui.theme.LocalYikeSpacing
@@ -78,69 +76,45 @@ internal fun QuestionSearchFilterSection(
                 onStatusSelected = onStatusSelected
             )
             if (uiState.availableTags.isNotEmpty()) {
-                FilterSectionLabel(text = "标签")
-                QuestionSearchChipRow {
-                    FilterChip(
-                        selected = uiState.selectedTag == null,
-                        onClick = { onTagSelected(null) },
-                        label = { Text("全部标签") }
-                    )
-                    uiState.availableTags.forEach { tag ->
-                        FilterChip(
-                            selected = uiState.selectedTag == tag,
-                            onClick = { onTagSelected(tag) },
-                            label = { Text(tag) }
-                        )
-                    }
-                }
-            }
-            FilterSectionLabel(text = "卡组")
-            QuestionSearchChipRow {
-                FilterChip(
-                    selected = uiState.selectedDeckId == null,
-                    onClick = { onDeckSelected(null) },
-                    label = { Text("全部卡组") }
+                QuestionSearchOptionChipGroup(
+                    title = "标签",
+                    allLabel = "全部标签",
+                    options = uiState.availableTags,
+                    selectedOption = uiState.selectedTag,
+                    labelOf = { it },
+                    optionKey = { it },
+                    onOptionSelected = onTagSelected
                 )
-                uiState.deckOptions.forEach { deck ->
-                    FilterChip(
-                        selected = uiState.selectedDeckId == deck.id,
-                        onClick = { onDeckSelected(deck.id) },
-                        label = { Text(deck.name) }
-                    )
-                }
             }
+            QuestionSearchOptionChipGroup(
+                title = "卡组",
+                allLabel = "全部卡组",
+                options = uiState.deckOptions,
+                selectedOption = uiState.selectedDeckId,
+                labelOf = { deck -> deck.name },
+                optionKey = { deck -> deck.id },
+                onOptionSelected = onDeckSelected
+            )
             if (uiState.cardOptions.isNotEmpty()) {
-                FilterSectionLabel(text = "卡片")
-                QuestionSearchChipRow {
-                    FilterChip(
-                        selected = uiState.selectedCardId == null,
-                        onClick = { onCardSelected(null) },
-                        label = { Text("全部卡片") }
-                    )
-                    uiState.cardOptions.forEach { card ->
-                        FilterChip(
-                            selected = uiState.selectedCardId == card.id,
-                            onClick = { onCardSelected(card.id) },
-                            label = { Text(card.title) }
-                        )
-                    }
-                }
-            }
-            FilterSectionLabel(text = "熟练度")
-            QuestionSearchChipRow {
-                FilterChip(
-                    selected = uiState.selectedMasteryLevel == null,
-                    onClick = { onMasterySelected(null) },
-                    label = { Text("全部") }
+                QuestionSearchOptionChipGroup(
+                    title = "卡片",
+                    allLabel = "全部卡片",
+                    options = uiState.cardOptions,
+                    selectedOption = uiState.selectedCardId,
+                    labelOf = { card -> card.title },
+                    optionKey = { card -> card.id },
+                    onOptionSelected = onCardSelected
                 )
-                QuestionMasteryLevel.entries.forEach { level ->
-                    FilterChip(
-                        selected = uiState.selectedMasteryLevel == level,
-                        onClick = { onMasterySelected(level) },
-                        label = { Text(level.label) }
-                    )
-                }
             }
+            QuestionSearchOptionChipGroup(
+                title = "熟练度",
+                allLabel = "全部",
+                options = QuestionMasteryLevel.entries,
+                selectedOption = uiState.selectedMasteryLevel,
+                labelOf = { level -> level.label },
+                optionKey = { level -> level },
+                onOptionSelected = onMasterySelected
+            )
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
                 FilterChip(
                     selected = false,
@@ -171,7 +145,7 @@ private fun QuestionSearchChipGroup(
     onStatusSelected: (QuestionStatus?) -> Unit
 ) {
     FilterSectionLabel(text = title)
-    QuestionSearchChipRow {
+    YikeScrollableRow {
         options.forEach { option ->
             FilterChip(
                 selected = selectedStatus == option.status,
@@ -183,23 +157,41 @@ private fun QuestionSearchChipGroup(
 }
 
 /**
+ * 可选筛选组抽成泛型模板后，标签、卡组、卡片和熟练度都能复用同一套“全部项 + 候选项”骨架，
+ * 这样新增筛选维度时不需要再复制一整段芯片渲染代码。
+ */
+@Composable
+private fun <T, K> QuestionSearchOptionChipGroup(
+    title: String,
+    allLabel: String,
+    options: List<T>,
+    selectedOption: K?,
+    labelOf: (T) -> String,
+    optionKey: (T) -> K,
+    onOptionSelected: (K?) -> Unit
+) {
+    FilterSectionLabel(text = title)
+    YikeScrollableRow {
+        FilterChip(
+            selected = selectedOption == null,
+            onClick = { onOptionSelected(null) },
+            label = { Text(allLabel) }
+        )
+        options.forEach { option ->
+            val key = optionKey(option)
+            FilterChip(
+                selected = selectedOption == key,
+                onClick = { onOptionSelected(key) },
+                label = { Text(labelOf(option)) }
+            )
+        }
+    }
+}
+
+/**
  * 小标题统一抽离，是为了让筛选区在条件增多后仍保持清晰阅读节奏。
  */
 @Composable
 private fun FilterSectionLabel(text: String) {
     Text(text = text, style = MaterialTheme.typography.labelLarge)
-}
-
-/**
- * 筛选芯片改为横向滚动行，是为了兼容当前 Compose 运行时并保留窄屏下的可浏览性。
- */
-@Composable
-private fun QuestionSearchChipRow(
-    content: @Composable RowScope.() -> Unit
-) {
-    Row(
-        modifier = Modifier.horizontalScroll(rememberScrollState()),
-        horizontalArrangement = Arrangement.spacedBy(LocalYikeSpacing.current.sm),
-        content = content
-    )
 }

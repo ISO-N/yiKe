@@ -6,13 +6,11 @@ import android.content.pm.PackageManager
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -33,6 +31,7 @@ import com.kariscode.yike.ui.component.YikeOperationFeedback
 import com.kariscode.yike.ui.component.YikePrimaryDestination
 import com.kariscode.yike.ui.component.YikePrimaryScaffold
 import com.kariscode.yike.ui.component.YikeScrollableColumn
+import com.kariscode.yike.ui.component.YikeScrollableRow
 import com.kariscode.yike.ui.component.YikeSecondaryButton
 import com.kariscode.yike.ui.component.YikeStateBanner
 import com.kariscode.yike.ui.format.formatLocalDateTime
@@ -304,12 +303,7 @@ private fun ThemeModeFilterRow(
     selectedMode: ThemeMode,
     onThemeModeChange: (ThemeMode) -> Unit
 ) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .horizontalScroll(rememberScrollState()),
-        horizontalArrangement = Arrangement.spacedBy(LocalYikeSpacing.current.sm)
-    ) {
+    YikeScrollableRow(modifier = Modifier.fillMaxWidth()) {
         ThemeMode.entries.forEach { mode ->
             FilterChip(
                 selected = selectedMode == mode,
