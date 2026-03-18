@@ -17,7 +17,9 @@ import com.kariscode.yike.data.local.db.entity.CardEntity
 import com.kariscode.yike.data.local.db.entity.DeckEntity
 import com.kariscode.yike.data.local.db.entity.QuestionEntity
 import com.kariscode.yike.data.local.db.entity.ReviewRecordEntity
-import com.kariscode.yike.data.mapper.RoomMappers
+import com.kariscode.yike.data.mapper.decodeTags
+import com.kariscode.yike.data.mapper.toDomain
+import com.kariscode.yike.data.mapper.toEntity
 import com.kariscode.yike.domain.model.AppSettings
 import com.kariscode.yike.domain.model.Question
 import com.kariscode.yike.domain.model.QuestionStatus
@@ -269,7 +271,7 @@ class BackupService(
         id = id,
         name = name,
         description = description,
-        tags = RoomMappers.decodeQuestionTags(tagsJson),
+        tags = decodeTags(tagsJson),
         intervalStepCount = intervalStepCount,
         archived = archived,
         sortOrder = sortOrder,
@@ -296,7 +298,7 @@ class BackupService(
      * 避免导出路径未来增删字段时遗漏调度相关数据。
      */
     private fun QuestionEntity.toBackup(): BackupQuestion {
-        val domainQuestion = RoomMappers.run { toDomain() }
+        val domainQuestion = toDomain()
         return domainQuestion.toBackup()
     }
 
@@ -304,7 +306,7 @@ class BackupService(
      * ReviewRecord 的备份映射抽出来后，导出主流程只保留“读哪些表”的骨架，更容易检查事务语义。
      */
     private fun ReviewRecordEntity.toBackup(): BackupReviewRecord {
-        val domainRecord = RoomMappers.run { toDomain() }
+        val domainRecord = toDomain()
         return domainRecord.toBackup()
     }
 
@@ -376,41 +378,39 @@ class BackupService(
     /**
      * Question 恢复映射集中到单点后，状态字符串与领域模型之间的边界就不会散落在事务主流程里。
      */
-    private fun BackupQuestion.toEntity(): QuestionEntity = RoomMappers.run {
+    private fun BackupQuestion.toEntity(): QuestionEntity =
         Question(
-            id = this@toEntity.id,
-            cardId = this@toEntity.cardId,
-            prompt = this@toEntity.prompt,
-            answer = this@toEntity.answer,
-            tags = this@toEntity.tags,
-            status = QuestionStatus.fromStorageValue(this@toEntity.status),
-            stageIndex = this@toEntity.stageIndex,
-            dueAt = BackupJson.parseEpochMillis(this@toEntity.dueAt),
-            lastReviewedAt = this@toEntity.lastReviewedAt?.let(BackupJson::parseEpochMillis),
-            reviewCount = this@toEntity.reviewCount,
-            lapseCount = this@toEntity.lapseCount,
-            createdAt = BackupJson.parseEpochMillis(this@toEntity.createdAt),
-            updatedAt = BackupJson.parseEpochMillis(this@toEntity.updatedAt)
+            id = id,
+            cardId = cardId,
+            prompt = prompt,
+            answer = answer,
+            tags = tags,
+            status = QuestionStatus.fromStorageValue(status),
+            stageIndex = stageIndex,
+            dueAt = BackupJson.parseEpochMillis(dueAt),
+            lastReviewedAt = lastReviewedAt?.let(BackupJson::parseEpochMillis),
+            reviewCount = reviewCount,
+            lapseCount = lapseCount,
+            createdAt = BackupJson.parseEpochMillis(createdAt),
+            updatedAt = BackupJson.parseEpochMillis(updatedAt)
         ).toEntity()
-    }
 
     /**
      * ReviewRecord 恢复映射独立出来，是为了让枚举解析与时间解析的风险点更容易被单独检查。
      */
-    private fun BackupReviewRecord.toEntity(): ReviewRecordEntity = RoomMappers.run {
+    private fun BackupReviewRecord.toEntity(): ReviewRecordEntity =
         ReviewRecord(
-            id = this@toEntity.id,
-            questionId = this@toEntity.questionId,
-            rating = enumValueOf(this@toEntity.rating),
-            oldStageIndex = this@toEntity.oldStageIndex,
-            newStageIndex = this@toEntity.newStageIndex,
-            oldDueAt = BackupJson.parseEpochMillis(this@toEntity.oldDueAt),
-            newDueAt = BackupJson.parseEpochMillis(this@toEntity.newDueAt),
-            reviewedAt = BackupJson.parseEpochMillis(this@toEntity.reviewedAt),
-            responseTimeMs = this@toEntity.responseTimeMs,
-            note = this@toEntity.note
+            id = id,
+            questionId = questionId,
+            rating = enumValueOf(rating),
+            oldStageIndex = oldStageIndex,
+            newStageIndex = newStageIndex,
+            oldDueAt = BackupJson.parseEpochMillis(oldDueAt),
+            newDueAt = BackupJson.parseEpochMillis(newDueAt),
+            reviewedAt = BackupJson.parseEpochMillis(reviewedAt),
+            responseTimeMs = responseTimeMs,
+            note = note
         ).toEntity()
-    }
 
     /**
      * 备份文档先一次性转成实体载荷，是为了让校验通过后的恢复事务只专注处理数据库替换。

@@ -5,7 +5,8 @@ import com.kariscode.yike.core.time.TimeProvider
 import com.kariscode.yike.data.local.db.dao.QuestionDao
 import com.kariscode.yike.data.local.db.dao.TodayReviewSummaryRow
 import com.kariscode.yike.data.local.db.entity.QuestionEntity
-import com.kariscode.yike.data.mapper.RoomMappers
+import com.kariscode.yike.data.mapper.toDomain
+import com.kariscode.yike.data.mapper.toEntity
 import com.kariscode.yike.data.sync.LanSyncChangeRecorder
 import com.kariscode.yike.domain.model.Question
 import com.kariscode.yike.domain.model.SyncEntityType
@@ -28,7 +29,7 @@ class OfflineQuestionRepository(
      */
     override fun observeQuestionsByCard(cardId: String): Flow<List<Question>> =
         questionDao.observeQuestionsByCard(cardId).mapEach { entity ->
-            RoomMappers.run { entity.toDomain() }
+            entity.toDomain()
         }
 
     /**
@@ -36,7 +37,7 @@ class OfflineQuestionRepository(
      */
     override suspend fun findById(questionId: String): Question? = dispatchers.onIo {
         questionDao.findById(questionId).mapNullable { entity ->
-            RoomMappers.run { entity.toDomain() }
+            entity.toDomain()
         }
     }
 
@@ -45,14 +46,14 @@ class OfflineQuestionRepository(
      */
     override suspend fun listByCard(cardId: String): List<Question> = dispatchers.onIo {
         questionDao.listByCard(cardId)
-            .map { entity -> RoomMappers.run { entity.toDomain() } }
+            .map { entity -> entity.toDomain() }
     }
 
     /**
      * 批量写入可避免逐条保存导致中途失败的半完成状态，符合编辑页“一次保存”的期望。
      */
     override suspend fun upsertAll(questions: List<Question>) = dispatchers.onIo {
-        questionDao.upsertAll(questions.map { RoomMappers.run { it.toEntity() } })
+        questionDao.upsertAll(questions.map { question -> question.toEntity() })
         questions.forEach { question ->
             syncChangeRecorder.recordQuestionUpsert(question)
         }
@@ -64,7 +65,7 @@ class OfflineQuestionRepository(
      */
     override suspend fun listDueQuestions(nowEpochMillis: Long): List<Question> = dispatchers.onIo {
         questionDao.listDueQuestions(activeStatus = QuestionEntity.STATUS_ACTIVE, nowEpochMillis = nowEpochMillis)
-            .map { entity -> RoomMappers.run { entity.toDomain() } }
+            .map { entity -> entity.toDomain() }
     }
 
     /**
@@ -97,7 +98,7 @@ class OfflineQuestionRepository(
      */
     override suspend fun delete(questionId: String) = dispatchers.onIo {
         val current = questionDao.findById(questionId)?.let { entity ->
-            RoomMappers.run { entity.toDomain() }
+            entity.toDomain()
         }
         questionDao.deleteById(questionId)
         syncChangeRecorder.recordDelete(
@@ -115,7 +116,7 @@ class OfflineQuestionRepository(
     override suspend fun deleteAll(questionIds: Collection<String>) = dispatchers.onIo {
         if (questionIds.isEmpty()) return@onIo
         val currentQuestions = questionDao.listByIds(questionIds.toList()).map { entity ->
-            RoomMappers.run { entity.toDomain() }
+            entity.toDomain()
         }
         questionDao.deleteByIds(questionIds)
         currentQuestions.forEach { question ->

@@ -3,7 +3,8 @@ package com.kariscode.yike.data.repository
 import com.kariscode.yike.core.dispatchers.AppDispatchers
 import com.kariscode.yike.data.local.db.dao.QuestionDao
 import com.kariscode.yike.data.local.db.dao.ReviewRecordDao
-import com.kariscode.yike.data.mapper.RoomMappers
+import com.kariscode.yike.data.mapper.decodeTags
+import com.kariscode.yike.data.mapper.toDomain
 import com.kariscode.yike.domain.model.DeckReviewAnalyticsSnapshot
 import com.kariscode.yike.domain.model.QuestionContext
 import com.kariscode.yike.domain.model.QuestionMasteryCalculator
@@ -34,7 +35,7 @@ class OfflineStudyInsightsRepository(
                 deckId = filters.deckId,
                 cardId = filters.cardId,
                 maxDueAt = null
-            ).map { row -> RoomMappers.run { row.toDomain() } }
+            ).map { row -> row.toDomain() }
                 .filterByMastery(filters)
         }
 
@@ -50,7 +51,7 @@ class OfflineStudyInsightsRepository(
                 deckId = null,
                 cardId = null,
                 maxDueAt = nowEpochMillis
-            ).map { row -> RoomMappers.run { row.toDomain() } }
+            ).map { row -> row.toDomain() }
         }
 
     /**
@@ -58,7 +59,7 @@ class OfflineStudyInsightsRepository(
      */
     override suspend fun listAvailableTags(limit: Int): List<String> = dispatchers.onIo {
         questionDao.listTagsJson(activeStatus = QuestionStatus.ACTIVE.storageValue)
-            .flatMap(RoomMappers::decodeQuestionTags)
+            .flatMap(::decodeTags)
             .map(String::trim)
             .filter(String::isNotBlank)
             .groupingBy { it }

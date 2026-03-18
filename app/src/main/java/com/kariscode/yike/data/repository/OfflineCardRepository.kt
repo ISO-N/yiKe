@@ -4,7 +4,8 @@ import com.kariscode.yike.core.dispatchers.AppDispatchers
 import com.kariscode.yike.core.time.TimeProvider
 import com.kariscode.yike.data.local.db.dao.CardDao
 import com.kariscode.yike.data.local.db.entity.QuestionEntity
-import com.kariscode.yike.data.mapper.RoomMappers
+import com.kariscode.yike.data.mapper.toDomain
+import com.kariscode.yike.data.mapper.toEntity
 import com.kariscode.yike.data.sync.LanSyncChangeRecorder
 import com.kariscode.yike.domain.model.ArchivedCardSummary
 import com.kariscode.yike.domain.model.Card
@@ -12,7 +13,6 @@ import com.kariscode.yike.domain.model.CardSummary
 import com.kariscode.yike.domain.model.SyncEntityType
 import com.kariscode.yike.domain.repository.CardRepository
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.map
 
 /**
  * Card 的读写实现收敛在 Repository 中，能保证归档/删除等行为通过同一通路触发，
@@ -29,7 +29,7 @@ class OfflineCardRepository(
      */
     override fun observeActiveCards(deckId: String): Flow<List<Card>> =
         cardDao.observeActiveCards(deckId).mapEach { entity ->
-            RoomMappers.run { entity.toDomain() }
+            entity.toDomain()
         }
 
     /**
@@ -37,7 +37,7 @@ class OfflineCardRepository(
      */
     override suspend fun listActiveCards(deckId: String): List<Card> = dispatchers.onIo {
         cardDao.listActiveCards(deckId).map { entity ->
-            RoomMappers.run { entity.toDomain() }
+            entity.toDomain()
         }
     }
 
@@ -50,7 +50,7 @@ class OfflineCardRepository(
             activeStatus = QuestionEntity.STATUS_ACTIVE,
             nowEpochMillis = nowEpochMillis
         )
-            .mapEach { row -> RoomMappers.run { row.toDomain() } }
+            .mapEach { row -> row.toDomain() }
 
     /**
      * 已归档卡片的读取单独走带卡组名称的聚合查询，是为了让回收站直接具备恢复所需上下文。
@@ -59,14 +59,14 @@ class OfflineCardRepository(
         cardDao.observeArchivedCardSummaries(
             activeStatus = QuestionEntity.STATUS_ACTIVE,
             nowEpochMillis = nowEpochMillis
-        ).mapEach { row -> RoomMappers.run { row.toDomain() } }
+        ).mapEach { row -> row.toDomain() }
 
     /**
      * cardId 查询用于编辑页/复习页基于路由参数重建内容。
      */
     override suspend fun findById(cardId: String): Card? = dispatchers.onIo {
         cardDao.findById(cardId).mapNullable { entity ->
-            RoomMappers.run { entity.toDomain() }
+            entity.toDomain()
         }
     }
 
@@ -74,7 +74,7 @@ class OfflineCardRepository(
      * Upsert 统一创建与编辑行为，减少上层分支并确保写入口径一致。
      */
     override suspend fun upsert(card: Card) = dispatchers.onIo {
-        cardDao.upsert(RoomMappers.run { card.toEntity() })
+        cardDao.upsert(card.toEntity())
         syncChangeRecorder.recordCardUpsert(card)
         Unit
     }
@@ -85,7 +85,7 @@ class OfflineCardRepository(
     override suspend fun setArchived(cardId: String, archived: Boolean, updatedAt: Long) =
         dispatchers.onIo {
             val current = cardDao.findById(cardId)?.let { entity ->
-                RoomMappers.run { entity.toDomain() }
+                entity.toDomain()
             }
             cardDao.setArchived(cardId = cardId, archived = archived, updatedAt = updatedAt)
             val updatedCard = current?.copy(archived = archived, updatedAt = updatedAt)
@@ -101,7 +101,7 @@ class OfflineCardRepository(
      */
     override suspend fun delete(cardId: String) = dispatchers.onIo {
         val current = cardDao.findById(cardId)?.let { entity ->
-            RoomMappers.run { entity.toDomain() }
+            entity.toDomain()
         }
         cardDao.deleteById(cardId)
         syncChangeRecorder.recordDelete(

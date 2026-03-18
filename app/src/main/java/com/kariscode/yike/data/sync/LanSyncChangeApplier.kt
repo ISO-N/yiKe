@@ -6,7 +6,7 @@ import com.kariscode.yike.data.local.db.dao.CardDao
 import com.kariscode.yike.data.local.db.dao.DeckDao
 import com.kariscode.yike.data.local.db.dao.QuestionDao
 import com.kariscode.yike.data.local.db.dao.ReviewRecordDao
-import com.kariscode.yike.data.mapper.RoomMappers
+import com.kariscode.yike.data.mapper.toEntity
 import com.kariscode.yike.data.reminder.ReminderSyncScheduler
 import com.kariscode.yike.data.settings.DataStoreAppSettingsRepository
 import com.kariscode.yike.domain.model.AppSettings
@@ -47,42 +47,19 @@ class LanSyncChangeApplier(
 
         val deckUpserts = compressed.filterType(SyncEntityType.DECK, SyncChangeOperation.UPSERT).map { change ->
             val payload = LanSyncJson.json.decodeFromString(SyncDeckPayload.serializer(), change.payloadJson.orEmpty())
-            RoomMappers.run {
-                com.kariscode.yike.domain.model.Deck(
-                    id = payload.id,
-                    name = payload.name,
-                    description = payload.description,
-                    tags = payload.tags,
-                    intervalStepCount = payload.intervalStepCount,
-                    archived = payload.archived,
-                    sortOrder = payload.sortOrder,
-                    createdAt = payload.createdAt,
-                    updatedAt = payload.updatedAt
-                ).toEntity()
-            }
+            payload.toDomain().toEntity()
         }
         val cardUpserts = compressed.filterType(SyncEntityType.CARD, SyncChangeOperation.UPSERT).map { change ->
             val payload = LanSyncJson.json.decodeFromString(SyncCardPayload.serializer(), change.payloadJson.orEmpty())
-            RoomMappers.run {
-                com.kariscode.yike.domain.model.Card(
-                    id = payload.id,
-                    deckId = payload.deckId,
-                    title = payload.title,
-                    description = payload.description,
-                    archived = payload.archived,
-                    sortOrder = payload.sortOrder,
-                    createdAt = payload.createdAt,
-                    updatedAt = payload.updatedAt
-                ).toEntity()
-            }
+            payload.toDomain().toEntity()
         }
         val questionUpserts = compressed.filterType(SyncEntityType.QUESTION, SyncChangeOperation.UPSERT).map { change ->
             val payload = LanSyncJson.json.decodeFromString(SyncQuestionPayload.serializer(), change.payloadJson.orEmpty())
-            RoomMappers.run { payload.toDomain().toEntity() }
+            payload.toDomain().toEntity()
         }
         val reviewRecordUpserts = compressed.filterType(SyncEntityType.REVIEW_RECORD, SyncChangeOperation.UPSERT).map { change ->
             val payload = LanSyncJson.json.decodeFromString(SyncReviewRecordPayload.serializer(), change.payloadJson.orEmpty())
-            RoomMappers.run { payload.toDomain().toEntity() }
+            payload.toDomain().toEntity()
         }
         val questionDeletes = compressed.filterType(SyncEntityType.QUESTION, SyncChangeOperation.DELETE).map { it.entityId }
         val cardDeletes = compressed.filterType(SyncEntityType.CARD, SyncChangeOperation.DELETE).map { it.entityId }

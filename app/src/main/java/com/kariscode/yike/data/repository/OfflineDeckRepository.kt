@@ -4,14 +4,14 @@ import com.kariscode.yike.core.dispatchers.AppDispatchers
 import com.kariscode.yike.core.time.TimeProvider
 import com.kariscode.yike.data.local.db.dao.DeckDao
 import com.kariscode.yike.data.local.db.entity.QuestionEntity
-import com.kariscode.yike.data.mapper.RoomMappers
+import com.kariscode.yike.data.mapper.toDomain
+import com.kariscode.yike.data.mapper.toEntity
 import com.kariscode.yike.data.sync.LanSyncChangeRecorder
 import com.kariscode.yike.domain.model.Deck
 import com.kariscode.yike.domain.model.SyncEntityType
 import com.kariscode.yike.domain.model.DeckSummary
 import com.kariscode.yike.domain.repository.DeckRepository
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.map
 
 /**
  * 离线优先首版直接以 Room 作为 Repository 的数据源，
@@ -28,7 +28,7 @@ class OfflineDeckRepository(
      */
     override fun observeActiveDecks(): Flow<List<Deck>> =
         deckDao.observeActiveDecks().mapEach { entity ->
-            RoomMappers.run { entity.toDomain() }
+            entity.toDomain()
         }
 
     /**
@@ -36,7 +36,7 @@ class OfflineDeckRepository(
      */
     override suspend fun listActiveDecks(): List<Deck> = dispatchers.onIo {
         deckDao.listActiveDecks().map { entity ->
-            RoomMappers.run { entity.toDomain() }
+            entity.toDomain()
         }
     }
 
@@ -48,7 +48,7 @@ class OfflineDeckRepository(
             activeStatus = QuestionEntity.STATUS_ACTIVE,
             nowEpochMillis = nowEpochMillis
         )
-            .mapEach { row -> RoomMappers.run { row.toDomain() } }
+            .mapEach { row -> row.toDomain() }
 
     /**
      * 回收站与活跃列表共享同一聚合模型，是为了让恢复前后的统计变化仍由数据库统一计算。
@@ -57,7 +57,7 @@ class OfflineDeckRepository(
         deckDao.observeArchivedDeckSummaries(
             activeStatus = QuestionEntity.STATUS_ACTIVE,
             nowEpochMillis = nowEpochMillis
-        ).mapEach { row -> RoomMappers.run { row.toDomain() } }
+        ).mapEach { row -> row.toDomain() }
 
     /**
      * 首页走限量快照查询可把“只展示少量入口”的意图下推到数据层，减少无意义的聚合结果构建。
@@ -70,7 +70,7 @@ class OfflineDeckRepository(
             activeStatus = QuestionEntity.STATUS_ACTIVE,
             nowEpochMillis = nowEpochMillis,
             limit = limit
-        ).map { row -> RoomMappers.run { row.toDomain() } }
+        ).map { row -> row.toDomain() }
     }
 
     /**
@@ -78,7 +78,7 @@ class OfflineDeckRepository(
      */
     override suspend fun findById(deckId: String): Deck? = dispatchers.onIo {
         deckDao.findById(deckId).mapNullable { entity ->
-            RoomMappers.run { entity.toDomain() }
+            entity.toDomain()
         }
     }
 
@@ -86,7 +86,7 @@ class OfflineDeckRepository(
      * Upsert 后不返回值是为了让上层用例以显式的领域模型作为唯一来源，避免依赖 rowId。
      */
     override suspend fun upsert(deck: Deck) = dispatchers.onIo {
-        deckDao.upsert(RoomMappers.run { deck.toEntity() })
+        deckDao.upsert(deck.toEntity())
         syncChangeRecorder.recordDeckUpsert(deck)
         Unit
     }
@@ -97,7 +97,7 @@ class OfflineDeckRepository(
     override suspend fun setArchived(deckId: String, archived: Boolean, updatedAt: Long) =
         dispatchers.onIo {
             val current = deckDao.findById(deckId)?.let { entity ->
-                RoomMappers.run { entity.toDomain() }
+                entity.toDomain()
             }
             deckDao.setArchived(deckId = deckId, archived = archived, updatedAt = updatedAt)
             val updatedDeck = current?.copy(archived = archived, updatedAt = updatedAt)
@@ -113,7 +113,7 @@ class OfflineDeckRepository(
      */
     override suspend fun delete(deckId: String) = dispatchers.onIo {
         val current = deckDao.findById(deckId)?.let { entity ->
-            RoomMappers.run { entity.toDomain() }
+            entity.toDomain()
         }
         deckDao.deleteById(deckId)
         syncChangeRecorder.recordDelete(

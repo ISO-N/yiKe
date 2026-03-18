@@ -7,7 +7,8 @@ import com.kariscode.yike.data.local.db.YikeDatabase
 import com.kariscode.yike.data.local.db.dao.QuestionDao
 import com.kariscode.yike.data.local.db.dao.ReviewRecordDao
 import com.kariscode.yike.data.local.db.entity.QuestionEntity
-import com.kariscode.yike.data.mapper.RoomMappers
+import com.kariscode.yike.data.mapper.toDomain
+import com.kariscode.yike.data.mapper.toEntity
 import com.kariscode.yike.data.sync.LanSyncChangeRecorder
 import com.kariscode.yike.domain.model.Question
 import com.kariscode.yike.domain.model.ReviewRating
@@ -39,7 +40,7 @@ class OfflineReviewRepository(
                 cardId = cardId,
                 activeStatus = QuestionEntity.STATUS_ACTIVE,
                 nowEpochMillis = nowEpochMillis
-            ).map { entity -> RoomMappers.run { entity.toDomain() } }
+            ).map { entity -> entity.toDomain() }
         }
 
     /**
@@ -55,7 +56,7 @@ class OfflineReviewRepository(
         database.withTransaction {
             val currentEntity = questionDao.findById(questionId)
                 ?: error("问题不存在，无法提交评分。")
-            val currentQuestion = RoomMappers.run { currentEntity.toDomain() }
+            val currentQuestion = currentEntity.toDomain()
             val intervalStepCount = questionDao.findDeckIntervalStepCountByQuestionId(questionId)
                 ?: ReviewSchedulerV1.DEFAULT_INTERVAL_STEP_COUNT
             val scheduleResult = reviewScheduler.scheduleNext(
@@ -87,8 +88,8 @@ class OfflineReviewRepository(
                 note = ""
             )
 
-            questionDao.upsertAll(listOf(RoomMappers.run { updatedQuestion.toEntity() }))
-            reviewRecordDao.insert(RoomMappers.run { reviewRecord.toEntity() })
+            questionDao.upsertAll(listOf(updatedQuestion.toEntity()))
+            reviewRecordDao.insert(reviewRecord.toEntity())
             syncChangeRecorder.recordQuestionUpsert(updatedQuestion)
             syncChangeRecorder.recordReviewRecordInsert(reviewRecord)
 

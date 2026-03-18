@@ -192,6 +192,37 @@ fun SyncSettingsPayload.toDomain(): SyncedAppSettings = SyncedAppSettings(
 )
 
 /**
+ * Deck 从同步载荷回到领域模型，是为了让“协议对象 -> domain -> entity”的链路保持一致，
+ * 从而避免远端应用阶段出现一处手写映射、一处复用仓储映射导致的字段口径漂移。
+ */
+fun SyncDeckPayload.toDomain(): Deck = Deck(
+    id = id,
+    name = name,
+    description = description,
+    tags = tags,
+    intervalStepCount = intervalStepCount,
+    archived = archived,
+    sortOrder = sortOrder,
+    createdAt = createdAt,
+    updatedAt = updatedAt
+)
+
+/**
+ * Card 从同步载荷回到领域模型后再写库，是为了让数据层只维护一种写入入口，
+ * 便于未来调整 Room schema 或字段默认值时集中收敛影响范围。
+ */
+fun SyncCardPayload.toDomain(): Card = Card(
+    id = id,
+    deckId = deckId,
+    title = title,
+    description = description,
+    archived = archived,
+    sortOrder = sortOrder,
+    createdAt = createdAt,
+    updatedAt = updatedAt
+)
+
+/**
  * Question 状态字符串到领域枚举的恢复放在载荷层，是为了让协议应用逻辑保持“拿到模型就写库”的简单骨架。
  */
 fun SyncQuestionPayload.toDomain(): Question = Question(
