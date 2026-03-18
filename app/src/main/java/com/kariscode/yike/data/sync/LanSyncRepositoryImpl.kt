@@ -217,6 +217,71 @@ class LanSyncRepositoryImpl(
     }
 
     /**
+     * 同步进度更新集中封装，是为了让所有阶段共享同一套默认字段策略，
+     * 避免复制粘贴构造 [LanSyncProgress] 时漏掉字段或逐步出现不一致。
+     */
+    private fun setProgress(
+        stage: LanSyncStage,
+        message: String,
+        bytesTransferred: Long = 0L,
+        totalBytes: Long? = null,
+        itemsProcessed: Int = 0,
+        totalItems: Int? = null,
+        clearPreview: Boolean = false,
+        failure: LanSyncFailureReason? = null
+    ) {
+        sessionState.update { state ->
+            state.copy(
+                preview = if (clearPreview) null else state.preview,
+                progress = LanSyncProgress(
+                    stage = stage,
+                    message = message,
+                    bytesTransferred = bytesTransferred,
+                    totalBytes = totalBytes,
+                    itemsProcessed = itemsProcessed,
+                    totalItems = totalItems
+                ),
+                activeFailure = failure,
+                message = null
+            )
+        }
+    }
+
+    /**
+     * cursor 读取封装成单点，是为了让预览与真正同步共享同一套“没有就从 0 起步”的规则。
+     */
+    private suspend fun readCursor(deviceId: String): SyncPeerCursorEntity =
+        syncPeerCursorDao.findById(deviceId) ?: emptyCursor(deviceId)
+
+    /**
+     * 本地变更窗口读取与压缩收敛，是为了避免预览与执行阶段重复拼装 journal 查询与压缩模板。
+     */
+    private suspend fun loadCompressedLocalChanges(afterSeq: Long): List<SyncChangePayload> =
+        conflictResolver.compressChanges(
+            syncChangeDao.listAfter(afterSeq).map { it.toPayload() }
+        )
+
+    /**
+     * 远端变更窗口读取与压缩收敛，是为了让 headersOnly 预览与完整拉取共享同一调用路径并减少参数拼装噪音。
+     */
+    private suspend fun pullCompressedRemoteChanges(
+        hostAddress: String,
+        port: Int,
+        sharedSecret: String,
+        afterSeq: Long,
+        headersOnly: Boolean
+    ): List<SyncChangePayload> = conflictResolver.compressChanges(
+        httpClient.pullChanges(
+            hostAddress = hostAddress,
+            port = port,
+            requesterDeviceId = currentLocalProfile.deviceId,
+            sharedSecret = sharedSecret,
+            afterSeq = afterSeq,
+            headersOnly = headersOnly
+        ).changes
+    )
+
+    /**
      * 预览阶段先完成配对和增量摘要读取，是为了在真正传输任何双向数据前把冲突和影响规模暴露给用户。
      */
     override suspend fun prepareSync(peer: LanSyncPeer, pairingCode: String?): LanSyncPreview = withContext(dispatchers.io) {
@@ -227,33 +292,21 @@ class LanSyncRepositoryImpl(
             performPairing(peer = peer, pairingCode = pairingCode)
             refreshPeers(nsdService.services.value)
         }
-        sessionState.update {
-            it.copy(
-                preview = null,
-                progress = LanSyncProgress(
-                    stage = LanSyncStage.PREVIEWING,
-                    message = "正在生成同步预览",
-                    bytesTransferred = 0L,
-                    totalBytes = null,
-                    itemsProcessed = 0,
-                    totalItems = null
-                ),
-                activeFailure = null,
-                message = null
-            )
-        }
+        setProgress(
+            stage = LanSyncStage.PREVIEWING,
+            message = "正在生成同步预览",
+            clearPreview = true
+        )
         val trustedPeer = sessionState.value.peers.first { it.deviceId == peer.deviceId }
-        val cursor = syncPeerCursorDao.findById(peer.deviceId) ?: emptyCursor(peer.deviceId)
-        val localChanges = conflictResolver.compressChanges(syncChangeDao.listAfter(cursor.lastLocalSeqAckedByPeer).map { it.toPayload() })
-        val remoteChanges = conflictResolver.compressChanges(
-            httpClient.pullChanges(
-                hostAddress = trustedPeer.hostAddress,
-                port = trustedPeer.port,
-                requesterDeviceId = currentLocalProfile.deviceId,
-                sharedSecret = readSharedSecret(peer.deviceId),
-                afterSeq = cursor.lastRemoteSeqAppliedLocally,
-                headersOnly = true
-            ).changes
+        val cursor = readCursor(peer.deviceId)
+        val sharedSecret = readSharedSecret(peer.deviceId)
+        val localChanges = loadCompressedLocalChanges(cursor.lastLocalSeqAckedByPeer)
+        val remoteChanges = pullCompressedRemoteChanges(
+            hostAddress = trustedPeer.hostAddress,
+            port = trustedPeer.port,
+            sharedSecret = sharedSecret,
+            afterSeq = cursor.lastRemoteSeqAppliedLocally,
+            headersOnly = true
         )
         val conflicts = conflictResolver.buildConflicts(localChanges = localChanges, remoteChanges = remoteChanges)
         val preview = LanSyncPreview(
@@ -274,8 +327,7 @@ class LanSyncRepositoryImpl(
     override suspend fun runSync(
         preview: LanSyncPreview,
         resolutions: List<LanSyncConflictResolution>
-    ) {
-        withContext(dispatchers.io) {
+    ) = withContext(dispatchers.io) {
         require(preview.conflicts.size == resolutions.size || preview.conflicts.isEmpty()) {
             "冲突决议数量与预览不一致"
         }
@@ -285,7 +337,7 @@ class LanSyncRepositoryImpl(
             runSyncInternal(preview = preview, resolutions = resolutions)
         }
         activeSyncJob?.join()
-        }
+        Unit
     }
 
     /**
@@ -297,20 +349,11 @@ class LanSyncRepositoryImpl(
         }
         activeSyncJob?.cancelAndJoin()
         activeSyncJob = null
-        sessionState.update {
-            it.copy(
-                progress = LanSyncProgress(
-                    stage = LanSyncStage.CANCELLED,
-                    message = "同步已取消",
-                    bytesTransferred = 0L,
-                    totalBytes = null,
-                    itemsProcessed = 0,
-                    totalItems = null
-                ),
-                activeFailure = LanSyncFailureReason.CANCELLED,
-                message = null
-            )
-        }
+        setProgress(
+            stage = LanSyncStage.CANCELLED,
+            message = "同步已取消",
+            failure = LanSyncFailureReason.CANCELLED
+        )
     }
 
     /**
@@ -322,49 +365,31 @@ class LanSyncRepositoryImpl(
     ) {
         val sessionId = UUID.randomUUID().toString()
         try {
-            sessionState.update {
-                it.copy(
-                    progress = LanSyncProgress(
-                        stage = LanSyncStage.TRANSFERRING,
-                        message = "正在拉取远端变更",
-                        bytesTransferred = 0L,
-                        totalBytes = null,
-                        itemsProcessed = 0,
-                        totalItems = null
-                    ),
-                    activeFailure = null,
-                    message = null
-                )
-            }
-            val cursor = syncPeerCursorDao.findById(preview.peer.deviceId) ?: emptyCursor(preview.peer.deviceId)
+            setProgress(
+                stage = LanSyncStage.TRANSFERRING,
+                message = "正在拉取远端变更"
+            )
+            val cursor = readCursor(preview.peer.deviceId)
             val sharedSecret = readSharedSecret(preview.peer.deviceId)
-            val localChanges = conflictResolver.compressChanges(syncChangeDao.listAfter(cursor.lastLocalSeqAckedByPeer).map { it.toPayload() })
-            val remoteChangesResponse = httpClient.pullChanges(
+            val localChanges = loadCompressedLocalChanges(cursor.lastLocalSeqAckedByPeer)
+            val remoteChanges = pullCompressedRemoteChanges(
                 hostAddress = preview.peer.hostAddress,
                 port = preview.peer.port,
-                requesterDeviceId = currentLocalProfile.deviceId,
                 sharedSecret = sharedSecret,
                 afterSeq = cursor.lastRemoteSeqAppliedLocally,
                 headersOnly = false
             )
-            val remoteChanges = conflictResolver.compressChanges(remoteChangesResponse.changes)
             val (localChangesToPush, remoteChangesToApply) = conflictResolver.applyConflictResolution(
                 localChanges = localChanges,
                 remoteChanges = remoteChanges,
                 resolutions = resolutions
             )
-            sessionState.update {
-                it.copy(
-                    progress = LanSyncProgress(
-                        stage = LanSyncStage.TRANSFERRING,
-                        message = "正在推送本地变更",
-                        bytesTransferred = 0L,
-                        totalBytes = null,
-                        itemsProcessed = localChangesToPush.size,
-                        totalItems = localChangesToPush.size + remoteChangesToApply.size
-                    )
-                )
-            }
+            setProgress(
+                stage = LanSyncStage.TRANSFERRING,
+                message = "正在推送本地变更",
+                itemsProcessed = localChangesToPush.size,
+                totalItems = localChangesToPush.size + remoteChangesToApply.size
+            )
             val pushResponse = if (localChangesToPush.isNotEmpty()) {
                 httpClient.pushChanges(
                     hostAddress = preview.peer.hostAddress,
@@ -377,18 +402,11 @@ class LanSyncRepositoryImpl(
             } else {
                 LanSyncPushChangesResponsePayload(appliedLocalSeqMax = cursor.lastLocalSeqAckedByPeer)
             }
-            sessionState.update {
-                it.copy(
-                    progress = LanSyncProgress(
-                        stage = LanSyncStage.APPLYING,
-                        message = "正在应用远端变更",
-                        bytesTransferred = 0L,
-                        totalBytes = null,
-                        itemsProcessed = 0,
-                        totalItems = remoteChangesToApply.size
-                    )
-                )
-            }
+            setProgress(
+                stage = LanSyncStage.APPLYING,
+                message = "正在应用远端变更",
+                totalItems = remoteChangesToApply.size
+            )
             isApplyingChanges = true
             val appliedRemoteSeqMax = try {
                 changeApplier.applyIncomingChanges(remoteChangesToApply)
@@ -431,28 +449,12 @@ class LanSyncRepositoryImpl(
             }
         } catch (throwable: Throwable) {
             LanSyncLogger.e("Run sync failed", throwable)
-            sessionState.update {
-                it.copy(
-                    progress = LanSyncProgress(
-                        stage = if (throwable is kotlinx.coroutines.CancellationException) {
-                            LanSyncStage.CANCELLED
-                        } else {
-                            LanSyncStage.FAILED
-                        },
-                        message = if (throwable is kotlinx.coroutines.CancellationException) "同步已取消" else "同步失败",
-                        bytesTransferred = 0L,
-                        totalBytes = null,
-                        itemsProcessed = 0,
-                        totalItems = null
-                    ),
-                    activeFailure = if (throwable is kotlinx.coroutines.CancellationException) {
-                        LanSyncFailureReason.CANCELLED
-                    } else {
-                        mapFailure(throwable)
-                    },
-                    message = null
-                )
-            }
+            val cancelled = throwable is kotlinx.coroutines.CancellationException
+            setProgress(
+                stage = if (cancelled) LanSyncStage.CANCELLED else LanSyncStage.FAILED,
+                message = if (cancelled) "同步已取消" else "同步失败",
+                failure = if (cancelled) LanSyncFailureReason.CANCELLED else mapFailure(throwable)
+            )
         } finally {
             activeSyncJob = null
         }
@@ -511,9 +513,10 @@ class LanSyncRepositoryImpl(
     private suspend fun handlePing(request: LanSyncProtectedRequest): LanSyncProtectedResponse {
         val peer = syncPeerDao.findById(request.requesterDeviceId)
             ?: error("未信任的设备无法访问局域网同步接口")
+        val sharedSecret = sharedSecretProtector.decrypt(peer.encryptedSharedSecret)
         decodeProtectedPayload(
             request = request,
-            sharedSecret = sharedSecretProtector.decrypt(peer.encryptedSharedSecret),
+            sharedSecret = sharedSecret,
             serializer = LanSyncPingPayload.serializer()
         )
         syncPeerDao.updateHeartbeat(
@@ -524,7 +527,7 @@ class LanSyncRepositoryImpl(
             missCount = 0
         )
         return encodeProtectedResponse(
-            sharedSecret = sharedSecretProtector.decrypt(peer.encryptedSharedSecret),
+            sharedSecret = sharedSecret,
             payload = LanSyncPingResponsePayload(
                 deviceId = currentLocalProfile.deviceId,
                 displayName = currentLocalProfile.displayName,
@@ -738,9 +741,6 @@ class LanSyncRepositoryImpl(
         refreshPeers(nsdService.services.value)
     }
 
-    /**
-     * 冲突检测只比较同一实体最新的一条变更，是为了避免中间态编辑把预览列表刷成多条重复提示。
-     */
     /**
      * 受保护请求统一先查可信设备再解密，是为了把“未配对设备直接访问同步端点”的风险拦在同一入口。
      */
