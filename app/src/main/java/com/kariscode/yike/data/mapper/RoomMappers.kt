@@ -18,17 +18,11 @@ import com.kariscode.yike.domain.model.QuestionContext
 import com.kariscode.yike.domain.model.QuestionStatus
 import com.kariscode.yike.domain.model.ReviewRating
 import com.kariscode.yike.domain.model.ReviewRecord
-import kotlinx.serialization.builtins.ListSerializer
-import kotlinx.serialization.builtins.serializer
-import kotlinx.serialization.json.Json
 
 /**
  * 映射层的存在是为了隔离 Room 字段与 domain 语义，
  * 这样后续调整索引字段或序列化细节时，不会把变化直接传播到业务与 UI。
  */
-
-private val roomMapperJson: Json = Json { ignoreUnknownKeys = true }
-private val tagsSerializer = ListSerializer(String.serializer())
 
 /**
  * 复用同一套字段组装入口，是为了让 Deck 映射在实体行、聚合行与后续扩展字段时保持口径一致。
@@ -339,22 +333,3 @@ private fun decodeRating(rating: String): ReviewRating = runCatching {
 }.getOrElse {
     ReviewRating.AGAIN
 }
-
-/**
- * 标签编码继续集中在映射层，是为了让数据库字段格式调整时不必让仓储和页面感知 JSON 细节。
- */
-private fun encodeTags(tags: List<String>): String = roomMapperJson.encodeToString(
-    serializer = tagsSerializer,
-    value = tags
-)
-
-/**
- * 标签解码规则对搜索候选、洞察统计和实体映射都必须保持一致，
- * 因此暴露单一入口可以避免不同仓储各自演化出不同的容错语义。
- */
-fun decodeTags(tagsJson: String): List<String> = runCatching {
-    roomMapperJson.decodeFromString(
-        deserializer = tagsSerializer,
-        string = tagsJson
-    )
-}.getOrElse { emptyList() }
