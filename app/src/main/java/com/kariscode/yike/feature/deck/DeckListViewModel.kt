@@ -70,21 +70,22 @@ class DeckListViewModel(
             val now = timeProvider.nowEpochMillis()
             deckRepository.observeActiveDeckSummaries(now)
                 .catch { throwable ->
-                    _uiState.update {
-                        it.copy(
-                            isLoading = false,
-                            message = null,
+                    _uiState.update { state ->
+                        DeckListStateReducer.loadFailed(
+                            state = state,
                             errorMessage = throwable.userMessageOr(ErrorMessages.LOAD_FAILED)
                         )
                     }
                 }
                 .collect { items ->
-                    _uiState.update {
-                        it.copy(
-                            isLoading = false,
+                    _uiState.update { state ->
+                        DeckListStateReducer.itemsLoaded(
+                            state = state,
                             items = items,
-                            availableTags = mergeAvailableTags(items = items, insightTags = insightTags),
-                            errorMessage = null
+                            availableTags = DeckTagNormalizer.mergeAvailableTags(
+                                items = items,
+                                insightTags = insightTags
+                            )
                         )
                     }
                 }
@@ -140,7 +141,7 @@ class DeckListViewModel(
      * 标签改动与名称、描述同样回写草稿，是为了让补全结果在保存前可见且可撤销。
      */
     fun onDraftTagsChange(tags: List<String>) {
-        updateEditor { it.updateTags(normalizeTags(tags)) }
+        updateEditor { it.updateTags(DeckTagNormalizer.normalize(tags)) }
     }
 
     /**
@@ -161,7 +162,7 @@ class DeckListViewModel(
      * 关闭编辑器会丢弃草稿，这样能明确“未保存不生效”的交互语义。
      */
     fun onDismissEditor() {
-        _uiState.update { it.copy(editor = null, errorMessage = null) }
+        _uiState.update(DeckListStateReducer::dismissEditor)
     }
 
     /**
@@ -172,7 +173,11 @@ class DeckListViewModel(
         val editor = _uiState.value.editor ?: return
         val trimmedName = editor.name.trim()
         if (trimmedName.isBlank()) {
-            _uiState.update { it.copy(editor = editor.withValidationMessage(ErrorMessages.NAME_REQUIRED)) }
+            _uiState.update { state ->
+                DeckListStateReducer.updateEditor(state) {
+                    it.withValidationMessage(ErrorMessages.NAME_REQUIRED)
+                }
+            }
             return
         }
         val intervalStepCount = editor.intervalStepCountText.toIntOrNull()?.let { parsed ->
@@ -181,8 +186,10 @@ class DeckListViewModel(
             }
         }
         if (intervalStepCount == null) {
-            _uiState.update {
-                it.copy(editor = editor.withValidationMessage(ErrorMessages.INTERVAL_STEP_COUNT_INVALID))
+            _uiState.update { state ->
+                DeckListStateReducer.updateEditor(state) {
+                    it.withValidationMessage(ErrorMessages.INTERVAL_STEP_COUNT_INVALID)
+                }
             }
             return
         }
@@ -191,7 +198,7 @@ class DeckListViewModel(
             state = _uiState,
             action = {
                 val now = timeProvider.nowEpochMillis()
-                val normalizedTags = normalizeTags(editor.tags)
+                val normalizedTags = DeckTagNormalizer.normalize(editor.tags)
                 // Room 的 upsert 会自动处理"不存在则插入，存在则更新"的逻辑
                 // 直接构建对象并 upsert，无需先查询
                 val deck = Deck(
@@ -207,8 +214,8 @@ class DeckListViewModel(
                 )
                 deckRepository.upsert(deck)
             },
-            onSuccess = { it.copy(editor = null, message = SuccessMessages.SAVED, errorMessage = null) },
-            onFailure = { state, _ -> state.copy(message = null, errorMessage = ErrorMessages.SAVE_FAILED) }
+            onSuccess = DeckListStateReducer::saveSucceeded,
+            onFailure = { state, _ -> DeckListStateReducer.mutationFailed(state, ErrorMessages.SAVE_FAILED) }
         )
     }
 
@@ -220,9 +227,10 @@ class DeckListViewModel(
             state = _uiState,
             action = { studyInsightsRepository.listAvailableTags(limit = 12) },
             onSuccess = { state, tags ->
-                insightTags = normalizeTags(tags)
-                state.copy(
-                    availableTags = mergeAvailableTags(
+                insightTags = DeckTagNormalizer.normalize(tags)
+                DeckListStateReducer.availableTagsLoaded(
+                    state = state,
+                    availableTags = DeckTagNormalizer.mergeAvailableTags(
                         items = state.items,
                         insightTags = insightTags
                     )
@@ -245,13 +253,8 @@ class DeckListViewModel(
                     updatedAt = timeProvider.nowEpochMillis()
                 )
             },
-            onSuccess = {
-                it.copy(
-                    message = if (item.deck.archived) "已恢复到卡组列表" else "已归档，可在已归档内容中恢复",
-                    errorMessage = null
-                )
-            },
-            onFailure = { state, _ -> state.copy(message = null, errorMessage = ErrorMessages.UPDATE_FAILED) }
+            onSuccess = { state -> DeckListStateReducer.archiveToggled(state, item.deck.archived) },
+            onFailure = { state, _ -> DeckListStateReducer.mutationFailed(state, ErrorMessages.UPDATE_FAILED) }
         )
     }
 
@@ -259,54 +262,15 @@ class DeckListViewModel(
      * 打开编辑器时统一清空旧反馈，是为了避免新一轮编辑仍残留上一次保存或失败提示。
      */
     private fun openEditor(editor: DeckMetadataDraft) {
-        _uiState.update {
-            it.copy(
-                editor = editor,
-                message = null,
-                errorMessage = null
-            )
-        }
+        _uiState.update { state -> DeckListStateReducer.openEditor(state, editor) }
     }
 
     /**
      * 草稿更新集中到单点后，标题和描述输入就能共享同一套“无草稿则忽略”的保护逻辑。
      */
     private fun updateEditor(transform: (DeckMetadataDraft) -> DeckMetadataDraft) {
-        _uiState.update { state ->
-            val editor = state.editor ?: return@update state
-            state.copy(editor = transform(editor))
-        }
+        _uiState.update { state -> DeckListStateReducer.updateEditor(state, transform) }
     }
-
-    /**
-     * 标签在保存前统一清洗空白和大小写重复，是为了避免后续搜索与补全出现肉眼相同却存成两份的噪声。
-     */
-    private fun normalizeTags(tags: List<String>): List<String> {
-        val normalizedTags = mutableListOf<String>()
-        val deduplicatedKeys = linkedSetOf<String>()
-        tags.forEach { rawTag ->
-            val normalizedTag = rawTag
-                .trim()
-                .replace(Regex("\\s+"), " ")
-            if (normalizedTag.isBlank()) {
-                return@forEach
-            }
-            if (deduplicatedKeys.add(normalizedTag.lowercase())) {
-                normalizedTags.add(normalizedTag)
-            }
-        }
-        return normalizedTags
-    }
-
-    /**
-     * 卡组列表和题库元数据都可能贡献补全候选，合并去重后才能让弹窗既覆盖旧标签也保留最新共识词汇。
-     */
-    private fun mergeAvailableTags(
-        items: List<DeckSummary>,
-        insightTags: List<String>
-    ): List<String> = normalizeTags(
-        insightTags + items.flatMap { summary -> summary.deck.tags }
-    ).sortedBy { tag -> tag.lowercase() }
 
     companion object {
         /**
