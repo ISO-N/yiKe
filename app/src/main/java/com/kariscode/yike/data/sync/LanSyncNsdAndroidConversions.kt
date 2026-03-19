@@ -18,11 +18,12 @@ internal fun LanSyncPlatformServiceInfo.toAndroidServiceInfo(): NsdServiceInfo =
 
 /**
  * Android NSD 类型回转成平台值对象，是为了让上层始终面对同一套稳定的数据结构。
+ * 当 serviceType 为 null 时使用空字符串，是为了让服务发现流程能继续而不崩溃。
  */
 @Suppress("DEPRECATION")
 internal fun NsdServiceInfo.toPlatformServiceInfo(): LanSyncPlatformServiceInfo = LanSyncPlatformServiceInfo(
-    serviceName = serviceName,
-    serviceType = serviceType,
+    serviceName = serviceName ?: "",
+    serviceType = serviceType ?: "",
     port = port,
     hostAddress = host?.hostAddress
 )

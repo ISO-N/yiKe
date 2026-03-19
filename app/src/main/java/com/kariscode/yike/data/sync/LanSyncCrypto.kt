@@ -5,7 +5,6 @@ import android.security.keystore.KeyProperties
 import java.security.KeyStore
 import java.security.MessageDigest
 import java.security.SecureRandom
-import java.util.Base64
 import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
@@ -39,7 +38,7 @@ class LanSyncCrypto {
     /**
      * 长期共享密钥用随机字节生成，是为了避免把短配对码直接当作持久认证因子而拉低后续会话安全性。
      */
-    fun createSharedSecret(): String = Base64.getEncoder().encodeToString(randomBytes(size = 32))
+    fun createSharedSecret(): String = LanSyncBase64Compat.encodeToString(randomBytes(size = 32))
 
     /**
      * 生成短配对码时固定为 6 位数字，是为了兼顾人工输入成本和首次配对的基本随机性。
@@ -55,8 +54,8 @@ class LanSyncCrypto {
         cipher.init(Cipher.ENCRYPT_MODE, SecretKeySpec(keyBytes, "AES"), GCMParameterSpec(128, iv))
         val cipherText = cipher.doFinal(plainText.toByteArray())
         return EncryptedPayload(
-            iv = Base64.getEncoder().encodeToString(iv),
-            cipherText = Base64.getEncoder().encodeToString(cipherText)
+            iv = LanSyncBase64Compat.encodeToString(iv),
+            cipherText = LanSyncBase64Compat.encodeToString(cipherText)
         )
     }
 
@@ -68,9 +67,9 @@ class LanSyncCrypto {
         cipher.init(
             Cipher.DECRYPT_MODE,
             SecretKeySpec(keyBytes, "AES"),
-            GCMParameterSpec(128, Base64.getDecoder().decode(payload.iv))
+            GCMParameterSpec(128, LanSyncBase64Compat.decode(payload.iv))
         )
-        return cipher.doFinal(Base64.getDecoder().decode(payload.cipherText)).decodeToString()
+        return cipher.doFinal(LanSyncBase64Compat.decode(payload.cipherText)).decodeToString()
     }
 
     /**
@@ -82,8 +81,8 @@ class LanSyncCrypto {
         cipher.init(Cipher.ENCRYPT_MODE, secretKey)
         val encrypted = cipher.doFinal(secret.toByteArray())
         return listOf(
-            Base64.getEncoder().encodeToString(cipher.iv),
-            Base64.getEncoder().encodeToString(encrypted)
+            LanSyncBase64Compat.encodeToString(cipher.iv),
+            LanSyncBase64Compat.encodeToString(encrypted)
         ).joinToString(".")
     }
 
@@ -96,9 +95,9 @@ class LanSyncCrypto {
         cipher.init(
             Cipher.DECRYPT_MODE,
             getOrCreateMasterKey(),
-            GCMParameterSpec(128, Base64.getDecoder().decode(parts.first()))
+            GCMParameterSpec(128, LanSyncBase64Compat.decode(parts.first()))
         )
-        return cipher.doFinal(Base64.getDecoder().decode(parts.last())).decodeToString()
+        return cipher.doFinal(LanSyncBase64Compat.decode(parts.last())).decodeToString()
     }
 
     /**
@@ -111,7 +110,7 @@ class LanSyncCrypto {
     /**
      * Base64 共享密钥在实际加密前需要还原成原始字节，是为了避免调用方重复拼装解码模板。
      */
-    fun decodeSecret(secret: String): ByteArray = Base64.getDecoder().decode(secret)
+    fun decodeSecret(secret: String): ByteArray = LanSyncBase64Compat.decode(secret)
 
     /**
      * 随机字节统一由同一安全随机源生成，是为了避免不同调用方各自选择弱随机实现。
