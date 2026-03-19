@@ -75,3 +75,28 @@ inline fun <State> ViewModel.launchStateMutation(
     onSuccess = { current, _ -> onSuccess(current) },
     onFailure = onFailure
 )
+
+/**
+ * 很多页面的刷新流程都遵循“取消上一轮 -> 进入 loading -> 启动新任务”的固定骨架，
+ * 收口为共享 helper 后可以减少重复样板，并显式保证旧请求不会反向覆盖新状态。
+ */
+inline fun <State, T> ViewModel.restartStateResult(
+    state: MutableStateFlow<State>,
+    previousJob: Job?,
+    crossinline action: suspend () -> T,
+    crossinline onStart: (State) -> State = { it },
+    crossinline onSuccess: (State, T) -> State,
+    crossinline onFailure: (State, Throwable) -> State
+): Job {
+    state.update(onStart)
+    previousJob?.cancel()
+    return launchResult(
+        action = action,
+        onSuccess = { result ->
+            state.update { current -> onSuccess(current, result) }
+        },
+        onFailure = { throwable ->
+            state.update { current -> onFailure(current, throwable) }
+        }
+    )
+}

@@ -1,5 +1,6 @@
 package com.kariscode.yike.feature.card
 
+import com.kariscode.yike.core.message.SuccessMessages
 import com.kariscode.yike.feature.common.TextMetadataDraft
 import com.kariscode.yike.domain.model.CardSummary
 
@@ -102,7 +103,7 @@ internal object CardListStateReducer {
      */
     fun saveSucceeded(state: CardListUiState): CardListUiState = state.copy(
         editor = null,
-        message = "已保存",
+        message = SuccessMessages.SAVED,
         errorMessage = null
     )
 
@@ -111,7 +112,7 @@ internal object CardListStateReducer {
      */
     fun deleteSucceeded(state: CardListUiState): CardListUiState = state.copy(
         pendingDelete = null,
-        message = "已删除",
+        message = SuccessMessages.DELETED,
         errorMessage = null
     )
 

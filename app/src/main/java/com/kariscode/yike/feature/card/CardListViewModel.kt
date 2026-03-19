@@ -70,6 +70,7 @@ class CardListViewModel(
      * 熟练度摘要用独立 Job 收口，是为了在列表连续发射时只保留最后一次统计，避免无意义叠加查询。
      */
     private var masterySummaryJob: Job? = null
+    private var lastMasterySummarySignature: String? = null
     private var loadingTracker = CardListLoadingTracker()
 
     private val _uiState = MutableStateFlow(
@@ -149,7 +150,7 @@ class CardListViewModel(
                         loadingTracker = loadingTracker
                     )
                 }
-                refreshMasterySummary()
+                maybeRefreshMasterySummary(items)
             }
     }
 
@@ -314,6 +315,28 @@ class CardListViewModel(
             onFailure = { state, _ -> CardListStateReducer.masteryLoadFailed(state) }
         )
     }
+
+    /**
+     * 熟练度统计依赖问题集合而不是卡片展示文案，
+     * 因此只有题目规模签名变化时才重算，可以避免仅编辑卡片标题时触发一次无意义检索。
+     */
+    private fun maybeRefreshMasterySummary(items: List<CardSummary>) {
+        val currentSignature = buildMasterySummarySignature(items)
+        if (currentSignature == lastMasterySummarySignature) {
+            return
+        }
+        lastMasterySummarySignature = currentSignature
+        refreshMasterySummary()
+    }
+
+    /**
+     * 签名只保留会影响熟练度统计的字段，是为了把“是否需要重算”判断保持轻量且可解释。
+     */
+    private fun buildMasterySummarySignature(items: List<CardSummary>): String = items
+        .sortedBy { it.card.id }
+        .joinToString(separator = "|") { summary ->
+            "${summary.card.id}:${summary.questionCount}"
+        }
 
     companion object {
         /**

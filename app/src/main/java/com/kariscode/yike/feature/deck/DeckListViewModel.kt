@@ -31,6 +31,7 @@ data class DeckListUiState(
     val isLoading: Boolean,
     val keyword: String,
     val items: List<DeckSummary>,
+    val visibleItems: List<DeckSummary>,
     val availableTags: List<String>,
     val editor: DeckMetadataDraft?,
     val message: String?,
@@ -53,6 +54,7 @@ class DeckListViewModel(
             isLoading = true,
             keyword = "",
             items = emptyList(),
+            visibleItems = emptyList(),
             availableTags = emptyList(),
             editor = null,
             message = null,
@@ -82,6 +84,10 @@ class DeckListViewModel(
                         DeckListStateReducer.itemsLoaded(
                             state = state,
                             items = items,
+                            visibleItems = filterVisibleItems(
+                                items = items,
+                                keyword = state.keyword
+                            ),
                             availableTags = DeckTagNormalizer.mergeAvailableTags(
                                 items = items,
                                 insightTags = insightTags
@@ -155,7 +161,15 @@ class DeckListViewModel(
      * 查找关键字只保留在页面状态里，是为了让筛选输入在配置变更后仍能保留当前浏览上下文。
      */
     fun onKeywordChange(value: String) {
-        _uiState.update { it.copy(keyword = value) }
+        _uiState.update { state ->
+            state.copy(
+                keyword = value,
+                visibleItems = filterVisibleItems(
+                    items = state.items,
+                    keyword = value
+                )
+            )
+        }
     }
 
     /**
@@ -270,6 +284,25 @@ class DeckListViewModel(
      */
     private fun updateEditor(transform: (DeckMetadataDraft) -> DeckMetadataDraft) {
         _uiState.update { state -> DeckListStateReducer.updateEditor(state, transform) }
+    }
+
+    /**
+     * 筛选逻辑下沉到 ViewModel，是为了避免每次重组重复过滤列表，
+     * 同时让测试可以直接断言“输入关键词后可见列表”这一页面核心结果。
+     */
+    private fun filterVisibleItems(
+        items: List<DeckSummary>,
+        keyword: String
+    ): List<DeckSummary> {
+        val trimmedKeyword = keyword.trim()
+        if (trimmedKeyword.isBlank()) {
+            return items
+        }
+        return items.filter { item ->
+            item.deck.name.contains(trimmedKeyword, ignoreCase = true) ||
+                item.deck.description.contains(trimmedKeyword, ignoreCase = true) ||
+                item.deck.tags.any { tag -> tag.contains(trimmedKeyword, ignoreCase = true) }
+        }
     }
 
     companion object {

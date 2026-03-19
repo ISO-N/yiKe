@@ -9,6 +9,7 @@ import com.kariscode.yike.core.message.userMessageOr
 import com.kariscode.yike.core.time.TimeProvider
 import com.kariscode.yike.core.viewmodel.launchResult
 import com.kariscode.yike.core.viewmodel.launchStateResult
+import com.kariscode.yike.core.viewmodel.restartStateResult
 import com.kariscode.yike.core.viewmodel.typedViewModelFactory
 import com.kariscode.yike.domain.model.QuestionMasteryLevel
 import com.kariscode.yike.domain.model.QuestionStatus
@@ -176,10 +177,10 @@ class QuestionSearchViewModel(
      * 搜索任务使用可取消作业包装，是为了避免快速连续输入时旧结果反向覆盖新状态。
      */
     private fun search() {
-        searchJob?.cancel()
         val snapshot = _uiState.value
-        searchJob = launchStateResult(
+        searchJob = restartStateResult(
             state = _uiState,
+            previousJob = searchJob,
             action = { searchQuestions(snapshot) },
             onStart = { it.copy(isLoading = true, errorMessage = null) },
             onSuccess = { state, results ->

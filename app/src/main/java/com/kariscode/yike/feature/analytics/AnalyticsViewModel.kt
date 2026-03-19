@@ -9,7 +9,7 @@ import com.kariscode.yike.core.message.userMessageOr
 import com.kariscode.yike.core.time.TimeConstants
 import com.kariscode.yike.core.time.TimeProvider
 import com.kariscode.yike.core.time.toLocalDate
-import com.kariscode.yike.core.viewmodel.launchResult
+import com.kariscode.yike.core.viewmodel.restartStateResult
 import com.kariscode.yike.core.viewmodel.typedViewModelFactory
 import com.kariscode.yike.domain.model.ReviewAnalyticsSnapshot
 import com.kariscode.yike.domain.repository.StudyInsightsRepository
@@ -118,9 +118,9 @@ class AnalyticsViewModel(
      * 刷新时并行读取统计摘要和时间戳序列，能把聚合 IO 与 streak 计算串成同一轮稳定结果。
      */
     fun refresh() {
-        _uiState.update { it.copy(isLoading = true, errorMessage = null) }
-        refreshJob?.cancel()
-        refreshJob = launchResult(
+        refreshJob = restartStateResult(
+            state = _uiState,
+            previousJob = refreshJob,
             action = {
                 val startEpochMillis = _uiState.value.selectedRange.toStartEpochMillis(timeProvider.nowEpochMillis())
                 parallel(
@@ -128,17 +128,16 @@ class AnalyticsViewModel(
                     second = { studyInsightsRepository.listReviewTimestamps(startEpochMillis = startEpochMillis) }
                 )
             },
-            onSuccess = { (analytics, timestamps) ->
+            onStart = { it.copy(isLoading = true, errorMessage = null) },
+            onSuccess = { _, (analytics, timestamps) ->
                 val state = buildUiState(analytics, timestamps)
-                _uiState.value = state
+                state
             },
-            onFailure = { throwable ->
-                _uiState.update {
-                    it.copy(
-                        isLoading = false,
-                        errorMessage = throwable.userMessageOr(ErrorMessages.ANALYTICS_LOAD_FAILED)
-                    )
-                }
+            onFailure = { state, throwable ->
+                state.copy(
+                    isLoading = false,
+                    errorMessage = throwable.userMessageOr(ErrorMessages.ANALYTICS_LOAD_FAILED)
+                )
             }
         )
     }

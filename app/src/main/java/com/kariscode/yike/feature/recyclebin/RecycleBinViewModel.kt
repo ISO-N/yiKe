@@ -100,7 +100,10 @@ class RecycleBinViewModel(
      * 恢复卡组本质上是撤销归档，这样原有卡组页无需新增一套专门的导入路径。
      */
     fun onRestoreDeckClick(item: DeckSummary) {
-        executeMutation(errorMessage = ErrorMessages.UPDATE_FAILED, successMessage = "卡组已恢复") {
+        executeMutation(
+            errorMessage = ErrorMessages.UPDATE_FAILED,
+            successMessage = SuccessMessages.RESTORED_DECK
+        ) {
             deckRepository.setArchived(
                 deckId = item.deck.id,
                 archived = false,
@@ -113,7 +116,10 @@ class RecycleBinViewModel(
      * 恢复卡片同样复用 archived 字段切换，可保证卡片页和检索页继续沿用既有过滤规则。
      */
     fun onRestoreCardClick(item: ArchivedCardSummary) {
-        executeMutation(errorMessage = ErrorMessages.UPDATE_FAILED, successMessage = "卡片已恢复") {
+        executeMutation(
+            errorMessage = ErrorMessages.UPDATE_FAILED,
+            successMessage = SuccessMessages.RESTORED_CARD
+        ) {
             cardRepository.setArchived(
                 cardId = item.card.id,
                 archived = false,

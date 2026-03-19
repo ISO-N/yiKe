@@ -192,6 +192,40 @@ class DeckListViewModelTest {
     }
 
     /**
+     * 关键词筛选改为 ViewModel 维护可见列表后，页面重组不应再重复过滤，
+     * 因此这里直接锁定“输入关键词后 uiState.visibleItems 立即收敛”的行为。
+     */
+    @Test
+    fun onKeywordChange_updatesVisibleItemsInUiState() = runTest {
+        Dispatchers.setMain(UnconfinedTestDispatcher(testScheduler))
+        try {
+            val repository = FakeDeckRepository()
+            val baseMathSummary = createDeckSummary(deckId = "deck_math")
+            val mathSummary = baseMathSummary.copy(deck = baseMathSummary.deck.copy(name = "数学"))
+            val englishSummary = createDeckSummary(deckId = "deck_en")
+            repository.archivedDecksFlow.value = listOf(
+                mathSummary,
+                englishSummary
+            )
+            val viewModel = DeckListViewModel(
+                deckRepository = repository,
+                studyInsightsRepository = FakeStudyInsightsRepository(),
+                timeProvider = object : TimeProvider {
+                    override fun nowEpochMillis(): Long = 789L
+                }
+            )
+            advanceUntilIdle()
+
+            viewModel.onKeywordChange("英语")
+
+            assertEquals(1, viewModel.uiState.value.visibleItems.size)
+            assertEquals("英语", viewModel.uiState.value.visibleItems.single().deck.name)
+        } finally {
+            Dispatchers.resetMain()
+        }
+    }
+
+    /**
      * 测试数据显式保留聚合字段，是为了让归档动作在真实列表项上下文里执行。
      */
     private fun createDeckSummary(deckId: String): DeckSummary = DeckSummary(

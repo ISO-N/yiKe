@@ -7,7 +7,7 @@ import com.kariscode.yike.core.message.ErrorMessages
 import com.kariscode.yike.core.message.userMessageOr
 import com.kariscode.yike.core.time.TimeConstants
 import com.kariscode.yike.core.time.TimeProvider
-import com.kariscode.yike.core.viewmodel.launchResult
+import com.kariscode.yike.core.viewmodel.restartStateResult
 import com.kariscode.yike.core.viewmodel.typedViewModelFactory
 import com.kariscode.yike.domain.model.QuestionMasterySnapshot
 import com.kariscode.yike.domain.repository.StudyInsightsRepository
@@ -108,9 +108,9 @@ class TodayPreviewViewModel(
      * 刷新时并行读取 due 题目和最近耗时摘要，能减少用户等待并保证估时基于近期真实表现。
      */
     fun refresh() {
-        _uiState.update { it.copy(isLoading = true, errorMessage = null) }
-        refreshJob?.cancel()
-        refreshJob = launchResult(
+        refreshJob = restartStateResult(
+            state = _uiState,
+            previousJob = refreshJob,
             action = {
                 val now = timeProvider.nowEpochMillis()
                 parallel(
@@ -118,20 +118,19 @@ class TodayPreviewViewModel(
                     second = { studyInsightsRepository.getReviewAnalytics(startEpochMillis = now - TimeConstants.WEEK_MILLIS) }
                 )
             },
-            onSuccess = { (dueQuestions, analytics) ->
+            onStart = { it.copy(isLoading = true, errorMessage = null) },
+            onSuccess = { _, (dueQuestions, analytics) ->
                 val state = TodayPreviewUiStateBuilder.build(
                     dueQuestions = dueQuestions,
                     averageResponseTimeMs = analytics.averageResponseTimeMs
                 )
-                _uiState.value = state
+                state
             },
-            onFailure = { throwable ->
-                _uiState.update {
-                    it.copy(
-                        isLoading = false,
-                        errorMessage = throwable.userMessageOr(ErrorMessages.PREVIEW_LOAD_FAILED)
-                    )
-                }
+            onFailure = { state, throwable ->
+                state.copy(
+                    isLoading = false,
+                    errorMessage = throwable.userMessageOr(ErrorMessages.PREVIEW_LOAD_FAILED)
+                )
             }
         )
     }

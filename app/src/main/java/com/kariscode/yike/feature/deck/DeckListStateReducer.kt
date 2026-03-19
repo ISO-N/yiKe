@@ -14,10 +14,12 @@ internal object DeckListStateReducer {
     fun itemsLoaded(
         state: DeckListUiState,
         items: List<DeckSummary>,
+        visibleItems: List<DeckSummary>,
         availableTags: List<String>
     ): DeckListUiState = state.copy(
         isLoading = false,
         items = items,
+        visibleItems = visibleItems,
         availableTags = availableTags,
         errorMessage = null
     )
@@ -100,7 +102,7 @@ internal object DeckListStateReducer {
         state: DeckListUiState,
         archived: Boolean
     ): DeckListUiState = state.copy(
-        message = if (archived) "已恢复到卡组列表" else "已归档，可在已归档内容中恢复",
+        message = if (archived) SuccessMessages.UNARCHIVED else SuccessMessages.ARCHIVED,
         errorMessage = null
     )
 }

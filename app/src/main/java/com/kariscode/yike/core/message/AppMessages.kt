@@ -50,6 +50,10 @@ object SuccessMessages {
     const val SAVED = "已保存"
     const val DELETED = "已删除"
     const val UPDATED = "已更新"
+    const val RESTORED_DECK = "卡组已恢复"
+    const val RESTORED_CARD = "卡片已恢复"
+    const val ARCHIVED = "已归档，可在已归档内容中恢复"
+    const val UNARCHIVED = "已恢复到卡组列表"
 
     // 备份恢复
     const val BACKUP_EXPORTED = "备份已导出"

@@ -102,18 +102,11 @@ private fun DeckListContent(
     modifier: Modifier = Modifier,
     contentPadding: PaddingValues = PaddingValues()
 ) {
-    val visibleItems = uiState.items.filter { item ->
-        val keyword = uiState.keyword.trim()
-        keyword.isBlank() ||
-            item.deck.name.contains(keyword, ignoreCase = true) ||
-            item.deck.description.contains(keyword, ignoreCase = true) ||
-            item.deck.tags.any { tag -> tag.contains(keyword, ignoreCase = true) }
-    }
     YikeScrollableColumn(
         modifier = modifier,
         contentPadding = contentPadding
     ) {
-        DeckOverviewSection(items = visibleItems)
+        DeckOverviewSection(items = uiState.visibleItems)
         DeckSearchSection(
             keyword = uiState.keyword,
             onKeywordChange = onKeywordChange
@@ -147,7 +140,7 @@ private fun DeckListContent(
                 }
             }
 
-            visibleItems.isEmpty() -> {
+            uiState.visibleItems.isEmpty() -> {
                 YikeStateBanner(
                     title = "没有找到匹配的卡组",
                     description = "换个关键词试试，卡组名称、说明和标签都会参与查找。"
@@ -155,7 +148,7 @@ private fun DeckListContent(
             }
 
             else -> {
-                visibleItems.forEach { item ->
+                uiState.visibleItems.forEach { item ->
                     DeckSummaryCard(
                         item = item,
                         onOpen = { navigator.openCardList(item.deck.id) },
