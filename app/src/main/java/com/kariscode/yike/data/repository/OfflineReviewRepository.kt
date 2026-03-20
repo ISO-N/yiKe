@@ -64,6 +64,7 @@ class OfflineReviewRepository(
                 currentStageIndex = currentQuestion.stageIndex,
                 rating = rating,
                 reviewedAtEpochMillis = reviewedAtEpochMillis,
+                dueAtEpochMillis = currentQuestion.dueAt,
                 intervalStepCount = intervalStepCount
             )
 

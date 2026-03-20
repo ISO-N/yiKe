@@ -124,6 +124,56 @@ class OfflineReviewRepositoryTest {
     }
 
     /**
+     * 中度过期时 GOOD 应先用来保住阶段，验证仓储已把题目的 dueAt 传给调度器参与衰减判断。
+     */
+    @Test
+    fun submitRating_goodWithModerateOverdue_restoresInsteadOfAdvancing() = runTest {
+        seedHierarchy(deckId = "deck_1", cardId = "card_1")
+        seedQuestion(
+            id = "q_1",
+            cardId = "card_1",
+            stageIndex = 4,
+            dueAt = 15L * 86_400_000L
+        )
+
+        repository.submitRating(
+            questionId = "q_1",
+            rating = ReviewRating.GOOD,
+            reviewedAtEpochMillis = 35L * 86_400_000L,
+            responseTimeMs = null
+        )
+
+        val updated = database.questionDao().findById("q_1")!!
+        assertEquals(4, updated.stageIndex)
+        assertEquals(50L * 86_400_000L, updated.dueAt)
+    }
+
+    /**
+     * 极端长期过期时高阶段卡片应先被拉回低阶段，避免仓储层仍按旧规则把它留在长周期区间。
+     */
+    @Test
+    fun submitRating_goodWithSevereOverdue_resetsHighStageBeforeScheduling() = runTest {
+        seedHierarchy(deckId = "deck_1", cardId = "card_1")
+        seedQuestion(
+            id = "q_1",
+            cardId = "card_1",
+            stageIndex = 7,
+            dueAt = 180L * 86_400_000L
+        )
+
+        repository.submitRating(
+            questionId = "q_1",
+            rating = ReviewRating.GOOD,
+            reviewedAtEpochMillis = 980L * 86_400_000L,
+            responseTimeMs = null
+        )
+
+        val updated = database.questionDao().findById("q_1")!!
+        assertEquals(1, updated.stageIndex)
+        assertEquals(982L * 86_400_000L, updated.dueAt)
+    }
+
+    /**
      * EASY 评分应跳两级，验证调度器跳级逻辑在写库端的体现。
      */
     @Test

@@ -2,6 +2,7 @@ package com.kariscode.yike.domain.scheduler
 
 import com.kariscode.yike.domain.model.ReviewRating
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -333,6 +334,87 @@ class ReviewSchedulerV1Test {
                 )
             }
         }
+    }
+
+    /**
+     * 过期未超过一个完整计划周期时不应提前降级，避免用户只是晚几天复习就被系统明显打回。
+     */
+    @Test
+    fun assessOverdueState_withLightOverdue_keepsCurrentStage() {
+        val scheduler = ReviewSchedulerV1()
+        val assessment = scheduler.assessOverdueState(
+            currentStageIndex = 4,
+            dueAtEpochMillis = 20L * 86_400_000L,
+            reviewedAtEpochMillis = 30L * 86_400_000L
+        )
+
+        assertEquals(4, assessment.boundedCurrentStageIndex)
+        assertEquals(4, assessment.effectiveStageIndex)
+        assertEquals(15, assessment.plannedIntervalDays)
+        assertEquals(10, assessment.overdueDays)
+        assertFalse(assessment.hasDecay)
+    }
+
+    /**
+     * 过期超过一个完整计划周期时，GOOD 应先用于“保住阶段”而不是继续升级。
+     */
+    @Test
+    fun scheduleNext_withModerateOverdue_andGood_keepsStageAfterDecay() {
+        val scheduler = ReviewSchedulerV1()
+        val reviewedAt = 35L * 86_400_000L
+
+        val result = scheduler.scheduleNext(
+            currentStageIndex = 4,
+            rating = ReviewRating.GOOD,
+            reviewedAtEpochMillis = reviewedAt,
+            dueAtEpochMillis = 15L * 86_400_000L
+        )
+
+        assertEquals(3, result.effectiveStageIndex)
+        assertEquals(1, result.decayLevel)
+        assertEquals(20, result.overdueDays)
+        assertEquals(4, result.nextStageIndex)
+        assertEquals(15, result.intervalDays)
+    }
+
+    /**
+     * 极端长期过期会让高阶段卡片直接回到低阶段，以阻止失真的“稳定掌握”继续累积。
+     */
+    @Test
+    fun scheduleNext_withSevereOverdue_andGood_resetsHighStageBeforeAdvancing() {
+        val scheduler = ReviewSchedulerV1()
+        val reviewedAt = 980L * 86_400_000L
+
+        val result = scheduler.scheduleNext(
+            currentStageIndex = 7,
+            rating = ReviewRating.GOOD,
+            reviewedAtEpochMillis = reviewedAt,
+            dueAtEpochMillis = 180L * 86_400_000L
+        )
+
+        assertEquals(0, result.effectiveStageIndex)
+        assertEquals(7, result.decayLevel)
+        assertEquals(800, result.overdueDays)
+        assertEquals(1, result.nextStageIndex)
+        assertEquals(2, result.intervalDays)
+        assertEquals(reviewedAt + 2L * 86_400_000L, result.nextDueAtEpochMillis)
+    }
+
+    /**
+     * 极端过期但原本就处在低阶段时，保留一层“曾经学过”的痕迹能减少无意义的重复归零。
+     */
+    @Test
+    fun assessOverdueState_withSevereOverdue_atLowStage_keepsStageOne() {
+        val scheduler = ReviewSchedulerV1()
+        val assessment = scheduler.assessOverdueState(
+            currentStageIndex = 1,
+            dueAtEpochMillis = 2L * 86_400_000L,
+            reviewedAtEpochMillis = 20L * 86_400_000L
+        )
+
+        assertEquals(1, assessment.effectiveStageIndex)
+        assertEquals(0, assessment.decayLevel)
+        assertFalse(assessment.hasDecay)
     }
 }
 

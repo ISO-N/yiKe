@@ -19,22 +19,26 @@ class ReviewSchedulerV1(
         currentStageIndex: Int,
         rating: ReviewRating,
         reviewedAtEpochMillis: Long,
+        dueAtEpochMillis: Long? = null,
         intervalStepCount: Int = intervalDaysByStage.size
     ): ReviewScheduleResult {
-        val effectiveIntervalDaysByStage = intervalDaysByStage.take(
-            normalizeIntervalStepCount(
-                intervalStepCount = intervalStepCount,
-                maxAllowedStepCount = intervalDaysByStage.size
-            )
+        val normalizedIntervalStepCount = normalizeIntervalStepCount(
+            intervalStepCount = intervalStepCount,
+            maxAllowedStepCount = intervalDaysByStage.size
+        )
+        val effectiveIntervalDaysByStage = intervalDaysByStage.take(normalizedIntervalStepCount)
+        val overdueAssessment = assessOverdueState(
+            currentStageIndex = currentStageIndex,
+            dueAtEpochMillis = dueAtEpochMillis,
+            reviewedAtEpochMillis = reviewedAtEpochMillis,
+            intervalStepCount = normalizedIntervalStepCount
         )
         val maxStageIndex = effectiveIntervalDaysByStage.lastIndex
-        val boundedCurrentStage = currentStageIndex.coerceIn(0, maxStageIndex)
-
         val nextStageIndex = when (rating) {
             ReviewRating.AGAIN -> 0
-            ReviewRating.HARD -> (boundedCurrentStage - 1).coerceAtLeast(0)
-            ReviewRating.GOOD -> (boundedCurrentStage + 1).coerceAtMost(maxStageIndex)
-            ReviewRating.EASY -> (boundedCurrentStage + 2).coerceAtMost(maxStageIndex)
+            ReviewRating.HARD -> (overdueAssessment.effectiveStageIndex - 1).coerceAtLeast(0)
+            ReviewRating.GOOD -> (overdueAssessment.effectiveStageIndex + 1).coerceAtMost(maxStageIndex)
+            ReviewRating.EASY -> (overdueAssessment.effectiveStageIndex + 2).coerceAtMost(maxStageIndex)
         }
 
         val intervalDays = effectiveIntervalDaysByStage[nextStageIndex]
@@ -47,8 +51,66 @@ class ReviewSchedulerV1(
             nextStageIndex = nextStageIndex,
             nextDueAtEpochMillis = nextDueAt,
             isLapse = rating == ReviewRating.AGAIN,
-            intervalDays = intervalDays
+            intervalDays = intervalDays,
+            effectiveStageIndex = overdueAssessment.effectiveStageIndex,
+            overdueDays = overdueAssessment.overdueDays,
+            overdueRatio = overdueAssessment.overdueRatio,
+            decayLevel = overdueAssessment.decayLevel
         )
+    }
+
+    /**
+     * 过期状态评估单独暴露成纯函数，是为了让复习页提示与最终调度共用同一口径，
+     * 避免“界面说会衰减、真正提交时却按另一套规则计算”的解释偏差。
+     */
+    fun assessOverdueState(
+        currentStageIndex: Int,
+        dueAtEpochMillis: Long?,
+        reviewedAtEpochMillis: Long,
+        intervalStepCount: Int = intervalDaysByStage.size
+    ): ReviewOverdueAssessment {
+        val effectiveIntervalDaysByStage = intervalDaysByStage.take(
+            normalizeIntervalStepCount(
+                intervalStepCount = intervalStepCount,
+                maxAllowedStepCount = intervalDaysByStage.size
+            )
+        )
+        val maxStageIndex = effectiveIntervalDaysByStage.lastIndex
+        val boundedCurrentStage = currentStageIndex.coerceIn(0, maxStageIndex)
+        val plannedIntervalDays = effectiveIntervalDaysByStage[boundedCurrentStage]
+        val overdueDurationMillis = dueAtEpochMillis
+            ?.let { dueAt -> (reviewedAtEpochMillis - dueAt).coerceAtLeast(0L) }
+            ?: 0L
+        val overdueRatio = overdueDurationMillis.toDouble() /
+            (plannedIntervalDays.toDouble() * MILLIS_PER_DAY.toDouble())
+        val overdueDays = (overdueDurationMillis / MILLIS_PER_DAY).toInt()
+        val effectiveStageIndex = decayStageByOverdue(
+            currentStageIndex = boundedCurrentStage,
+            overdueRatio = overdueRatio
+        )
+
+        return ReviewOverdueAssessment(
+            boundedCurrentStageIndex = boundedCurrentStage,
+            effectiveStageIndex = effectiveStageIndex,
+            plannedIntervalDays = plannedIntervalDays,
+            overdueDays = overdueDays,
+            overdueRatio = overdueRatio,
+            decayLevel = (boundedCurrentStage - effectiveStageIndex).coerceAtLeast(0)
+        )
+    }
+
+    /**
+     * 极端过期时将高阶段卡片直接拉回低阶段，是为了避免“拖了很久但仍被当成稳定掌握”继续放大失真。
+     */
+    private fun decayStageByOverdue(
+        currentStageIndex: Int,
+        overdueRatio: Double
+    ): Int = when {
+        overdueRatio < 1.0 -> currentStageIndex
+        overdueRatio < 2.0 -> (currentStageIndex - 1).coerceAtLeast(0)
+        overdueRatio < 4.0 -> (currentStageIndex - 2).coerceAtLeast(0)
+        currentStageIndex >= 3 -> 0
+        else -> currentStageIndex.coerceAtMost(1)
     }
 
     /**
@@ -60,6 +122,7 @@ class ReviewSchedulerV1(
         const val MIN_INTERVAL_STEP_COUNT: Int = 1
         const val DEFAULT_INTERVAL_STEP_COUNT: Int = 8
         const val MAX_INTERVAL_STEP_COUNT: Int = 8
+        private const val MILLIS_PER_DAY: Long = 86_400_000L
 
         /**
          * 卡组只允许裁剪默认序列长度而不允许自定义天数，是为了先满足“短期卡组不需要拉满 8 段”
@@ -82,6 +145,28 @@ data class ReviewScheduleResult(
     val nextStageIndex: Int,
     val nextDueAtEpochMillis: Long,
     val isLapse: Boolean,
-    val intervalDays: Int
+    val intervalDays: Int,
+    val effectiveStageIndex: Int,
+    val overdueDays: Int,
+    val overdueRatio: Double,
+    val decayLevel: Int
 )
+
+/**
+ * 过期评估结果显式返回衰减前后阶段，是为了让调度器、测试与 UI 提示都能引用同一份解释数据。
+ */
+data class ReviewOverdueAssessment(
+    val boundedCurrentStageIndex: Int,
+    val effectiveStageIndex: Int,
+    val plannedIntervalDays: Int,
+    val overdueDays: Int,
+    val overdueRatio: Double,
+    val decayLevel: Int
+) {
+    /**
+     * 只把真正发生阶段回落视为“需要重新巩固”，是为了避免轻微过期也被 UI 渲染成高压提示。
+     */
+    val hasDecay: Boolean
+        get() = decayLevel > 0
+}
 
