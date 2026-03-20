@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -14,7 +15,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.kariscode.yike.app.LocalAppContainer
 import com.kariscode.yike.navigation.YikeNavigator
-import com.kariscode.yike.ui.component.backNavigationAction
 import com.kariscode.yike.ui.component.YikeBadge
 import com.kariscode.yike.ui.component.YikeFlowScaffold
 import com.kariscode.yike.ui.component.YikeHeaderBlock
@@ -23,10 +23,12 @@ import com.kariscode.yike.ui.component.YikeScrollableColumn
 import com.kariscode.yike.ui.component.YikeSecondaryButton
 import com.kariscode.yike.ui.component.YikeStateBanner
 import com.kariscode.yike.ui.component.YikeSurfaceCard
+import com.kariscode.yike.ui.component.backNavigationAction
+import com.kariscode.yike.ui.format.formatPreviewDateTime
 import com.kariscode.yike.ui.theme.LocalYikeSpacing
 
 /**
- * 问题编辑页属于流内页面，因此保持聚焦式顶部返回与保存动作，不接入一级底部导航。
+ * 问题编辑页在正式保存之外补上本地草稿恢复，是为了把长时间编辑从“只能一次完成”放宽为“可中断后继续”。
  */
 @Composable
 fun QuestionEditorScreen(
@@ -42,6 +44,7 @@ fun QuestionEditorScreen(
             deckId = deckId,
             cardRepository = container.cardRepository,
             questionRepository = container.questionRepository,
+            questionEditorDraftRepository = container.questionEditorDraftRepository,
             appSettingsRepository = container.appSettingsRepository,
             timeProvider = container.timeProvider
         )
@@ -51,9 +54,13 @@ fun QuestionEditorScreen(
     YikeFlowScaffold(
         title = "编辑卡片",
         subtitle = "先把卡片信息写清楚，再逐条维护问题和答案。",
-        navigationAction = backNavigationAction(navigator::back),
-        actionText = if (uiState.isSaving) "保存中" else "保存",
-        onActionClick = if (uiState.isSaving) null else viewModel::onSaveClick
+        navigationAction = backNavigationAction(onClick = navigator::back),
+        actionText = if (uiState.isDraftSaving) "草稿保存中" else "保存草稿",
+        onActionClick = if (uiState.hasUnsavedChanges && !uiState.isSaving && !uiState.isDraftSaving) {
+            viewModel::onSaveDraftClick
+        } else {
+            null
+        }
     ) { padding ->
         QuestionEditorContent(
             uiState = uiState,
@@ -68,13 +75,21 @@ fun QuestionEditorScreen(
             contentPadding = padding
         )
     }
+
+    if (uiState.restoreDraftDialogVisible) {
+        QuestionEditorRestoreDraftDialog(
+            info = uiState.restoreDraftInfo,
+            onRestore = viewModel::onRestoreDraftConfirm,
+            onDiscard = viewModel::onDiscardDraftConfirm
+        )
+    }
 }
 
 /**
- * 编辑页主体独立出来后，可以直接验证未保存、校验失败和保存成功等关键反馈状态。
+ * 编辑页主体独立出来后，可以直接验证加载、恢复、正式保存和本地草稿反馈等关键状态组合。
  */
 @Composable
-private fun QuestionEditorContent(
+internal fun QuestionEditorContent(
     uiState: QuestionEditorUiState,
     onTitleChange: (String) -> Unit,
     onDescriptionChange: (String) -> Unit,
@@ -95,7 +110,7 @@ private fun QuestionEditorContent(
             uiState.isLoading -> {
                 YikeStateBanner(
                     title = "正在加载卡片内容",
-                    description = "稍等一下，我们会把当前卡片和问题草稿载入到编辑器。"
+                    description = "稍等一下，我们会把当前卡片、问题列表和可恢复草稿一起准备好。"
                 )
             }
 
@@ -121,13 +136,14 @@ private fun QuestionEditorContent(
                     YikeSecondaryButton(
                         text = "添加问题",
                         onClick = onAddQuestion,
-                        modifier = Modifier.weight(1f)
+                        modifier = Modifier.weight(1f),
+                        enabled = !uiState.isSaving && !uiState.isDraftSaving
                     )
                     YikePrimaryButton(
                         text = if (uiState.isSaving) "保存中…" else "保存修改",
                         onClick = onSave,
                         modifier = Modifier.weight(1f),
-                        enabled = !uiState.isSaving
+                        enabled = !uiState.isSaving && !uiState.isDraftSaving
                     )
                 }
             }
@@ -136,8 +152,7 @@ private fun QuestionEditorContent(
 }
 
 /**
- * 反馈区把未保存、校验失败和保存结果压到同一层级，
- * 这样用户不需要在页面不同角落猜测当前编辑状态。
+ * 反馈区把正式保存、草稿保存和恢复提示汇总到一处，是为了让用户始终知道“当前是本地暂存还是已正式生效”。
  */
 @Composable
 private fun QuestionEditorFeedback(
@@ -146,24 +161,94 @@ private fun QuestionEditorFeedback(
     when {
         uiState.errorMessage != null -> {
             YikeStateBanner(
-                title = "保存前还需要修正",
+                title = "保存前还需要处理",
                 description = uiState.errorMessage
             )
         }
 
         uiState.message != null -> {
             YikeStateBanner(
-                title = "保存成功",
+                title = "状态已更新",
                 description = uiState.message
+            )
+        }
+
+        uiState.isDraftSaving -> {
+            YikeStateBanner(
+                title = "正在保存草稿",
+                description = "我们会把你刚刚的修改安全地留在本机，下次回来可以继续编辑。"
+            )
+        }
+
+        uiState.hasUnsavedChanges && !uiState.hasPendingDraftChanges && uiState.lastDraftSavedAt != null -> {
+            YikeStateBanner(
+                title = "草稿已保存到本机",
+                description = "上次保存于 ${formatPreviewDateTime(uiState.lastDraftSavedAt)}，仍需点击“保存修改”才会正式生效。"
             )
         }
 
         uiState.hasUnsavedChanges -> {
             YikeStateBanner(
-                title = "有未保存修改",
-                description = "你刚刚更新了卡片信息或问题草稿，记得保存后再离开。"
+                title = "有未正式保存修改",
+                description = "我们会自动保存到本机；如果你准备先离开，也可以手动点右上角“保存草稿”。"
             )
         }
+    }
+}
+
+/**
+ * 草稿恢复弹窗要求用户显式决策，是为了避免旧草稿在进入页面时悄悄覆盖数据库中的正式内容。
+ */
+@Composable
+internal fun QuestionEditorRestoreDraftDialog(
+    info: QuestionEditorRestoreDraftInfo?,
+    onRestore: () -> Unit,
+    onDiscard: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = {},
+        title = { Text("发现未提交草稿") },
+        text = {
+            Text(
+                buildRestoreDraftDescription(info = info)
+            )
+        },
+        confirmButton = {
+            YikePrimaryButton(
+                text = "恢复草稿",
+                onClick = onRestore
+            )
+        },
+        dismissButton = {
+            YikeSecondaryButton(
+                text = "丢弃草稿",
+                onClick = onDiscard
+            )
+        }
+    )
+}
+
+/**
+ * 恢复说明在弹窗前统一拼装，是为了把时间、问题数和待删除数量稳定表达成一条自然语句。
+ */
+private fun buildRestoreDraftDescription(
+    info: QuestionEditorRestoreDraftInfo?
+): String {
+    if (info == null) {
+        return "这张卡片有一份上次未提交的草稿。你可以恢复继续编辑，也可以丢弃后从正式内容开始。"
+    }
+    return buildString {
+        append("这张卡片在 ")
+        append(formatPreviewDateTime(info.savedAt))
+        append(" 留有一份草稿，包含 ")
+        append(info.questionCount)
+        append(" 条问题")
+        if (info.deletedQuestionCount > 0) {
+            append("，以及 ")
+            append(info.deletedQuestionCount)
+            append(" 个待删除问题")
+        }
+        append("。你可以恢复继续编辑，也可以丢弃后使用正式内容。")
     }
 }
 
@@ -268,7 +353,7 @@ private fun QuestionDraftCard(
                 title = "问题 $index",
                 subtitle = "先保证题面明确，再补答案。"
             )
-            YikeBadge(text = if (draft.isNew) "未保存" else "已存在")
+            YikeBadge(text = if (draft.isNew) "未正式保存" else "已存在")
         }
         OutlinedTextField(
             value = draft.prompt,
