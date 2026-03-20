@@ -13,6 +13,16 @@ data class QuestionDraft(
 )
 
 /**
+ * 恢复提示单独抽成摘要，是为了让页面在不提前覆盖正式内容的前提下，
+ * 仍能把“这份草稿大概是什么”准确传达给用户。
+ */
+data class QuestionEditorRestoreDraftInfo(
+    val savedAt: Long,
+    val questionCount: Int,
+    val deletedQuestionCount: Int
+)
+
+/**
  * 编辑页状态集中管理卡片字段与问题草稿，原因是：
  * - 标题/题面校验必须在同一保存动作内完成
  * - 删除/新增问题需要明确的本地草稿语义
@@ -25,7 +35,12 @@ data class QuestionEditorUiState(
     val description: String,
     val questions: List<QuestionDraft>,
     val hasUnsavedChanges: Boolean,
+    val hasPendingDraftChanges: Boolean,
     val isSaving: Boolean,
+    val isDraftSaving: Boolean,
+    val lastDraftSavedAt: Long?,
+    val restoreDraftDialogVisible: Boolean,
+    val restoreDraftInfo: QuestionEditorRestoreDraftInfo?,
     val message: String?,
     val errorMessage: String?
 )

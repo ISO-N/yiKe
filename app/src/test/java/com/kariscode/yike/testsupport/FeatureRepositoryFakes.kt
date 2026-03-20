@@ -7,6 +7,8 @@ import com.kariscode.yike.domain.model.Card
 import com.kariscode.yike.domain.model.CardSummary
 import com.kariscode.yike.domain.model.Deck
 import com.kariscode.yike.domain.model.DeckSummary
+import com.kariscode.yike.domain.model.QuestionEditorDraftLoadResult
+import com.kariscode.yike.domain.model.QuestionEditorDraftSnapshot
 import com.kariscode.yike.domain.model.Question
 import com.kariscode.yike.domain.model.QuestionContext
 import com.kariscode.yike.domain.model.QuestionQueryFilters
@@ -16,6 +18,7 @@ import com.kariscode.yike.domain.model.TodayReviewSummary
 import com.kariscode.yike.domain.repository.AppSettingsRepository
 import com.kariscode.yike.domain.repository.CardRepository
 import com.kariscode.yike.domain.repository.DeckRepository
+import com.kariscode.yike.domain.repository.QuestionEditorDraftRepository
 import com.kariscode.yike.domain.repository.QuestionRepository
 import com.kariscode.yike.domain.repository.StudyInsightsRepository
 import kotlinx.coroutines.flow.Flow
@@ -31,6 +34,47 @@ class FixedTimeProvider(
      * 测试里返回固定时间点，能让 dueAt 和时间范围断言稳定可复现。
      */
     override fun nowEpochMillis(): Long = nowEpochMillis
+}
+
+/**
+ * 编辑草稿假仓储把“是否存在草稿”“是否遇到损坏文件”和“最近一次保存内容”都做成可观察内存状态，
+ * 是为了让编辑页测试聚焦恢复语义而不必接入真实文件系统。
+ */
+open class FakeQuestionEditorDraftRepository : QuestionEditorDraftRepository {
+    val draftsByCardId = linkedMapOf<String, QuestionEditorDraftSnapshot>()
+    val savedDrafts = mutableListOf<QuestionEditorDraftSnapshot>()
+    val deletedCardIds = mutableListOf<String>()
+    val corruptedCardIds = linkedSetOf<String>()
+
+    /**
+     * 读取时按卡片维度返回假草稿，是为了让单卡编辑测试直接控制“有草稿/无草稿/损坏”三种入口态。
+     */
+    override suspend fun loadDraft(cardId: String): QuestionEditorDraftLoadResult {
+        val wasCorrupted = corruptedCardIds.remove(cardId)
+        if (wasCorrupted) {
+            draftsByCardId.remove(cardId)
+        }
+        return QuestionEditorDraftLoadResult(
+            draft = draftsByCardId[cardId],
+            wasCorrupted = wasCorrupted
+        )
+    }
+
+    /**
+     * 保存时同时记录调用历史和最新快照，是为了让自动保存与手动保存的断言可以覆盖“保存次数”和“最终内容”两层语义。
+     */
+    override suspend fun saveDraft(snapshot: QuestionEditorDraftSnapshot) {
+        savedDrafts += snapshot
+        draftsByCardId[snapshot.cardId] = snapshot
+    }
+
+    /**
+     * 删除调用记录目标 cardId，是为了让正式保存成功和主动放弃草稿两条路径都能被明确验证。
+     */
+    override suspend fun deleteDraft(cardId: String) {
+        deletedCardIds += cardId
+        draftsByCardId.remove(cardId)
+    }
 }
 
 /**
