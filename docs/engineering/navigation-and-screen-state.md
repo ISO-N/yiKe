@@ -485,6 +485,11 @@ error: SettingsError?
 - `OnArchivedContentClick`
 - `OnBackupRestoreClick`
 
+### 14.4 主题切换约束
+
+- `themeMode` 不仅影响 Compose 内部 `MaterialTheme`，也必须同步更新边到边窗口的系统栏图标明暗
+- 当应用切到深色而设备仍处于浅色系统栏语义时，若不更新状态栏外观，深色图标会直接叠在深色顶部背景上，造成“状态栏消失”的视觉故障
+
 ---
 
 ## 14.1 局域网同步页 `LanSyncScreen`
