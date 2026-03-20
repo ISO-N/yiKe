@@ -50,6 +50,13 @@
 - 数据版本号
 - 最近备份时间（可选）
 
+问题编辑页的本地草稿属于**临时恢复状态**：
+
+- 建议放在应用私有文件目录
+- 仅按 `cardId` 做本机恢复
+- 不进入正式备份 JSON
+- 不进入局域网同步
+
 ---
 
 ## 4. 第一版需要持久化的数据范围
@@ -104,6 +111,11 @@
 - 固定提醒时间
 - 主题模式
 - schemaVersion
+
+说明：
+
+- 问题编辑草稿不属于设置数据
+- 问题编辑草稿也不属于正式业务数据导出范围
 
 ---
 
@@ -305,6 +317,13 @@ yike-backup-20260314-213000.json
 - 局域网同步可以单独演进配对、冲突和增量协议，而不会牵连备份格式
 - 备份校验失败与同步冲突不再被混成同一种错误
 
+编辑草稿继续保持第三条边界：
+
+- 只服务本机问题编辑页的中断恢复
+- 不参与文件备份
+- 不参与 LAN Sync
+- 不参与 Android 自动备份与设备迁移
+
 ---
 
 ## 10. 恢复前确认文案建议
@@ -472,6 +491,7 @@ yike-backup-20260314-213000.json
 - 导出/恢复服务：`app/src/main/java/com/kariscode/yike/data/backup/BackupService.kt`
 - 页面与文件选择流程：`app/src/main/java/com/kariscode/yike/feature/backup/BackupRestoreScreen.kt`
 - 页面编排：`app/src/main/java/com/kariscode/yike/feature/backup/BackupRestoreViewModel.kt`
+- 编辑草稿文件仓储：`app/src/main/java/com/kariscode/yike/data/editor/FileQuestionEditorDraftRepository.kt`
 - 局域网同步协议：`app/src/main/java/com/kariscode/yike/data/sync/LanSyncRepositoryImpl.kt`
 - 局域网同步本地 journal：`app/src/main/java/com/kariscode/yike/data/local/db/entity/SyncChangeEntity.kt`
 - 已配对设备与 cursor：`app/src/main/java/com/kariscode/yike/data/local/db/entity/SyncPeerEntity.kt`、`app/src/main/java/com/kariscode/yike/data/local/db/entity/SyncPeerCursorEntity.kt`
@@ -482,6 +502,7 @@ yike-backup-20260314-213000.json
 - `BackupDeck.intervalStepCount` 进入导出文件；恢复旧文件缺失该字段时默认回退到 8 段
 - `BackupDeck.tags` 进入导出文件；恢复旧文件缺失该字段时默认回退到空标签列表
 - `BackupSettings.themeMode` 进入导出文件；旧备份缺失该字段时默认回退到浅色模式
+- 问题编辑草稿落在应用私有文件目录，并显式排除在备份、同步、自动备份和设备迁移之外
 - 恢复前先做版本、必填字段、引用关系、评分枚举和阶段合法性校验
 - 恢复采用全量覆盖；数据库写入在事务内完成，设置写入失败时会执行补偿回滚
 - 恢复完成后会根据恢复后的设置重新调度每日提醒

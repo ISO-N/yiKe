@@ -7,7 +7,7 @@
 -->
 <full-backup-content>
     <!--
-   <include domain="sharedpref" path="."/>
-   <exclude domain="sharedpref" path="device.xml"/>
+   问题编辑草稿只代表本机临时恢复状态，排除在系统自动备份外是为了避免旧草稿跨设备误恢复。
 -->
+    <exclude domain="file" path="question_editor_drafts/" />
 </full-backup-content>

@@ -291,9 +291,14 @@ title: String
 description: String
 questions: List<QuestionDraftUiModel>
 hasUnsavedChanges: Boolean
+hasPendingDraftChanges: Boolean
 isSaving: Boolean
-canSave: Boolean
-error: EditorError?
+isDraftSaving: Boolean
+lastDraftSavedAt: Long?
+restoreDraftDialogVisible: Boolean
+restoreDraftInfo: QuestionEditorRestoreDraftInfo?
+message: String?
+errorMessage: String?
 ```
 
 ### 10.3 `QuestionDraftUiModel`
@@ -315,14 +320,22 @@ error: EditorError?
 - `OnQuestionPromptChange(questionId, value)`
 - `OnQuestionAnswerChange(questionId, value)`
 - `OnDeleteQuestionClick(questionId)`
+- `OnSaveDraftClick`
 - `OnSaveClick`
 - `OnBackClick`
+- `OnRestoreDraftConfirm`
+- `OnDiscardDraftConfirm`
 
 ### 10.5 保存规则
 
 - 卡片标题不能为空
 - 问题内容不能为空
 - 答案可以为空
+- 输入后 1.5 秒防抖自动保存本地草稿
+- 顶部“保存草稿”只写本机临时草稿，不写正式业务数据
+- 返回页面或应用进入后台前，若仍有待落盘草稿则立即补存一次
+- 若检测到本地草稿，进入页面先询问“恢复草稿 / 丢弃草稿”，不静默覆盖正式内容
+- 正式保存成功后清空对应本地草稿
 - 新问题保存后从明天开始调度
 
 ---
@@ -744,7 +757,7 @@ error: BackupRestoreError?
 
 - 路由参数可恢复
 - 页面可根据 ID 重新加载数据
-- 编辑页当前会显式提示 `hasUnsavedChanges`，但仍不保证进程被杀后的草稿完整恢复，应接受这一限制并在交互上提示用户及时保存
+- 编辑页会把草稿单独持久化到本机私有目录，并在重新进入时提供恢复选择
 
 复习页建议：
 

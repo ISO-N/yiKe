@@ -8,6 +8,7 @@ object ErrorMessages {
     const val LOAD_FAILED = "加载失败"
     const val RETRY_LATER = "请稍后重试"
     const val SAVE_FAILED = "保存失败，请稍后重试"
+    const val DRAFT_SAVE_FAILED = "草稿保存失败，请稍后重试"
     const val DELETE_FAILED = "删除失败，请稍后重试"
     const val UPDATE_FAILED = "更新失败，请稍后重试"
 
@@ -48,6 +49,9 @@ object ErrorMessages {
  */
 object SuccessMessages {
     const val SAVED = "已保存"
+    const val DRAFT_SAVED = "草稿已保存到本机"
+    const val DRAFT_RESTORED = "已恢复上次草稿"
+    const val DRAFT_CORRUPTED_RESET = "草稿异常，已恢复正式内容"
     const val DELETED = "已删除"
     const val UPDATED = "已更新"
     const val RESTORED_DECK = "卡组已恢复"

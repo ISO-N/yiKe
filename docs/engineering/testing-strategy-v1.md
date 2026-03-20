@@ -121,22 +121,32 @@
   - `data/reminder/ReminderCheckRunnerTest.kt`
   - `data/reminder/ReminderSchedulerTest.kt`
   - `data/backup/BackupValidatorTest.kt`
-  - `data/backup/BackupServiceTest.kt`
-  - `feature/backup/BackupRestoreViewModelTest.kt`
-  - `feature/editor/QuestionEditorViewModelTest.kt`
-  - `feature/search/QuestionSearchViewModelTest.kt`
+- `data/backup/BackupServiceTest.kt`
+- `feature/backup/BackupRestoreViewModelTest.kt`
+- `feature/editor/QuestionEditorViewModelTest.kt`
+- `data/editor/FileQuestionEditorDraftRepositoryTest.kt`
+- `feature/search/QuestionSearchViewModelTest.kt`
   - `feature/analytics/AnalyticsViewModelTest.kt`
   - `feature/recyclebin/RecycleBinViewModelTest.kt`
   - `feature/deck/DeckListViewModelTest.kt`
   - `data/repository/OfflineDeckRepositoryTest.kt`
-  - `data/settings/DataStoreAppSettingsRepositoryTest.kt`
+- `data/settings/DataStoreAppSettingsRepositoryTest.kt`
   - `data/sync/LanSyncConflictResolverTest.kt`
   - `data/sync/LanSyncChangeApplierTest.kt`
   - `data/sync/LanSyncHttpClientTest.kt`
   - `data/sync/LanSyncHttpServerTest.kt`
   - `data/sync/LanSyncNsdServiceTest.kt`
-  - `data/sync/LanSyncRepositoryImplTest.kt`
-  - `feature/sync/LanSyncViewModelTest.kt`
+- `data/sync/LanSyncRepositoryImplTest.kt`
+- `feature/sync/LanSyncViewModelTest.kt`
+
+编辑页草稿能力新增后，`QuestionEditorViewModelTest` 至少覆盖：
+
+- 首次进入存在草稿时先弹恢复选择，而不是静默覆盖正式内容
+- 恢复草稿后标题、问题列表和删除列表都能回填
+- 输入后的 1.5 秒防抖自动保存
+- 手动“保存草稿”只写本机草稿，不写正式仓储
+- 返回前补存草稿再导航
+- 正式保存成功后删除本地草稿
 - androidTest
   - `androidTest/data/local/db/YikeDatabaseIntegrationTest.kt`
   - `androidTest/feature/FeatureContentTest.kt`

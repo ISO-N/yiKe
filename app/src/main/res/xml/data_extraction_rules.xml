@@ -5,15 +5,15 @@
 -->
 <data-extraction-rules>
     <cloud-backup>
-        <!-- TODO: Use <include> and <exclude> to control what is backed up.
-        <include .../>
-        <exclude .../>
+        <!--
+        问题编辑草稿只用于本机续写，不应随着云备份进入其他设备或覆盖更晚的正式内容。
         -->
+        <exclude domain="file" path="question_editor_drafts/" />
     </cloud-backup>
-    <!--
     <device-transfer>
-        <include .../>
-        <exclude .../>
+        <!--
+        设备迁移同样排除临时草稿，是为了把迁移焦点保持在正式业务数据而不是短期编辑现场。
+        -->
+        <exclude domain="file" path="question_editor_drafts/" />
     </device-transfer>
-    -->
 </data-extraction-rules>

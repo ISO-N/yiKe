@@ -11,6 +11,7 @@ import com.kariscode.yike.feature.home.HomeUiState
 import com.kariscode.yike.feature.review.ReviewCardContent
 import com.kariscode.yike.feature.review.ReviewCardUiState
 import com.kariscode.yike.feature.review.ReviewQuestionUiModel
+import com.kariscode.yike.navigation.YikeNavigator
 import com.kariscode.yike.ui.theme.YikeTheme
 import org.junit.Rule
 import org.junit.Test
@@ -22,6 +23,28 @@ import org.junit.Test
 class FeatureContentTest {
     @get:Rule
     val composeRule = createComposeRule()
+
+    /**
+     * 首页内容测试只关心文案和入口是否出现，因此导航使用空实现即可避免把断言绑到真实路由。
+     */
+    private val navigator = object : YikeNavigator {
+        override fun back() = Unit
+        override fun openPrimary(route: String) = Unit
+        override fun backToHome() = Unit
+        override fun openDeckList() = Unit
+        override fun openSettings() = Unit
+        override fun openCardList(deckId: String) = Unit
+        override fun openReviewQueue() = Unit
+        override fun openReviewCard(cardId: String) = Unit
+        override fun openTodayPreview() = Unit
+        override fun openAnalytics() = Unit
+        override fun openQuestionSearch(deckId: String?, cardId: String?) = Unit
+        override fun openQuestionEditor(cardId: String, deckId: String?) = Unit
+        override fun openBackupRestore() = Unit
+        override fun openLanSync() = Unit
+        override fun openRecycleBin() = Unit
+        override fun openDebug() = Unit
+    }
 
     /**
      * 首页加载时必须告诉用户系统正在准备什么，
@@ -39,13 +62,7 @@ class FeatureContentTest {
                         errorMessage = null
                     ),
                     onRetry = {},
-                    onStartReview = {},
-                    onOpenTodayPreview = {},
-                    onOpenAnalytics = {},
-                    onOpenSearch = {},
-                    onOpenDeckList = {},
-                    onOpenSettings = {},
-                    onOpenDebug = {}
+                    navigator = navigator
                 )
             }
         }
@@ -69,13 +86,7 @@ class FeatureContentTest {
                         errorMessage = null
                     ),
                     onRetry = {},
-                    onStartReview = {},
-                    onOpenTodayPreview = {},
-                    onOpenAnalytics = {},
-                    onOpenSearch = {},
-                    onOpenDeckList = {},
-                    onOpenSettings = {},
-                    onOpenDebug = {}
+                    navigator = navigator
                 )
             }
         }
@@ -99,13 +110,7 @@ class FeatureContentTest {
                         errorMessage = "数据库读取失败"
                     ),
                     onRetry = {},
-                    onStartReview = {},
-                    onOpenTodayPreview = {},
-                    onOpenAnalytics = {},
-                    onOpenSearch = {},
-                    onOpenDeckList = {},
-                    onOpenSettings = {},
-                    onOpenDebug = {}
+                    navigator = navigator
                 )
             }
         }
@@ -131,13 +136,7 @@ class FeatureContentTest {
                         errorMessage = null
                     ),
                     onRetry = {},
-                    onStartReview = {},
-                    onOpenTodayPreview = {},
-                    onOpenAnalytics = {},
-                    onOpenSearch = {},
-                    onOpenDeckList = {},
-                    onOpenSettings = {},
-                    onOpenDebug = {}
+                    navigator = navigator
                 )
             }
         }

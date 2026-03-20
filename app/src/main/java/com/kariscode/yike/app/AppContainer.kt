@@ -9,6 +9,7 @@ import com.kariscode.yike.core.time.SystemTimeProvider
 import com.kariscode.yike.core.time.TimeProvider
 import com.kariscode.yike.data.backup.BackupService
 import com.kariscode.yike.data.backup.BackupValidator
+import com.kariscode.yike.data.editor.FileQuestionEditorDraftRepository
 import com.kariscode.yike.data.local.db.YikeDatabase
 import com.kariscode.yike.data.local.db.dao.CardDao
 import com.kariscode.yike.data.local.db.dao.DeckDao
@@ -38,6 +39,7 @@ import com.kariscode.yike.domain.repository.CardRepository
 import com.kariscode.yike.domain.repository.DeckRepository
 import com.kariscode.yike.domain.repository.LanSyncRepository
 import com.kariscode.yike.domain.repository.QuestionRepository
+import com.kariscode.yike.domain.repository.QuestionEditorDraftRepository
 import com.kariscode.yike.domain.repository.ReviewRepository
 import com.kariscode.yike.domain.repository.StudyInsightsRepository
 import com.kariscode.yike.domain.scheduler.ReviewSchedulerV1
@@ -237,6 +239,13 @@ class AppContainer(
             timeProvider = dependencies.timeProvider,
             syncChangeRecorder = dependencies.syncChangeRecorder
         )
+    }
+
+    /**
+     * 编辑草稿单独落到私有文件目录，是为了把“临时输入恢复”与正式业务数据的数据库演进彻底分离。
+     */
+    val questionEditorDraftRepository: QuestionEditorDraftRepository by lazy {
+        FileQuestionEditorDraftRepository(context = application)
     }
 
     /**
