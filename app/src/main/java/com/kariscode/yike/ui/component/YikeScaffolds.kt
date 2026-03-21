@@ -40,12 +40,14 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asComposeRenderEffect
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.kariscode.yike.navigation.YikeDestination
 import com.kariscode.yike.ui.theme.LocalYikeSpacing
@@ -99,7 +101,8 @@ fun YikePrimaryScaffold(
     content: @Composable (PaddingValues) -> Unit
 ) {
     val navigationBottomPadding = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
-    val contentBottomPadding = navigationBottomPadding + 56.dp
+    val contentBottomPadding = navigationBottomPadding + 40.dp
+    val contentBlurOverlayHeight = navigationBottomPadding + 132.dp
     val fabBottomPadding = navigationBottomPadding + 68.dp
 
     YikeScreenBackground {
@@ -118,7 +121,12 @@ fun YikePrimaryScaffold(
                 )
                 Spacer(modifier = Modifier.height(6.dp))
                 Box(
-                    modifier = Modifier.fillMaxSize()
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .yikeBottomContentBlur(
+                            overlayHeight = contentBlurOverlayHeight,
+                            tintColor = MaterialTheme.colorScheme.surface
+                        )
                 ) {
                     content(PaddingValues(bottom = contentBottomPadding))
                 }
@@ -149,7 +157,7 @@ fun YikePrimaryNavigationChrome(
 ) {
     val navigationBarPadding = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
     val navigationBottomOffset = navigationBarPadding + 2.dp
-    val bottomGlassHeight = navigationBottomOffset + 54.dp
+    val bottomGlassHeight = navigationBottomOffset + 92.dp
 
     Box(modifier = modifier.fillMaxSize()) {
         YikeBottomGlassLayer(
@@ -184,7 +192,8 @@ private fun YikeBottomGlassLayer(
                 Brush.verticalGradient(
                     colors = listOf(
                         MaterialTheme.colorScheme.background.copy(alpha = 0f),
-                        MaterialTheme.colorScheme.surface.copy(alpha = 0.6f),
+                        MaterialTheme.colorScheme.surface.copy(alpha = 0.38f),
+                        MaterialTheme.colorScheme.surface.copy(alpha = 0.62f),
                         MaterialTheme.colorScheme.surface.copy(alpha = 0.8f)
                     )
                 )
@@ -203,14 +212,17 @@ private fun YikeBottomNavigation(
 ) {
     val navigationShape = RoundedCornerShape(22.dp)
     Surface(
-        tonalElevation = 2.dp,
-        shadowElevation = 4.dp,
-        color = MaterialTheme.colorScheme.surface,
+        tonalElevation = 0.dp,
+        shadowElevation = 0.dp,
+        color = Color.Transparent,
         modifier = modifier
             .fillMaxWidth()
+            .clip(navigationShape)
+            .yikeGlassBlur(radius = 22f)
+            .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.58f))
             .border(
                 width = 1.dp,
-                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.72f),
+                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.58f),
                 shape = navigationShape
             ),
         shape = navigationShape
@@ -229,7 +241,7 @@ private fun YikeBottomNavigation(
                     shape = RoundedCornerShape(18.dp),
                     colors = ButtonDefaults.textButtonColors(
                         containerColor = if (selected) {
-                            MaterialTheme.colorScheme.surfaceTint.copy(alpha = 0.28f)
+                            MaterialTheme.colorScheme.primary.copy(alpha = 0.14f)
                         } else {
                             Color.Transparent
                         },
@@ -257,6 +269,38 @@ private fun Modifier.yikeGlassBlur(
         renderEffect = RenderEffect
             .createBlurEffect(radius, radius, Shader.TileMode.DECAL)
             .asComposeRenderEffect()
+    }
+}
+
+/**
+ * 一级页底部内容需要在导航开始前进入朦胧层级，
+ * 因此这里直接对底部一段内容重绘模糊版本，让导航上缘不再像“另起一块底板”。
+ */
+private fun Modifier.yikeBottomContentBlur(
+    overlayHeight: Dp,
+    tintColor: Color
+): Modifier {
+    return drawWithContent {
+        drawContent()
+        val overlayHeightPx = overlayHeight.toPx().coerceAtMost(size.height)
+        if (overlayHeightPx <= 0f) {
+            return@drawWithContent
+        }
+        val overlayTop = size.height - overlayHeightPx
+        drawRect(
+            brush = Brush.verticalGradient(
+                colors = listOf(
+                    tintColor.copy(alpha = 0f),
+                    tintColor.copy(alpha = 0.08f),
+                    tintColor.copy(alpha = 0.18f),
+                    tintColor.copy(alpha = 0.3f)
+                ),
+                startY = overlayTop,
+                endY = size.height
+            ),
+            topLeft = androidx.compose.ui.geometry.Offset(x = 0f, y = overlayTop),
+            size = androidx.compose.ui.geometry.Size(width = size.width, height = overlayHeightPx)
+        )
     }
 }
 
