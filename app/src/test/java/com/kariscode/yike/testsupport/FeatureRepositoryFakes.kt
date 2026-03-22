@@ -9,6 +9,7 @@ import com.kariscode.yike.domain.model.Deck
 import com.kariscode.yike.domain.model.DeckSummary
 import com.kariscode.yike.domain.model.QuestionEditorDraftLoadResult
 import com.kariscode.yike.domain.model.QuestionEditorDraftSnapshot
+import com.kariscode.yike.domain.model.PracticeSessionArgs
 import com.kariscode.yike.domain.model.Question
 import com.kariscode.yike.domain.model.QuestionContext
 import com.kariscode.yike.domain.model.QuestionQueryFilters
@@ -19,6 +20,7 @@ import com.kariscode.yike.domain.repository.AppSettingsRepository
 import com.kariscode.yike.domain.repository.CardRepository
 import com.kariscode.yike.domain.repository.DeckRepository
 import com.kariscode.yike.domain.repository.QuestionEditorDraftRepository
+import com.kariscode.yike.domain.repository.PracticeRepository
 import com.kariscode.yike.domain.repository.QuestionRepository
 import com.kariscode.yike.domain.repository.StudyInsightsRepository
 import kotlinx.coroutines.flow.Flow
@@ -295,6 +297,25 @@ open class FakeStudyInsightsRepository : StudyInsightsRepository {
      * 连续学习天数依赖原始时间戳列表，因此假实现直接回放预设集合。
      */
     override suspend fun listReviewTimestamps(startEpochMillis: Long?): List<Long> = reviewTimestamps
+}
+
+/**
+ * PracticeRepository 假实现把最近一次练习范围记录下来，
+ * 是为了让设置页和会话页测试能直接断言只读查询是否收到正确的缩圈参数。
+ */
+open class FakePracticeRepository : PracticeRepository {
+    var questionContexts: List<QuestionContext> = emptyList()
+    var error: Throwable? = null
+    val requests = mutableListOf<PracticeSessionArgs>()
+
+    /**
+     * 假仓储记录传入参数后直接回放预设结果，足以覆盖练习模式的范围裁剪与会话构建测试。
+     */
+    override suspend fun listPracticeQuestionContexts(args: PracticeSessionArgs): List<QuestionContext> {
+        requests += args
+        error?.let { throwable -> throw throwable }
+        return questionContexts
+    }
 }
 
 /**

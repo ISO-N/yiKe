@@ -523,6 +523,19 @@ class OfflineQuestionRepositoryTest {
 
         override suspend fun listTagsJson(activeStatus: String): List<String> = emptyList()
 
+        /**
+         * 练习模式查询不在当前仓储测试关注范围内，这里返回空列表即可满足接口约束。
+         */
+        override suspend fun listPracticeQuestionContexts(
+            activeStatus: String,
+            includeAllDecks: Boolean,
+            deckIds: List<String>,
+            includeAllCards: Boolean,
+            cardIds: List<String>,
+            includeAllQuestions: Boolean,
+            questionIds: List<String>
+        ): List<QuestionContextRow> = emptyList()
+
         override suspend fun listDueQuestionsByCard(
             cardId: String,
             activeStatus: String,
