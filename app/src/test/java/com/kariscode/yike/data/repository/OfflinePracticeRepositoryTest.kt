@@ -126,6 +126,24 @@ class OfflinePracticeRepositoryTest {
     }
 
     /**
+     * 当会话显式带入 `questionIds` 时，最终结果必须被严格裁剪，
+     * 这样搜索结果或卡片页带入的局部题集才不会在练习中被悄悄放大。
+     */
+    @Test
+    fun listPracticeQuestionContexts_questionIdsStrictlyTrimResults() = runTest {
+        seedHierarchy(deckId = "deck_local", cardId = "card_local")
+        seedQuestion(id = "q_1", cardId = "card_local")
+        seedQuestion(id = "q_2", cardId = "card_local")
+        seedQuestion(id = "q_3", cardId = "card_local")
+
+        val results = repository.listPracticeQuestionContexts(
+            PracticeSessionArgs(questionIds = listOf("q_1", "q_3"))
+        )
+
+        assertEquals(listOf("q_1", "q_3"), results.map { context -> context.question.id })
+    }
+
+    /**
      * 层级辅助方法统一写入最小合法数据，是为了让每条断言聚焦在练习口径而不是建表样板。
      */
     private suspend fun seedHierarchy(

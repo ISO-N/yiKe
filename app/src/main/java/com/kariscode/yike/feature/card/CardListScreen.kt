@@ -15,6 +15,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.kariscode.yike.app.LocalAppContainer
 import com.kariscode.yike.core.message.ErrorMessages
 import com.kariscode.yike.domain.model.CardSummary
+import com.kariscode.yike.domain.model.PracticeSessionArgs
 import com.kariscode.yike.navigation.YikeNavigator
 import com.kariscode.yike.ui.component.backNavigationAction
 import com.kariscode.yike.ui.component.YikeBadge
@@ -114,7 +115,12 @@ private fun CardListContent(
             items = uiState.items,
             onCreateCard = onCreateCard,
             onOpenTodayPreview = openTodayPreview,
-            onOpenSearch = { openSearch(null) }
+            onOpenSearch = { openSearch(null) },
+            onOpenPractice = {
+                navigator.openPracticeSetup(
+                    PracticeSessionArgs(deckIds = listOf(deckId))
+                )
+            }
         )
         uiState.masterySummary?.let { summary ->
             CardMasterySection(summary = summary)
@@ -154,6 +160,14 @@ private fun CardListContent(
                         item = item,
                         onOpenEditor = { openEditor(item.card.id) },
                         onOpenSearch = { openSearch(item.card.id) },
+                        onOpenPractice = {
+                            navigator.openPracticeSetup(
+                                PracticeSessionArgs(
+                                    deckIds = listOf(deckId),
+                                    cardIds = listOf(item.card.id)
+                                )
+                            )
+                        },
                         onEditMeta = { onEditCardMeta(item) },
                         onArchive = { onArchive(item) },
                         onDelete = { onDelete(item) }
@@ -202,7 +216,8 @@ private fun CardOverviewSection(
     items: List<CardSummary>,
     onCreateCard: () -> Unit,
     onOpenTodayPreview: () -> Unit,
-    onOpenSearch: () -> Unit
+    onOpenSearch: () -> Unit,
+    onOpenPractice: () -> Unit
 ) {
     val spacing = LocalYikeSpacing.current
     val totalQuestions = items.sumOf { it.questionCount }
@@ -226,10 +241,17 @@ private fun CardOverviewSection(
         }
         Row(horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
             YikePrimaryButton(
+                text = "自由练习",
+                onClick = onOpenPractice,
+                modifier = Modifier.weight(1f)
+            )
+            YikeSecondaryButton(
                 text = "查看题库",
                 onClick = onOpenSearch,
                 modifier = Modifier.weight(1f)
             )
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
             YikeSecondaryButton(
                 text = "看今日任务",
                 onClick = onOpenTodayPreview,
@@ -276,6 +298,7 @@ private fun CardSummaryCard(
     item: CardSummary,
     onOpenEditor: () -> Unit,
     onOpenSearch: () -> Unit,
+    onOpenPractice: () -> Unit,
     onEditMeta: () -> Unit,
     onArchive: () -> Unit,
     onDelete: () -> Unit
@@ -302,13 +325,13 @@ private fun CardSummaryCard(
             horizontalArrangement = Arrangement.spacedBy(spacing.sm)
         ) {
             YikePrimaryButton(
-                text = "编辑问题",
-                onClick = onOpenEditor,
+                text = "练习本卡",
+                onClick = onOpenPractice,
                 modifier = Modifier.weight(1f)
             )
             YikeSecondaryButton(
-                text = "检索本卡",
-                onClick = onOpenSearch,
+                text = "编辑问题",
+                onClick = onOpenEditor,
                 modifier = Modifier.weight(1f)
             )
         }
@@ -316,7 +339,13 @@ private fun CardSummaryCard(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(spacing.sm)
         ) {
+            TextButton(onClick = onOpenSearch, modifier = Modifier.weight(1f)) { Text("检索本卡") }
             TextButton(onClick = onEditMeta, modifier = Modifier.weight(1f)) { Text("编辑卡片") }
+        }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(spacing.sm)
+        ) {
             TextButton(onClick = onArchive, modifier = Modifier.weight(1f)) { Text("归档") }
             TextButton(onClick = onDelete, modifier = Modifier.weight(1f)) { Text("删除") }
         }

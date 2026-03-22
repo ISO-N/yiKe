@@ -14,6 +14,7 @@ import com.kariscode.yike.BuildConfig
 import com.kariscode.yike.app.LocalAppContainer
 import com.kariscode.yike.core.message.ErrorMessages
 import com.kariscode.yike.domain.model.DeckSummary
+import com.kariscode.yike.domain.model.PracticeSessionArgs
 import com.kariscode.yike.navigation.YikeNavigator
 import com.kariscode.yike.ui.component.YikeBadge
 import com.kariscode.yike.ui.component.YikeHeaderBlock
@@ -181,21 +182,21 @@ private fun HomeHeroSection(
                         modifier = Modifier.weight(1f)
                     )
                     YikeSecondaryButton(
-                        text = "今日预览",
-                        onClick = navigator::openTodayPreview,
+                        text = "自由练习",
+                        onClick = { navigator.openPracticeSetup(PracticeSessionArgs()) },
                         modifier = Modifier.weight(1f)
                     )
                 }
 
                 HomeContentMode.REVIEW_CLEARED -> {
                     YikePrimaryButton(
-                        text = "今日预览",
-                        onClick = navigator::openTodayPreview,
+                        text = "自由练习",
+                        onClick = { navigator.openPracticeSetup(PracticeSessionArgs()) },
                         modifier = Modifier.weight(1f)
                     )
                     YikeSecondaryButton(
-                        text = "补充内容",
-                        onClick = navigator::openDeckList,
+                        text = "今日预览",
+                        onClick = navigator::openTodayPreview,
                         modifier = Modifier.weight(1f)
                     )
                 }

@@ -9,6 +9,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import com.kariscode.yike.domain.model.PracticeSessionArgs
 import com.kariscode.yike.domain.model.QuestionMasteryLevel
 import com.kariscode.yike.ui.component.YikeBadge
 import com.kariscode.yike.ui.component.YikePrimaryButton
@@ -25,7 +26,8 @@ import com.kariscode.yike.ui.theme.LocalYikeSpacing
 internal fun LazyListScope.questionSearchResultItems(
     uiState: QuestionSearchUiState,
     onOpenEditor: (String) -> Unit,
-    onOpenReview: (String) -> Unit
+    onOpenReview: (String) -> Unit,
+    onOpenPractice: (PracticeSessionArgs) -> Unit
 ) {
     if (uiState.results.isEmpty()) {
         item {
@@ -44,7 +46,8 @@ internal fun LazyListScope.questionSearchResultItems(
         QuestionSearchResultCard(
             item = item,
             onOpenEditor = onOpenEditor,
-            onOpenReview = onOpenReview
+            onOpenReview = onOpenReview,
+            onOpenPractice = onOpenPractice
         )
     }
 }
@@ -56,7 +59,8 @@ internal fun LazyListScope.questionSearchResultItems(
 private fun QuestionSearchResultCard(
     item: QuestionSearchResultUiModel,
     onOpenEditor: (String) -> Unit,
-    onOpenReview: (String) -> Unit
+    onOpenReview: (String) -> Unit,
+    onOpenPractice: (PracticeSessionArgs) -> Unit
 ) {
     val spacing = LocalYikeSpacing.current
     YikeSurfaceCard {
@@ -93,8 +97,16 @@ private fun QuestionSearchResultCard(
         YikeProgressBar(progress = item.mastery.progress)
         Row(horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
             YikeSecondaryButton(
-                text = "编辑问题",
-                onClick = { onOpenEditor(item.context.question.cardId) },
+                text = "练习这题",
+                onClick = {
+                    onOpenPractice(
+                        PracticeSessionArgs(
+                            deckIds = listOf(item.context.deckId),
+                            cardIds = listOf(item.context.question.cardId),
+                            questionIds = listOf(item.context.question.id)
+                        )
+                    )
+                },
                 modifier = Modifier.weight(1f)
             )
             YikePrimaryButton(
@@ -105,6 +117,11 @@ private fun QuestionSearchResultCard(
                 modifier = Modifier.weight(1f)
             )
         }
+        YikeSecondaryButton(
+            text = "编辑问题",
+            onClick = { onOpenEditor(item.context.question.cardId) },
+            modifier = Modifier.fillMaxWidth()
+        )
     }
 }
 

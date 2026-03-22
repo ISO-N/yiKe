@@ -3,6 +3,7 @@ package com.kariscode.yike.feature.search
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -11,6 +12,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.kariscode.yike.app.LocalAppContainer
 import com.kariscode.yike.core.message.ErrorMessages
+import com.kariscode.yike.domain.model.PracticeSessionArgs
 import com.kariscode.yike.domain.model.QuestionMasteryLevel
 import com.kariscode.yike.domain.model.QuestionStatus
 import com.kariscode.yike.navigation.YikeNavigator
@@ -62,6 +64,7 @@ fun QuestionSearchScreen(
             onClearFilters = viewModel::onClearFilters,
             onOpenEditor = { cardId -> navigator.openQuestionEditor(cardId = cardId, deckId = deckIdForEditor) },
             onOpenReview = navigator::openReviewCard,
+            onOpenPractice = navigator::openPracticeSetup,
             modifier = modifier,
             contentPadding = padding
         )
@@ -84,6 +87,7 @@ private fun QuestionSearchContent(
     onClearFilters: () -> Unit,
     onOpenEditor: (String) -> Unit,
     onOpenReview: (String) -> Unit,
+    onOpenPractice: (PracticeSessionArgs) -> Unit,
     contentPadding: PaddingValues = PaddingValues(),
     modifier: Modifier = Modifier
 ) {
@@ -136,10 +140,49 @@ private fun QuestionSearchContent(
                 onClearFilters = onClearFilters
             )
         }
+        if (uiState.results.isNotEmpty()) {
+            item {
+                QuestionSearchPracticeEntry(
+                    uiState = uiState,
+                    onOpenPractice = onOpenPractice
+                )
+            }
+        }
         questionSearchResultItems(
             uiState = uiState,
             onOpenEditor = onOpenEditor,
-            onOpenReview = onOpenReview
+            onOpenReview = onOpenReview,
+            onOpenPractice = onOpenPractice
+        )
+    }
+}
+
+/**
+ * 搜索页支持把当前结果直接带入练习设置，是为了覆盖“先搜出一小撮题，再立刻刷掉”的局部练习场景。
+ */
+@Composable
+private fun QuestionSearchPracticeEntry(
+    uiState: QuestionSearchUiState,
+    onOpenPractice: (PracticeSessionArgs) -> Unit
+) {
+    val questionIds = uiState.results.map { item -> item.context.question.id }
+    val cardIds = uiState.results.map { item -> item.context.question.cardId }.distinct()
+    YikeStateBanner(
+        title = "把当前结果带去练习",
+        description = "当前筛选已经命中 ${uiState.results.size} 题，可以继续调整范围，也可以直接进入只读练习。"
+    ) {
+        YikeSecondaryButton(
+            text = "练习当前结果",
+            onClick = {
+                onOpenPractice(
+                    PracticeSessionArgs(
+                        deckIds = uiState.selectedDeckId?.let(::listOf).orEmpty(),
+                        cardIds = cardIds,
+                        questionIds = questionIds
+                    )
+                )
+            },
+            modifier = Modifier.fillMaxWidth()
         )
     }
 }

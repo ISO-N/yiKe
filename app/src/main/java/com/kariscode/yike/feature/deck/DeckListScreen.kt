@@ -16,6 +16,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.kariscode.yike.app.LocalAppContainer
 import com.kariscode.yike.core.message.ErrorMessages
 import com.kariscode.yike.domain.model.DeckSummary
+import com.kariscode.yike.domain.model.PracticeSessionArgs
 import com.kariscode.yike.navigation.YikeNavigator
 import com.kariscode.yike.ui.component.YikeBadge
 import com.kariscode.yike.ui.component.YikeFab
@@ -152,6 +153,11 @@ private fun DeckListContent(
                     DeckSummaryCard(
                         item = item,
                         onOpen = { navigator.openCardList(item.deck.id) },
+                        onPractice = {
+                            navigator.openPracticeSetup(
+                                PracticeSessionArgs(deckIds = listOf(item.deck.id))
+                            )
+                        },
                         onEdit = { onEditDeck(item) },
                         onArchive = { onToggleArchive(item) }
                     )
@@ -230,6 +236,7 @@ private fun DeckOverviewSection(items: List<DeckSummary>) {
 private fun DeckSummaryCard(
     item: DeckSummary,
     onOpen: () -> Unit,
+    onPractice: () -> Unit,
     onEdit: () -> Unit,
     onArchive: () -> Unit
 ) {
@@ -267,8 +274,8 @@ private fun DeckSummaryCard(
                 modifier = Modifier.weight(1f)
             )
             YikeSecondaryButton(
-                text = "编辑",
-                onClick = onEdit,
+                text = "练习卡组",
+                onClick = onPractice,
                 modifier = Modifier.weight(1f)
             )
         }
@@ -276,6 +283,11 @@ private fun DeckSummaryCard(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(LocalYikeSpacing.current.sm)
         ) {
+            YikeSecondaryButton(
+                text = "编辑",
+                onClick = onEdit,
+                modifier = Modifier.weight(1f)
+            )
             YikeSecondaryButton(
                 text = "归档",
                 onClick = onArchive,
