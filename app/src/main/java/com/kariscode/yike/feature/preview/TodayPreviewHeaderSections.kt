@@ -11,7 +11,7 @@ import com.kariscode.yike.ui.component.YikeMetricCard
 import com.kariscode.yike.ui.component.YikePrimaryButton
 import com.kariscode.yike.ui.component.YikeSecondaryButton
 import com.kariscode.yike.ui.component.YikeStateBanner
-import com.kariscode.yike.ui.format.formatPreviewDateTime
+import com.kariscode.yike.ui.format.formatPreviewDay
 import com.kariscode.yike.ui.theme.LocalYikeSpacing
 
 /**
@@ -83,6 +83,6 @@ internal fun TodayPreviewSummarySection(
  * 摘要文案用最早到期和低熟练度数量组织，是为了把“什么时候开始”和“先做哪些题”一次说清楚。
  */
 private fun buildSummaryDescription(uiState: TodayPreviewUiState): String {
-    val dueText = uiState.earliestDueAt?.let(::formatPreviewDateTime) ?: "今天任意时间"
-    return "最早到期时间 $dueText，当前有 ${uiState.lowMasteryCount} 题属于低熟练度，适合先处理最薄弱的内容。"
+    val dueText = uiState.earliestDueAt?.let(::formatPreviewDay) ?: "今天"
+    return "最早到期日期 $dueText，当前有 ${uiState.lowMasteryCount} 题属于低熟练度，适合先处理最薄弱的内容。"
 }

@@ -11,7 +11,7 @@ import androidx.compose.ui.Modifier
 import com.kariscode.yike.domain.model.QuestionMasteryLevel
 import com.kariscode.yike.ui.component.YikeBadge
 import com.kariscode.yike.ui.component.YikeSurfaceCard
-import com.kariscode.yike.ui.format.formatPreviewDateTime
+import com.kariscode.yike.ui.format.formatPreviewDay
 import com.kariscode.yike.ui.theme.LocalYikeSpacing
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -80,7 +80,7 @@ private fun TodayPreviewCardSection(
                 YikeBadge(text = question.mastery.level.label)
             }
             Text(
-                text = formatPreviewDateTime(question.dueAt),
+                text = formatPreviewDay(question.dueAt),
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )

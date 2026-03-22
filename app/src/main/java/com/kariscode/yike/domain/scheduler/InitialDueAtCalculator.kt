@@ -1,7 +1,7 @@
 package com.kariscode.yike.domain.scheduler
 
 import com.kariscode.yike.core.time.toLocalDate
-import java.time.LocalTime
+import com.kariscode.yike.core.time.toStartOfDayEpochMillis
 import java.time.ZoneId
 
 /**
@@ -10,25 +10,15 @@ import java.time.ZoneId
  */
 object InitialDueAtCalculator {
     /**
-     * 选择“明天的固定提醒时间”作为默认 dueAt，可让用户形成稳定节奏；
-     * 若传入的提醒时间非法，则回退到明天 00:00，保证 dueAt 始终可计算。
+     * 默认把新问题放到“明天开始可复习”，是为了让复习计划彻底脱离提醒时刻，
+     * 并让今日待复习、逾期与下次调度全部收敛到统一的自然日语义。
      */
     fun compute(
         nowEpochMillis: Long,
-        reminderHour: Int,
-        reminderMinute: Int,
         zoneId: ZoneId = ZoneId.systemDefault()
-    ): Long {
-        val targetDate = nowEpochMillis.toLocalDate(zoneId).plusDays(1)
-
-        val safeTime = runCatching { LocalTime.of(reminderHour, reminderMinute) }
-            .getOrElse { LocalTime.MIDNIGHT }
-
-        return targetDate
-            .atTime(safeTime)
-            .atZone(zoneId)
-            .toInstant()
-            .toEpochMilli()
-    }
+    ): Long = nowEpochMillis
+        .toLocalDate(zoneId)
+        .plusDays(1)
+        .toStartOfDayEpochMillis(zoneId)
 }
 

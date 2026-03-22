@@ -69,7 +69,7 @@
 ### 4.2 初始规则
 
 - `stageIndex = 0`
-- `dueAt = 明天的提醒时间或明天 00:00 后的可复习时间`
+- `dueAt = 明天 00:00`
 - `reviewCount = 0`
 - `lapseCount = 0`
 - `lastReviewedAt = null`
@@ -134,7 +134,7 @@
 2. 若题目已经过期，根据“过期时长 / 计划间隔”的比例决定是否先衰减阶段
 3. 再基于衰减后的阶段应用评分规则，得到新的 `stageIndex`
 4. 根据新阶段取出对应天数
-5. `newDueAt = 当前复习时间 + intervalDays`
+5. `newDueAt = reviewedAt 所在本地日期 + intervalDays` 后的自然日起点
 
 示例：
 
@@ -142,7 +142,7 @@
 - 用户评分为 GOOD
 - 新 stage = 1
 - 间隔 = 2 天
-- 新 dueAt = 当前时间 + 2 天
+- 新 dueAt = 2 天后的 00:00
 
 ### 7.2 过期比例衰减
 
@@ -151,7 +151,7 @@
 定义：
 
 - `plannedIntervalDays`：当前阶段对应的计划间隔
-- `overdueDays`：`max(0, reviewedAt - dueAt)` 换算后的过期天数
+- `overdueDays`：`reviewedAt` 本地日期与 `dueAt` 本地日期的自然日差值
 - `overdueRatio`：`overdueDays / plannedIntervalDays`
 
 默认规则：
@@ -163,14 +163,13 @@
 
 这个设计的目的不是惩罚用户，而是修正“长期过期后阶段高估真实记忆水平”的问题。
 
-### 7.3 时间精度建议
+### 7.3 提醒与调度解耦
 
-第一版建议 dueAt 存储为完整时间戳，而不只是日期。
+第一版约定：
 
-好处：
-
-- 后续更好与通知系统对接
-- 可避免边界条件模糊
+- `dueAt` 继续存储为时间戳，便于查询、备份和同步
+- 但它表达的是“自然日开始时间”，默认取本地 `00:00`
+- 固定提醒时间只用于通知，不再参与调度计算
 
 ---
 
@@ -283,7 +282,7 @@ fun scheduleNext(
     val boundedStage = currentStage.coerceIn(0, maxStage)
     val plannedIntervalDays = intervals[boundedStage]
     val overdueDays = dueAt?.let { due ->
-        max(0, DAYS.between(due, now))
+        max(0, DAYS.between(due.atZone(zoneId).toLocalDate(), now.atZone(zoneId).toLocalDate()))
     } ?: 0
     val overdueRatio = overdueDays.toDouble() / plannedIntervalDays.toDouble()
     val effectiveStage = when {
@@ -302,7 +301,12 @@ fun scheduleNext(
     }
 
     val intervalDays = intervals[nextStage]
-    val nextDueAt = now.plus(intervalDays.toLong(), ChronoUnit.DAYS)
+    val nextDueAt = now
+        .atZone(zoneId)
+        .toLocalDate()
+        .plusDays(intervalDays.toLong())
+        .atStartOfDay(zoneId)
+        .toInstant()
 
     return ScheduleResult(
         nextStage = nextStage,

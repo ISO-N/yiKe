@@ -15,6 +15,8 @@ import com.kariscode.yike.domain.model.ReviewRating
 import com.kariscode.yike.domain.model.SyncChangeOperation
 import com.kariscode.yike.domain.model.SyncEntityType
 import com.kariscode.yike.domain.scheduler.ReviewSchedulerV1
+import java.time.Instant
+import java.time.ZoneId
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
@@ -145,7 +147,7 @@ class OfflineReviewRepositoryTest {
 
         val updated = database.questionDao().findById("q_1")!!
         assertEquals(4, updated.stageIndex)
-        assertEquals(50L * 86_400_000L, updated.dueAt)
+        assertEquals(naturalDueAt(reviewedAtEpochMillis = 35L * 86_400_000L, intervalDays = 15), updated.dueAt)
     }
 
     /**
@@ -170,7 +172,7 @@ class OfflineReviewRepositoryTest {
 
         val updated = database.questionDao().findById("q_1")!!
         assertEquals(1, updated.stageIndex)
-        assertEquals(982L * 86_400_000L, updated.dueAt)
+        assertEquals(naturalDueAt(reviewedAtEpochMillis = 980L * 86_400_000L, intervalDays = 2), updated.dueAt)
     }
 
     /**
@@ -210,7 +212,7 @@ class OfflineReviewRepositoryTest {
 
         val updated = database.questionDao().findById("q_1")!!
         assertEquals(3, updated.stageIndex)
-        assertEquals(35_000L + 7L * 86_400_000L, updated.dueAt)
+        assertEquals(naturalDueAt(reviewedAtEpochMillis = 35_000L, intervalDays = 7), updated.dueAt)
     }
 
     /**
@@ -501,4 +503,16 @@ class OfflineReviewRepositoryTest {
             )
         )
     }
+
+    /**
+     * 测试辅助方法按运行时系统时区计算自然日 dueAt，是为了让仓储集成测试与生产代码共享同一默认时区语义。
+     */
+    private fun naturalDueAt(reviewedAtEpochMillis: Long, intervalDays: Int): Long =
+        Instant.ofEpochMilli(reviewedAtEpochMillis)
+            .atZone(ZoneId.systemDefault())
+            .toLocalDate()
+            .plusDays(intervalDays.toLong())
+            .atStartOfDay(ZoneId.systemDefault())
+            .toInstant()
+            .toEpochMilli()
 }

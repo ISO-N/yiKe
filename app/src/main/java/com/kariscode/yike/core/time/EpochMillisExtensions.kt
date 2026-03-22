@@ -21,6 +21,13 @@ fun Long.toLocalDate(
 ): LocalDate = LocalDate.ofInstant(toInstant(), zoneId)
 
 /**
+ * 把本地日期起点统一收敛成共享扩展，是为了让调度、逾期和展示在“自然日从哪里开始”上保持单一口径。
+ */
+fun LocalDate.toStartOfDayEpochMillis(
+    zoneId: ZoneId = ZoneId.systemDefault()
+): Long = atStartOfDay(zoneId).toInstant().toEpochMilli()
+
+/**
  * 页面展示层经常需要把时间戳转换为本地时间文本，
  * 抽出 LocalDateTime 版本可让 UI 层复用同一条转换路径并减少样板代码。
  */

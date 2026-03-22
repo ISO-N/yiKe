@@ -1,7 +1,9 @@
 package com.kariscode.yike.domain.scheduler
 
-import com.kariscode.yike.core.time.toInstant
+import com.kariscode.yike.core.time.toLocalDate
+import com.kariscode.yike.core.time.toStartOfDayEpochMillis
 import com.kariscode.yike.domain.model.ReviewRating
+import java.time.ZoneId
 import java.time.temporal.ChronoUnit
 
 /**
@@ -20,7 +22,8 @@ class ReviewSchedulerV1(
         rating: ReviewRating,
         reviewedAtEpochMillis: Long,
         dueAtEpochMillis: Long? = null,
-        intervalStepCount: Int = intervalDaysByStage.size
+        intervalStepCount: Int = intervalDaysByStage.size,
+        zoneId: ZoneId = ZoneId.systemDefault()
     ): ReviewScheduleResult {
         val normalizedIntervalStepCount = normalizeIntervalStepCount(
             intervalStepCount = intervalStepCount,
@@ -31,7 +34,8 @@ class ReviewSchedulerV1(
             currentStageIndex = currentStageIndex,
             dueAtEpochMillis = dueAtEpochMillis,
             reviewedAtEpochMillis = reviewedAtEpochMillis,
-            intervalStepCount = normalizedIntervalStepCount
+            intervalStepCount = normalizedIntervalStepCount,
+            zoneId = zoneId
         )
         val maxStageIndex = effectiveIntervalDaysByStage.lastIndex
         val nextStageIndex = when (rating) {
@@ -43,9 +47,9 @@ class ReviewSchedulerV1(
 
         val intervalDays = effectiveIntervalDaysByStage[nextStageIndex]
         val nextDueAt = reviewedAtEpochMillis
-            .toInstant()
-            .plus(intervalDays.toLong(), ChronoUnit.DAYS)
-            .toEpochMilli()
+            .toLocalDate(zoneId)
+            .plusDays(intervalDays.toLong())
+            .toStartOfDayEpochMillis(zoneId)
 
         return ReviewScheduleResult(
             nextStageIndex = nextStageIndex,
@@ -67,7 +71,8 @@ class ReviewSchedulerV1(
         currentStageIndex: Int,
         dueAtEpochMillis: Long?,
         reviewedAtEpochMillis: Long,
-        intervalStepCount: Int = intervalDaysByStage.size
+        intervalStepCount: Int = intervalDaysByStage.size,
+        zoneId: ZoneId = ZoneId.systemDefault()
     ): ReviewOverdueAssessment {
         val effectiveIntervalDaysByStage = intervalDaysByStage.take(
             normalizeIntervalStepCount(
@@ -78,12 +83,12 @@ class ReviewSchedulerV1(
         val maxStageIndex = effectiveIntervalDaysByStage.lastIndex
         val boundedCurrentStage = currentStageIndex.coerceIn(0, maxStageIndex)
         val plannedIntervalDays = effectiveIntervalDaysByStage[boundedCurrentStage]
-        val overdueDurationMillis = dueAtEpochMillis
-            ?.let { dueAt -> (reviewedAtEpochMillis - dueAt).coerceAtLeast(0L) }
-            ?: 0L
-        val overdueRatio = overdueDurationMillis.toDouble() /
-            (plannedIntervalDays.toDouble() * MILLIS_PER_DAY.toDouble())
-        val overdueDays = (overdueDurationMillis / MILLIS_PER_DAY).toInt()
+        val overdueDays = dueAtEpochMillis
+            ?.let { dueAtEpochMillis.toLocalDate(zoneId).until(reviewedAtEpochMillis.toLocalDate(zoneId), ChronoUnit.DAYS) }
+            ?.coerceAtLeast(0L)
+            ?.toInt()
+            ?: 0
+        val overdueRatio = overdueDays.toDouble() / plannedIntervalDays.toDouble()
         val effectiveStageIndex = decayStageByOverdue(
             currentStageIndex = boundedCurrentStage,
             overdueRatio = overdueRatio
@@ -122,7 +127,6 @@ class ReviewSchedulerV1(
         const val MIN_INTERVAL_STEP_COUNT: Int = 1
         const val DEFAULT_INTERVAL_STEP_COUNT: Int = 8
         const val MAX_INTERVAL_STEP_COUNT: Int = 8
-        private const val MILLIS_PER_DAY: Long = 86_400_000L
 
         /**
          * 卡组只允许裁剪默认序列长度而不允许自定义天数，是为了先满足“短期卡组不需要拉满 8 段”

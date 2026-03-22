@@ -8,12 +8,10 @@ import com.kariscode.yike.domain.model.QuestionEditorDraftItemSnapshot
 import com.kariscode.yike.domain.model.QuestionEditorDraftSnapshot
 import com.kariscode.yike.domain.model.QuestionStatus
 import com.kariscode.yike.domain.scheduler.InitialDueAtCalculator
-import com.kariscode.yike.testsupport.FakeAppSettingsRepository
 import com.kariscode.yike.testsupport.FakeCardRepository
 import com.kariscode.yike.testsupport.FakeQuestionEditorDraftRepository
 import com.kariscode.yike.testsupport.FakeQuestionRepository
 import com.kariscode.yike.testsupport.FixedTimeProvider
-import com.kariscode.yike.testsupport.defaultAppSettings
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.launch
@@ -231,12 +229,6 @@ class QuestionEditorViewModelTest {
         Dispatchers.setMain(dispatcher)
         try {
             val timeProvider = FixedTimeProvider(nowEpochMillis = 1_700_000_000_000L)
-            val settingsRepository = FakeAppSettingsRepository(
-                defaultAppSettings().copy(
-                    dailyReminderHour = 7,
-                    dailyReminderMinute = 45
-                )
-            )
             val cardRepository = FakeCardRepository().apply {
                 cardById["card_1"] = card(id = "card_1", title = "原始标题")
             }
@@ -250,7 +242,6 @@ class QuestionEditorViewModelTest {
                 cardRepository = cardRepository,
                 questionRepository = questionRepository,
                 draftRepository = draftRepository,
-                appSettingsRepository = settingsRepository,
                 timeProvider = timeProvider
             )
             advanceUntilIdle()
@@ -265,9 +256,7 @@ class QuestionEditorViewModelTest {
 
             val persistedQuestion = questionRepository.upsertCalls.single().single()
             val expectedDueAt = InitialDueAtCalculator.compute(
-                nowEpochMillis = timeProvider.nowEpochMillis(),
-                reminderHour = 7,
-                reminderMinute = 45
+                nowEpochMillis = timeProvider.nowEpochMillis()
             )
 
             assertEquals("新题", persistedQuestion.prompt)
@@ -342,7 +331,6 @@ class QuestionEditorViewModelTest {
         },
         questionRepository: FakeQuestionRepository = FakeQuestionRepository(),
         draftRepository: FakeQuestionEditorDraftRepository = FakeQuestionEditorDraftRepository(),
-        appSettingsRepository: FakeAppSettingsRepository = FakeAppSettingsRepository(),
         timeProvider: FixedTimeProvider = FixedTimeProvider(nowEpochMillis = 1_700_000_000_000L)
     ): QuestionEditorViewModel = QuestionEditorViewModel(
         cardId = "card_1",
@@ -350,7 +338,6 @@ class QuestionEditorViewModelTest {
         cardRepository = cardRepository,
         questionRepository = questionRepository,
         questionEditorDraftRepository = draftRepository,
-        appSettingsRepository = appSettingsRepository,
         timeProvider = timeProvider
     )
 

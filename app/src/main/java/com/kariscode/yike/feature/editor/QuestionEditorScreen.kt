@@ -51,7 +51,6 @@ fun QuestionEditorScreen(
             cardRepository = container.cardRepository,
             questionRepository = container.questionRepository,
             questionEditorDraftRepository = container.questionEditorDraftRepository,
-            appSettingsRepository = container.appSettingsRepository,
             timeProvider = container.timeProvider
         )
     )

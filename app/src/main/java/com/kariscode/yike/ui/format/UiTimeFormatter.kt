@@ -1,6 +1,7 @@
 package com.kariscode.yike.ui.format
 
 import com.kariscode.yike.core.time.toInstant
+import com.kariscode.yike.core.time.toLocalDate
 import com.kariscode.yike.core.time.toLocalDateTime
 import com.kariscode.yike.core.time.TimeTextFormatter
 import java.time.ZoneId
@@ -23,6 +24,11 @@ object UiDateTimeFormatters {
      * 预览类页面刻意省去年份，是为了让移动端首屏优先承载“今天先做什么”而不是冗余时间上下文。
      */
     val PREVIEW_DATE = DateTimeFormatter.ofPattern("M 月 d 日 HH:mm")
+
+    /**
+     * 自然日调度只强调“哪一天需要复习”，因此到期信息单独保留到月日，避免把 00:00 误读成提醒时刻。
+     */
+    val PREVIEW_DAY = DateTimeFormatter.ofPattern("M 月 d 日")
 }
 
 /**
@@ -34,6 +40,14 @@ fun formatPreviewDateTime(epochMillis: Long, zoneId: ZoneId = ZoneId.systemDefau
         .toInstant()
         .atZone(zoneId)
         .format(UiDateTimeFormatters.PREVIEW_DATE)
+
+/**
+ * 到期日期统一格式化为月日文本，是为了让自然日调度在所有入口都表达成“哪一天该复习”，而不是实现细节上的零点。
+ */
+fun formatPreviewDay(epochMillis: Long, zoneId: ZoneId = ZoneId.systemDefault()): String =
+    epochMillis
+        .toLocalDate(zoneId)
+        .format(UiDateTimeFormatters.PREVIEW_DAY)
 
 /**
  * 提醒时间统一走共享格式化入口，是为了让设置页、提醒说明和后续可能出现的提醒摘要保持同一显示口径。

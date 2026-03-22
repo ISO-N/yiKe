@@ -38,7 +38,7 @@
 当前调度逻辑的关键点是：
 
 1. 先根据评分得到下一阶段
-2. 再使用 `reviewedAt + intervalDays` 计算新的 `dueAt`
+2. 再使用 `reviewedAt` 所在本地日期推进 `intervalDays`，并取目标自然日 `00:00` 作为新的 `dueAt`
 3. 不根据 `dueAt` 与 `reviewedAt` 的差值做额外修正
 
 这意味着：
@@ -287,7 +287,7 @@ enum class QuestionState {
 ### 7.1 术语定义
 
 - `plannedIntervalDays`：当前阶段对应的计划间隔天数
-- `overdueDays`：`max(0, reviewedAt - dueAt)` 换算后的过期天数
+- `overdueDays`：`reviewedAt` 本地日期与 `dueAt` 本地日期的自然日差值
 - `overdueRatio`：`overdueDays / plannedIntervalDays`
 - `effectiveStage`：在应用评分前，经过过期衰减后的临时阶段
 

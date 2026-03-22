@@ -1,6 +1,7 @@
 package com.kariscode.yike.domain.scheduler
 
 import com.kariscode.yike.domain.model.ReviewRating
+import java.time.ZoneId
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -11,6 +12,8 @@ import org.junit.Test
  * 避免后续 UI 或事务实现调整时悄悄改坏调度节奏。
  */
 class ReviewSchedulerV1Test {
+    private val utcZoneId: ZoneId = ZoneId.of("UTC")
+
     /**
      * AGAIN 必须重置到 0 并标记 lapse，以便写库事务正确递增 lapseCount。
      */
@@ -22,7 +25,8 @@ class ReviewSchedulerV1Test {
         val result = scheduler.scheduleNext(
             currentStageIndex = 4,
             rating = ReviewRating.AGAIN,
-            reviewedAtEpochMillis = reviewedAt
+            reviewedAtEpochMillis = reviewedAt,
+            zoneId = utcZoneId
         )
 
         assertEquals(0, result.nextStageIndex)
@@ -42,7 +46,8 @@ class ReviewSchedulerV1Test {
         val result = scheduler.scheduleNext(
             currentStageIndex = 6,
             rating = ReviewRating.EASY,
-            reviewedAtEpochMillis = reviewedAt
+            reviewedAtEpochMillis = reviewedAt,
+            zoneId = utcZoneId
         )
 
         assertEquals(7, result.nextStageIndex)
@@ -61,12 +66,13 @@ class ReviewSchedulerV1Test {
         val result = scheduler.scheduleNext(
             currentStageIndex = 0,
             rating = ReviewRating.HARD,
-            reviewedAtEpochMillis = reviewedAt
+            reviewedAtEpochMillis = reviewedAt,
+            zoneId = utcZoneId
         )
 
         assertEquals(0, result.nextStageIndex)
         assertEquals(1, result.intervalDays)
-        assertEquals(reviewedAt + 86_400_000L, result.nextDueAtEpochMillis)
+        assertEquals(86_400_000L, result.nextDueAtEpochMillis)
     }
 
     // ── GOOD 评分 ────────────────────────────────────────────
@@ -82,7 +88,8 @@ class ReviewSchedulerV1Test {
         val result = scheduler.scheduleNext(
             currentStageIndex = 0,
             rating = ReviewRating.GOOD,
-            reviewedAtEpochMillis = reviewedAt
+            reviewedAtEpochMillis = reviewedAt,
+            zoneId = utcZoneId
         )
 
         assertEquals(1, result.nextStageIndex)
@@ -102,7 +109,8 @@ class ReviewSchedulerV1Test {
         val result = scheduler.scheduleNext(
             currentStageIndex = 3,
             rating = ReviewRating.GOOD,
-            reviewedAtEpochMillis = reviewedAt
+            reviewedAtEpochMillis = reviewedAt,
+            zoneId = utcZoneId
         )
 
         assertEquals(4, result.nextStageIndex)
@@ -121,7 +129,8 @@ class ReviewSchedulerV1Test {
         val result = scheduler.scheduleNext(
             currentStageIndex = 7,
             rating = ReviewRating.GOOD,
-            reviewedAtEpochMillis = reviewedAt
+            reviewedAtEpochMillis = reviewedAt,
+            zoneId = utcZoneId
         )
 
         assertEquals(7, result.nextStageIndex)
@@ -142,7 +151,8 @@ class ReviewSchedulerV1Test {
         val result = scheduler.scheduleNext(
             currentStageIndex = 3,
             rating = ReviewRating.HARD,
-            reviewedAtEpochMillis = reviewedAt
+            reviewedAtEpochMillis = reviewedAt,
+            zoneId = utcZoneId
         )
 
         assertEquals(2, result.nextStageIndex)
@@ -162,7 +172,8 @@ class ReviewSchedulerV1Test {
         val result = scheduler.scheduleNext(
             currentStageIndex = 1,
             rating = ReviewRating.HARD,
-            reviewedAtEpochMillis = reviewedAt
+            reviewedAtEpochMillis = reviewedAt,
+            zoneId = utcZoneId
         )
 
         assertEquals(0, result.nextStageIndex)
@@ -182,7 +193,8 @@ class ReviewSchedulerV1Test {
         val result = scheduler.scheduleNext(
             currentStageIndex = 0,
             rating = ReviewRating.AGAIN,
-            reviewedAtEpochMillis = reviewedAt
+            reviewedAtEpochMillis = reviewedAt,
+            zoneId = utcZoneId
         )
 
         assertEquals(0, result.nextStageIndex)
@@ -201,7 +213,8 @@ class ReviewSchedulerV1Test {
         val result = scheduler.scheduleNext(
             currentStageIndex = 7,
             rating = ReviewRating.AGAIN,
-            reviewedAtEpochMillis = reviewedAt
+            reviewedAtEpochMillis = reviewedAt,
+            zoneId = utcZoneId
         )
 
         assertEquals(0, result.nextStageIndex)
@@ -222,7 +235,8 @@ class ReviewSchedulerV1Test {
         val result = scheduler.scheduleNext(
             currentStageIndex = 0,
             rating = ReviewRating.EASY,
-            reviewedAtEpochMillis = reviewedAt
+            reviewedAtEpochMillis = reviewedAt,
+            zoneId = utcZoneId
         )
 
         assertEquals(2, result.nextStageIndex)
@@ -242,7 +256,8 @@ class ReviewSchedulerV1Test {
         val result = scheduler.scheduleNext(
             currentStageIndex = 7,
             rating = ReviewRating.EASY,
-            reviewedAtEpochMillis = reviewedAt
+            reviewedAtEpochMillis = reviewedAt,
+            zoneId = utcZoneId
         )
 
         assertEquals(7, result.nextStageIndex)
@@ -262,7 +277,8 @@ class ReviewSchedulerV1Test {
             currentStageIndex = 3,
             rating = ReviewRating.GOOD,
             reviewedAtEpochMillis = reviewedAt,
-            intervalStepCount = 4
+            intervalStepCount = 4,
+            zoneId = utcZoneId
         )
 
         assertEquals(3, result.nextStageIndex)
@@ -283,7 +299,8 @@ class ReviewSchedulerV1Test {
         val result = scheduler.scheduleNext(
             currentStageIndex = -5,
             rating = ReviewRating.GOOD,
-            reviewedAtEpochMillis = reviewedAt
+            reviewedAtEpochMillis = reviewedAt,
+            zoneId = utcZoneId
         )
 
         assertEquals(1, result.nextStageIndex)
@@ -301,7 +318,8 @@ class ReviewSchedulerV1Test {
         val result = scheduler.scheduleNext(
             currentStageIndex = 100,
             rating = ReviewRating.GOOD,
-            reviewedAtEpochMillis = reviewedAt
+            reviewedAtEpochMillis = reviewedAt,
+            zoneId = utcZoneId
         )
 
         assertEquals(7, result.nextStageIndex)
@@ -311,22 +329,32 @@ class ReviewSchedulerV1Test {
     // ── 间隔天数与 dueAt 一致性 ──────────────────────────────
 
     /**
-     * 验证所有阶段的 intervalDays 与 dueAt 之间的换算始终一致。
+     * 自然日模式下 dueAt 应始终落在目标日期的零点，避免复习发生在晚间时把零碎小时也带进下一轮。
      */
     @Test
-    fun dueAt_alwaysEqualsReviewedAtPlusIntervalDays() {
+    fun dueAt_alwaysLandsOnStartOfTargetDay() {
         val scheduler = ReviewSchedulerV1()
-        val reviewedAt = 1_000_000_000_000L
+        val reviewedAt = 1_000_000_045_000L
 
         for (stage in 0..7) {
             for (rating in ReviewRating.entries) {
                 val result = scheduler.scheduleNext(
                     currentStageIndex = stage,
                     rating = rating,
-                    reviewedAtEpochMillis = reviewedAt
+                    reviewedAtEpochMillis = reviewedAt,
+                    zoneId = utcZoneId
                 )
 
-                val expectedDueAt = reviewedAt + result.intervalDays.toLong() * 86_400_000L
+                val expectedDueAt = utcZoneId
+                    .let { zoneId ->
+                        java.time.Instant.ofEpochMilli(reviewedAt)
+                            .atZone(zoneId)
+                            .toLocalDate()
+                            .plusDays(result.intervalDays.toLong())
+                            .atStartOfDay(zoneId)
+                            .toInstant()
+                            .toEpochMilli()
+                    }
                 assertEquals(
                     "stage=$stage, rating=$rating",
                     expectedDueAt,
@@ -345,7 +373,8 @@ class ReviewSchedulerV1Test {
         val assessment = scheduler.assessOverdueState(
             currentStageIndex = 4,
             dueAtEpochMillis = 20L * 86_400_000L,
-            reviewedAtEpochMillis = 30L * 86_400_000L
+            reviewedAtEpochMillis = 30L * 86_400_000L,
+            zoneId = utcZoneId
         )
 
         assertEquals(4, assessment.boundedCurrentStageIndex)
@@ -367,7 +396,8 @@ class ReviewSchedulerV1Test {
             currentStageIndex = 4,
             rating = ReviewRating.GOOD,
             reviewedAtEpochMillis = reviewedAt,
-            dueAtEpochMillis = 15L * 86_400_000L
+            dueAtEpochMillis = 15L * 86_400_000L,
+            zoneId = utcZoneId
         )
 
         assertEquals(3, result.effectiveStageIndex)
@@ -389,7 +419,8 @@ class ReviewSchedulerV1Test {
             currentStageIndex = 7,
             rating = ReviewRating.GOOD,
             reviewedAtEpochMillis = reviewedAt,
-            dueAtEpochMillis = 180L * 86_400_000L
+            dueAtEpochMillis = 180L * 86_400_000L,
+            zoneId = utcZoneId
         )
 
         assertEquals(0, result.effectiveStageIndex)
@@ -397,7 +428,7 @@ class ReviewSchedulerV1Test {
         assertEquals(800, result.overdueDays)
         assertEquals(1, result.nextStageIndex)
         assertEquals(2, result.intervalDays)
-        assertEquals(reviewedAt + 2L * 86_400_000L, result.nextDueAtEpochMillis)
+        assertEquals(982L * 86_400_000L, result.nextDueAtEpochMillis)
     }
 
     /**
@@ -409,11 +440,30 @@ class ReviewSchedulerV1Test {
         val assessment = scheduler.assessOverdueState(
             currentStageIndex = 1,
             dueAtEpochMillis = 2L * 86_400_000L,
-            reviewedAtEpochMillis = 20L * 86_400_000L
+            reviewedAtEpochMillis = 20L * 86_400_000L,
+            zoneId = utcZoneId
         )
 
         assertEquals(1, assessment.effectiveStageIndex)
         assertEquals(0, assessment.decayLevel)
+        assertFalse(assessment.hasDecay)
+    }
+
+    /**
+     * 自然日逾期只应看本地日期差，避免题目当天凌晨到期后，晚上复习就被错误放大为接近两天的逾期。
+     */
+    @Test
+    fun assessOverdueState_usesLocalDateDifferenceInsteadOfElapsedHours() {
+        val scheduler = ReviewSchedulerV1()
+        val assessment = scheduler.assessOverdueState(
+            currentStageIndex = 2,
+            dueAtEpochMillis = 10L * 86_400_000L,
+            reviewedAtEpochMillis = 11L * 86_400_000L + 23L * 3_600_000L,
+            zoneId = utcZoneId
+        )
+
+        assertEquals(1, assessment.overdueDays)
+        assertEquals(0.25, assessment.overdueRatio, 0.0001)
         assertFalse(assessment.hasDecay)
     }
 }

@@ -15,7 +15,6 @@ import com.kariscode.yike.domain.model.Question
 import com.kariscode.yike.domain.model.QuestionEditorDraftItemSnapshot
 import com.kariscode.yike.domain.model.QuestionEditorDraftSnapshot
 import com.kariscode.yike.domain.model.QuestionStatus
-import com.kariscode.yike.domain.repository.AppSettingsRepository
 import com.kariscode.yike.domain.repository.CardRepository
 import com.kariscode.yike.domain.repository.QuestionEditorDraftRepository
 import com.kariscode.yike.domain.repository.QuestionRepository
@@ -50,7 +49,6 @@ class QuestionEditorViewModel(
     private val cardRepository: CardRepository,
     private val questionRepository: QuestionRepository,
     private val questionEditorDraftRepository: QuestionEditorDraftRepository,
-    private val appSettingsRepository: AppSettingsRepository,
     private val timeProvider: TimeProvider
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(
@@ -379,11 +377,8 @@ class QuestionEditorViewModel(
         trimmedTitle: String
     ) {
         val now = timeProvider.nowEpochMillis()
-        val settings = appSettingsRepository.getSettings()
         val initialDueAt = InitialDueAtCalculator.compute(
-            nowEpochMillis = now,
-            reminderHour = settings.dailyReminderHour,
-            reminderMinute = settings.dailyReminderMinute
+            nowEpochMillis = now
         )
         val updatedCard = card.copy(
             title = trimmedTitle,
@@ -643,7 +638,6 @@ class QuestionEditorViewModel(
             cardRepository: CardRepository,
             questionRepository: QuestionRepository,
             questionEditorDraftRepository: QuestionEditorDraftRepository,
-            appSettingsRepository: AppSettingsRepository,
             timeProvider: TimeProvider
         ): ViewModelProvider.Factory = typedViewModelFactory {
             QuestionEditorViewModel(
@@ -652,7 +646,6 @@ class QuestionEditorViewModel(
                 cardRepository = cardRepository,
                 questionRepository = questionRepository,
                 questionEditorDraftRepository = questionEditorDraftRepository,
-                appSettingsRepository = appSettingsRepository,
                 timeProvider = timeProvider
             )
         }
