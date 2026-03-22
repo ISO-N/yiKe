@@ -115,7 +115,8 @@ interface DeckDao {
     fun observeArchivedDeckSummaries(activeStatus: String, nowEpochMillis: Long): Flow<List<DeckSummaryRow>>
 
     /**
-     * 首页最近卡组只需要一小段快照，数据库侧限量可以避免先构造完整列表再让上层截断。
+     * 首页最近卡组要优先露出“今天有到期内容”的卡组，再回落到最近维护的内容，
+     * 这样首页文案和真正展示出来的入口顺序才不会互相冲突。
      */
     @Query(
         """
@@ -137,7 +138,10 @@ interface DeckDao {
         LEFT JOIN question q ON q.cardId = c.id AND q.status = :activeStatus
         WHERE d.archived = 0
         GROUP BY d.id
-        ORDER BY d.sortOrder ASC, d.createdAt ASC
+        ORDER BY
+            CASE WHEN dueQuestionCount > 0 THEN 0 ELSE 1 END ASC,
+            d.updatedAt DESC,
+            d.createdAt DESC
         LIMIT :limit
         """
     )
