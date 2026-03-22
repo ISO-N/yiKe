@@ -207,6 +207,44 @@ class YikeDatabaseIntegrationTest {
     }
 
     /**
+     * 首页最近卡组必须优先展示今天仍有到期题目的卡组，
+     * 否则用户会在第一屏看不到真正该先处理的内容入口。
+     */
+    @Test
+    fun listRecentActiveDeckSummaries_prioritizesDueDecksThenRecentlyUpdatedDecks() = runBlocking {
+        database.deckDao().upsert(
+            createDeck(id = "deck_old_due", archived = false).copy(updatedAt = 10L)
+        )
+        database.deckDao().upsert(
+            createDeck(id = "deck_recent_clear", archived = false).copy(updatedAt = 90L)
+        )
+        database.deckDao().upsert(
+            createDeck(id = "deck_latest_due", archived = false).copy(updatedAt = 120L)
+        )
+        database.cardDao().upsert(createCard(id = "card_old_due", deckId = "deck_old_due", archived = false))
+        database.cardDao().upsert(createCard(id = "card_recent_clear", deckId = "deck_recent_clear", archived = false))
+        database.cardDao().upsert(createCard(id = "card_latest_due", deckId = "deck_latest_due", archived = false))
+        database.questionDao().upsertAll(
+            listOf(
+                createQuestion(id = "q_old_due", cardId = "card_old_due", dueAt = 1_000L),
+                createQuestion(id = "q_recent_future", cardId = "card_recent_clear", dueAt = 9_000L),
+                createQuestion(id = "q_latest_due", cardId = "card_latest_due", dueAt = 1_500L)
+            )
+        )
+
+        val summaries = database.deckDao().listRecentActiveDeckSummaries(
+            activeStatus = QuestionEntity.STATUS_ACTIVE,
+            nowEpochMillis = 2_000L,
+            limit = 3
+        )
+
+        assertEquals(
+            listOf("deck_latest_due", "deck_old_due", "deck_recent_clear"),
+            summaries.map { row -> row.id }
+        )
+    }
+
+    /**
      * 归档卡片列表必须带出所属卡组名称与题量，
      * 否则回收站无法给恢复动作提供足够上下文。
      */
