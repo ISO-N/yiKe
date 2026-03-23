@@ -150,6 +150,7 @@ textarea {
 .sidebar-actions,
 .list-stack,
 .metric-grid,
+.study-grid,
 .content-grid,
 .editor-grid,
 .two-column,
@@ -231,8 +232,158 @@ textarea {
     grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
+.study-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
 .editor-grid {
     grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+}
+
+.study-summary-card,
+.study-session-body,
+.practice-config-grid,
+.practice-footer,
+.option-list,
+.practice-scope-panel,
+.study-question-card,
+.study-action-row,
+.study-status-row {
+    display: grid;
+    gap: 12px;
+}
+
+.study-summary-card {
+    padding: 18px;
+    border-radius: 20px;
+    background: rgba(11, 111, 105, 0.06);
+    border: 1px solid rgba(11, 111, 105, 0.14);
+}
+
+.practice-config-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.practice-scope-panel {
+    padding: 16px;
+    border-radius: 18px;
+    background: rgba(255, 255, 255, 0.9);
+    border: 1px solid var(--border);
+    align-content: start;
+}
+
+.option-list {
+    max-height: 280px;
+    overflow: auto;
+    align-content: start;
+}
+
+.option-item {
+    padding: 12px 14px;
+    border-radius: 16px;
+    border: 1px solid var(--border);
+    background: rgba(11, 111, 105, 0.03);
+    display: grid;
+    gap: 4px;
+}
+
+.option-item label {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 10px;
+    align-items: start;
+}
+
+.option-item input[type="checkbox"] {
+    width: auto;
+    margin-top: 2px;
+    padding: 0;
+}
+
+.practice-footer {
+    grid-template-columns: minmax(180px, 220px) minmax(0, 1fr);
+    align-items: end;
+}
+
+.study-session-body {
+    align-content: start;
+}
+
+.study-status-row,
+.study-action-row {
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.study-badge {
+    display: inline-flex;
+    align-items: center;
+    min-height: 32px;
+    padding: 0 12px;
+    border-radius: 999px;
+    background: rgba(11, 111, 105, 0.1);
+    color: var(--primary);
+    font-weight: 700;
+}
+
+.study-question-card {
+    padding: 18px;
+    border-radius: 20px;
+    background: var(--surface-strong);
+    border: 1px solid var(--border);
+}
+
+.study-answer {
+    padding: 16px;
+    border-radius: 18px;
+    background: rgba(11, 111, 105, 0.06);
+    border: 1px dashed rgba(11, 111, 105, 0.18);
+}
+
+.study-rating-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 10px;
+}
+
+.study-rating-button {
+    min-height: 52px;
+    padding: 10px 12px;
+    border-radius: 16px;
+    background: var(--surface-strong);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-weight: 700;
+}
+
+.study-rating-button:hover {
+    transform: translateY(-1px);
+}
+
+.study-rating-button.is-danger {
+    color: var(--danger);
+    border-color: rgba(180, 67, 53, 0.18);
+    background: rgba(180, 67, 53, 0.05);
+}
+
+.study-rating-button.is-primary {
+    color: var(--primary);
+}
+
+.study-rating-button.is-strong {
+    background: rgba(11, 111, 105, 0.08);
+}
+
+.study-session-empty {
+    padding: 20px;
+    border-radius: 18px;
+    border: 1px dashed rgba(11, 111, 105, 0.2);
+    background: rgba(11, 111, 105, 0.04);
+}
+
+.study-inline-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
 }
 
 .item {
@@ -353,6 +504,10 @@ textarea {
 }
 
 @media (min-width: 1280px) {
+    .study-grid {
+        grid-template-columns: minmax(360px, 0.95fr) minmax(0, 1.25fr);
+    }
+
     .content-grid {
         grid-template-columns: minmax(260px, 1fr) minmax(260px, 1fr) minmax(320px, 1.1fr);
     }
@@ -377,6 +532,11 @@ textarea {
     .content-grid {
         grid-template-columns: 1fr;
     }
+
+    .study-grid,
+    .practice-config-grid {
+        grid-template-columns: 1fr;
+    }
 }
 
 @media (max-width: 720px) {
@@ -391,6 +551,11 @@ textarea {
 
     .search-form,
     .two-column {
+        grid-template-columns: 1fr;
+    }
+
+    .practice-footer,
+    .study-rating-grid {
         grid-template-columns: 1fr;
     }
 }

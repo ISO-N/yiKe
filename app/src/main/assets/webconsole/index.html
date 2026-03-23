@@ -39,7 +39,8 @@
             <p id="session-summary" class="muted">正在读取服务状态…</p>
         </div>
         <nav class="nav-list">
-            <button class="nav-button is-active" data-section="overview">概览</button>
+            <button class="nav-button is-active" data-section="study">学习工作区</button>
+            <button class="nav-button" data-section="overview">概览</button>
             <button class="nav-button" data-section="content">内容管理</button>
             <button class="nav-button" data-section="search">搜索</button>
             <button class="nav-button" data-section="analytics">统计</button>
@@ -56,12 +57,86 @@
         <header class="topbar">
             <div>
                 <p class="eyebrow">局域网控制台</p>
-                <h1 id="section-title">概览</h1>
+                <h1 id="section-title">学习工作区</h1>
             </div>
             <div id="global-message" class="toast" hidden></div>
         </header>
 
-        <section id="section-overview" class="section is-active">
+        <section id="section-study" class="section is-active">
+            <div id="study-overview-metrics" class="metric-grid"></div>
+            <div class="study-grid">
+                <article class="card stack">
+                    <div class="card-head">
+                        <div>
+                            <h3>今日复习</h3>
+                            <p class="muted">浏览器端沿用正式复习语义，会写入正式复习记录。</p>
+                        </div>
+                        <button id="start-review-button" class="primary-button" type="button">开始复习</button>
+                    </div>
+                    <div id="review-workspace-summary" class="study-summary-card">
+                        正在读取今日待复习规模…
+                    </div>
+                </article>
+
+                <article class="card stack">
+                    <div class="card-head">
+                        <div>
+                            <h3>自由练习</h3>
+                            <p class="muted">只做题面、答案与切题，不写入 `ReviewRecord`，也不改变调度状态。</p>
+                        </div>
+                        <button id="start-practice-button" class="primary-button" type="button">开始练习</button>
+                    </div>
+                    <div id="practice-workspace-summary" class="study-summary-card">
+                        先选择练习范围，再决定顺序模式。
+                    </div>
+                    <div class="practice-config-grid">
+                        <div class="practice-scope-panel">
+                            <div class="item-head">
+                                <strong>卡组范围</strong>
+                                <span id="practice-deck-count" class="muted">0 已选</span>
+                            </div>
+                            <div id="practice-deck-options" class="option-list"></div>
+                        </div>
+                        <div class="practice-scope-panel">
+                            <div class="item-head">
+                                <strong>卡片范围</strong>
+                                <span id="practice-card-count" class="muted">0 已选</span>
+                            </div>
+                            <div id="practice-card-options" class="option-list empty-state">先选择至少一个卡组。</div>
+                        </div>
+                        <div class="practice-scope-panel">
+                            <div class="item-head">
+                                <strong>题目范围</strong>
+                                <span id="practice-question-count" class="muted">0 已选</span>
+                            </div>
+                            <div id="practice-question-options" class="option-list empty-state">先选择至少一个卡片。</div>
+                        </div>
+                    </div>
+                    <div class="practice-footer">
+                        <label>顺序模式
+                            <select id="practice-order-mode">
+                                <option value="sequential">稳定顺序</option>
+                                <option value="random">单次随机</option>
+                            </select>
+                        </label>
+                        <p id="practice-selection-summary" class="muted">当前尚未选择练习范围。</p>
+                    </div>
+                </article>
+            </div>
+
+            <article id="study-session-card" class="card stack" hidden>
+                <div class="card-head">
+                    <div>
+                        <h3 id="study-session-title">当前学习会话</h3>
+                        <p id="study-session-subtitle" class="muted">刷新后会自动恢复到最近一次有效学习上下文。</p>
+                    </div>
+                    <button id="end-study-session-button" class="ghost-button" type="button">结束当前会话</button>
+                </div>
+                <div id="study-session-content" class="study-session-body"></div>
+            </article>
+        </section>
+
+        <section id="section-overview" class="section">
             <div class="metric-grid" id="overview-metrics"></div>
             <div class="card">
                 <div class="card-head">

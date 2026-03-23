@@ -1,5 +1,5 @@
 const state = {
-    currentSection: "overview",
+    currentSection: "study",
     selectedDeckId: null,
     selectedCardId: null,
     decks: [],
@@ -8,6 +8,18 @@ const state = {
     selectedBackupFile: null,
     isExporting: false,
     isRestoring: false,
+    studyWorkspace: null,
+    studySession: null,
+    practiceSelection: {
+        selectedDeckIds: new Set(),
+        selectedCardIds: new Set(),
+        selectedQuestionIds: new Set(),
+        cardsByDeckId: new Map(),
+        questionsByCardId: new Map(),
+        orderMode: "sequential",
+        isLoadingCards: false,
+        isLoadingQuestions: false,
+    },
 };
 
 const loginView = document.querySelector("#login-view");
@@ -30,6 +42,14 @@ const exportBackupButton = document.querySelector("#export-backup-button");
 const contentSelectionSummary = document.querySelector("#content-selection-summary");
 const newCardButton = document.querySelector("#new-card-button");
 const newQuestionButton = document.querySelector("#new-question-button");
+const studySessionCard = document.querySelector("#study-session-card");
+const studySessionTitle = document.querySelector("#study-session-title");
+const studySessionSubtitle = document.querySelector("#study-session-subtitle");
+const studySessionContent = document.querySelector("#study-session-content");
+const startReviewButton = document.querySelector("#start-review-button");
+const startPracticeButton = document.querySelector("#start-practice-button");
+const endStudySessionButton = document.querySelector("#end-study-session-button");
+const practiceOrderModeSelect = document.querySelector("#practice-order-mode");
 
 document.querySelectorAll(".nav-button").forEach((button) => {
     button.addEventListener("click", () => switchSection(button.dataset.section));
@@ -40,6 +60,13 @@ document.querySelector("#refresh-button").addEventListener("click", refreshAll);
 document.querySelector("#new-deck-button").addEventListener("click", () => openDeckForm());
 newCardButton.addEventListener("click", () => openCardForm());
 newQuestionButton.addEventListener("click", () => openQuestionForm());
+startReviewButton.addEventListener("click", startReviewSession);
+startPracticeButton.addEventListener("click", startPracticeSession);
+endStudySessionButton.addEventListener("click", endStudySession);
+practiceOrderModeSelect.addEventListener("change", (event) => {
+    state.practiceSelection.orderMode = event.currentTarget.value;
+    renderPracticeSelectionSummary();
+});
 deckForm.addEventListener("submit", submitDeckForm);
 cardForm.addEventListener("submit", submitCardForm);
 questionForm.addEventListener("submit", submitQuestionForm);
@@ -78,6 +105,8 @@ loginForm.addEventListener("submit", async (event) => {
 
 bootstrap();
 updateCommandAvailability();
+renderPracticeSelection();
+renderStudySession();
 updateRestoreControls();
 
 async function bootstrap() {
@@ -103,6 +132,8 @@ async function getSession() {
 
 async function refreshAll() {
     await Promise.all([
+        loadStudyWorkspace(),
+        loadStudySession(),
         loadDashboard(),
         loadDecks(),
         loadAnalytics(),
@@ -127,10 +158,26 @@ async function loadDashboard() {
     bindDeckActions(recentDecks, payload.recentDecks);
 }
 
+async function loadStudyWorkspace() {
+    const payload = await fetchJson("/api/web-console/v1/study/workspace");
+    if (!payload) return;
+    state.studyWorkspace = payload;
+    renderStudyWorkspace();
+}
+
+async function loadStudySession() {
+    const payload = await fetchOptionalJson("/api/web-console/v1/study/session");
+    if (payload === undefined) return;
+    state.studySession = payload;
+    renderStudyWorkspace();
+    renderStudySession();
+}
+
 async function loadDecks() {
     const payload = await fetchJson("/api/web-console/v1/decks");
     if (!payload) return;
     state.decks = payload;
+    prunePracticeDeckSelection();
     const list = document.querySelector("#deck-list");
     list.innerHTML = payload.length
         ? payload.map(renderDeckItem).join("")
@@ -150,6 +197,7 @@ async function loadDecks() {
         closeForm("card-form");
         closeForm("question-form");
     }
+    renderPracticeSelection();
     updateContentSelection();
     updateCommandAvailability();
 }
@@ -266,6 +314,7 @@ async function submitCardForm(event) {
     showMessage(response.message);
     closeForm("card-form");
     await loadCards(state.selectedDeckId);
+    await loadStudyWorkspace();
 }
 
 async function submitQuestionForm(event) {
@@ -290,6 +339,7 @@ async function submitQuestionForm(event) {
     showMessage(response.message);
     closeForm("question-form");
     await loadQuestions(state.selectedCardId);
+    await loadStudyWorkspace();
 }
 
 async function submitSearchForm(event) {
@@ -399,6 +449,8 @@ async function logout(reason) {
     await fetch("/api/web-console/v1/auth/logout", { method: "POST", credentials: "include" });
     loginView.hidden = false;
     appView.hidden = true;
+    state.studyWorkspace = null;
+    state.studySession = null;
     if (reason) {
         showLoginError(reason);
     }
@@ -413,6 +465,7 @@ function switchSection(section) {
         node.classList.toggle("is-active", node.id === `section-${section}`);
     });
     sectionTitle.textContent = {
+        study: "学习工作区",
         overview: "概览",
         content: "内容管理",
         search: "搜索",
@@ -471,6 +524,7 @@ function bindCardActions(container, cards) {
             if (!response) return;
             showMessage(response.message);
             await loadCards(state.selectedDeckId);
+            await loadStudyWorkspace();
         });
     });
 }
@@ -494,6 +548,7 @@ function bindQuestionActions(container, questions) {
             if (!response) return;
             showMessage(response.message);
             await loadQuestions(state.selectedCardId);
+            await loadStudyWorkspace();
         });
     });
 }
@@ -605,12 +660,29 @@ async function fetchJson(url) {
     return response.json();
 }
 
+async function fetchOptionalJson(url) {
+    const response = await fetch(url, { credentials: "include" });
+    if (response.status === 204) {
+        return null;
+    }
+    if (!response.ok) {
+        if (response.status === 401) {
+            await logout("登录已失效，请重新输入手机上最新的访问码。");
+            return undefined;
+        }
+        const errorText = await response.text();
+        showMessage(errorText || "请求失败，请稍后重试。", true);
+        return undefined;
+    }
+    return response.json();
+}
+
 async function postJson(url, payload) {
     const response = await fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify(payload),
+        body: JSON.stringify(payload ?? {}),
     });
     if (!response.ok) {
         if (response.status === 401) {
@@ -765,4 +837,517 @@ function showMessage(message, isError = false) {
     showMessage.timer = window.setTimeout(() => {
         globalMessage.hidden = true;
     }, 3200);
+}
+
+async function startReviewSession() {
+    const allowed = await ensureStudySessionSwitchAllowed("review");
+    if (!allowed) return;
+    const payload = await postJson("/api/web-console/v1/study/review/start", {});
+    if (!payload) return;
+    state.studySession = payload;
+    showMessage("已进入今日复习。");
+    renderStudySession();
+    await loadStudyWorkspace();
+}
+
+async function startPracticeSession() {
+    const selectedDeckIds = [...state.practiceSelection.selectedDeckIds];
+    const selectedCardIds = [...state.practiceSelection.selectedCardIds];
+    const selectedQuestionIds = [...state.practiceSelection.selectedQuestionIds];
+    if (!selectedDeckIds.length && !selectedCardIds.length && !selectedQuestionIds.length) {
+        showMessage("请至少选择一个练习范围。", true);
+        return;
+    }
+    const allowed = await ensureStudySessionSwitchAllowed("practice");
+    if (!allowed) return;
+    const payload = await postJson("/api/web-console/v1/study/practice/start", {
+        deckIds: selectedDeckIds,
+        cardIds: selectedCardIds,
+        questionIds: selectedQuestionIds,
+        orderMode: state.practiceSelection.orderMode,
+    });
+    if (!payload) return;
+    state.studySession = payload;
+    showMessage("自由练习已开始。");
+    renderStudySession();
+    await loadStudyWorkspace();
+}
+
+async function revealStudyAnswer() {
+    const payload = await postJson("/api/web-console/v1/study/answer/reveal", {});
+    if (!payload) return;
+    state.studySession = payload;
+    renderStudySession();
+}
+
+async function submitReviewRating(rating) {
+    const payload = await postJson("/api/web-console/v1/study/review/rate", { rating });
+    if (!payload) return;
+    state.studySession = payload;
+    renderStudySession();
+    await loadStudyWorkspace();
+}
+
+async function continueReviewSession() {
+    const payload = await postJson("/api/web-console/v1/study/review/next-card", {});
+    if (!payload) return;
+    state.studySession = payload;
+    renderStudySession();
+    await loadStudyWorkspace();
+}
+
+async function navigatePracticeSession(action) {
+    const payload = await postJson("/api/web-console/v1/study/practice/navigate", { action });
+    if (!payload) return;
+    state.studySession = payload;
+    renderStudySession();
+}
+
+async function endStudySession() {
+    if (state.studySession && !confirmDanger(buildStudyExitConfirmMessage(state.studySession))) {
+        return;
+    }
+    const response = await postJson("/api/web-console/v1/study/session/end", {});
+    if (!response) return;
+    state.studySession = null;
+    renderStudySession();
+    await loadStudyWorkspace();
+    showMessage(response.message);
+}
+
+function renderStudyWorkspace() {
+    const payload = state.studyWorkspace;
+    document.querySelector("#study-overview-metrics").innerHTML = [
+        metricCard("今日待复习卡片", payload?.dueCardCount ?? "—"),
+        metricCard("今日待复习问题", payload?.dueQuestionCount ?? "—"),
+        metricCard("当前会话", state.studySession ? (state.studySession.type === "review" ? "复习中" : "练习中") : "空闲"),
+    ].join("");
+
+    const reviewSummary = document.querySelector("#review-workspace-summary");
+    const practiceSummary = document.querySelector("#practice-workspace-summary");
+    startReviewButton.textContent = state.studySession?.type === "review" ? "恢复复习" : "开始复习";
+    startPracticeButton.textContent = state.studySession?.type === "practice" ? "恢复练习" : "开始练习";
+
+    if (!payload) {
+        reviewSummary.innerHTML = renderEmptyState("正在读取复习信息", "稍等片刻，服务端正在汇总今日待复习规模。");
+        practiceSummary.innerHTML = renderEmptyState("正在读取练习入口", "内容列表准备好后，就可以在浏览器端直接进入自由练习。");
+        return;
+    }
+
+    reviewSummary.innerHTML = payload.dueQuestionCount > 0
+        ? `
+            <div class="study-status-row">
+                <div>
+                    <strong>今天还有 ${payload.dueCardCount} 张卡、${payload.dueQuestionCount} 道题待复习</strong>
+                    <div class="muted">浏览器端会按卡片组织逐题推进，显示答案后才能提交四档评分。</div>
+                </div>
+                ${payload.activeSession?.type === "review" ? `<span class="study-badge">${escapeHtml(payload.activeSession.title)}</span>` : ""}
+            </div>
+        `
+        : renderEmptyState("今日暂无待复习", "当前没有满足 due 条件的问题。你仍然可以直接发起自由练习。");
+
+    practiceSummary.innerHTML = `
+        <strong>按卡组、卡片或题目范围发起只读练习</strong>
+        <div class="muted">刷新后可恢复当前题位；服务停止、访问码刷新或登录失效后，需要重新进入。</div>
+        ${payload.activeSession?.type === "practice" ? `<div class="study-inline-actions"><span class="study-badge">${escapeHtml(payload.activeSession.title)}</span><span class="muted">${escapeHtml(payload.activeSession.detail)}</span></div>` : ""}
+    `;
+
+    renderPracticeSelectionSummary();
+}
+
+function renderStudySession() {
+    if (!state.studySession) {
+        studySessionCard.hidden = true;
+        studySessionContent.innerHTML = "";
+        return;
+    }
+    studySessionCard.hidden = false;
+    studySessionTitle.textContent = state.studySession.title;
+    studySessionSubtitle.textContent = state.studySession.summary;
+    studySessionContent.innerHTML = state.studySession.type === "review"
+        ? renderReviewStudySession(state.studySession.review)
+        : renderPracticeStudySession(state.studySession.practice);
+    bindStudySessionActions();
+}
+
+function renderReviewStudySession(review) {
+    if (!review) {
+        return renderEmptyState("复习会话不可用", "当前会话内容丢失，请返回学习工作区重新进入。");
+    }
+    if (review.isSessionCompleted) {
+        return `
+            <div class="study-session-empty">
+                <strong>本轮复习已完成</strong>
+                <div class="muted">今日待复习卡片已经全部处理完毕，你可以回到工作区继续自由练习，或结束当前会话。</div>
+            </div>
+        `;
+    }
+    if (review.isCardCompleted) {
+        return `
+            <div class="study-status-row">
+                <span class="study-badge">${escapeHtml(review.cardProgressText)}</span>
+                <span class="study-badge">${escapeHtml(review.questionProgressText)}</span>
+            </div>
+            <div class="study-session-empty">
+                <strong>${escapeHtml(review.cardTitle || "当前卡片")} 已完成</strong>
+                <div class="muted">${review.nextCardTitle ? `下一张待复习卡片是 ${escapeHtml(review.nextCardTitle)}。` : "当前已经没有下一张待复习卡片。"} </div>
+                <div class="study-inline-actions">
+                    <button id="continue-review-button" class="primary-button" type="button">${review.nextCardTitle ? "继续下一张" : "确认完成"}</button>
+                </div>
+            </div>
+        `;
+    }
+    const question = review.currentQuestion;
+    return `
+        <div class="study-status-row">
+            <span class="study-badge">${escapeHtml(review.cardProgressText)}</span>
+            <span class="study-badge">${escapeHtml(review.questionProgressText)}</span>
+        </div>
+        <div class="muted">${escapeHtml(review.deckName || "未分组")} / ${escapeHtml(review.cardTitle || "当前卡片")}</div>
+        <div class="study-question-card">
+            <div class="item-head">
+                <strong>题面</strong>
+                <span class="muted">阶段 ${question?.stageIndex ?? "—"}</span>
+            </div>
+            <div>${escapeHtml(question?.prompt || "当前题目不存在")}</div>
+        </div>
+        <div class="study-question-card">
+            <div class="item-head">
+                <strong>答案</strong>
+                ${review.answerVisible ? `<span class="muted">已展开</span>` : `<button id="reveal-study-answer-button" class="ghost-button" type="button">显示答案</button>`}
+            </div>
+            <div class="study-answer">${review.answerVisible ? escapeHtml(question?.answerText || "无答案") : "显示答案后才会解锁评分动作。"}</div>
+        </div>
+        <div class="study-rating-grid">
+            ${renderRatingButton("AGAIN", "再来", "is-danger", !review.answerVisible)}
+            ${renderRatingButton("HARD", "偏难", "is-primary", !review.answerVisible)}
+            ${renderRatingButton("GOOD", "良好", "is-primary", !review.answerVisible)}
+            ${renderRatingButton("EASY", "轻松", "is-strong", !review.answerVisible)}
+        </div>
+    `;
+}
+
+function renderPracticeStudySession(practice) {
+    if (!practice) {
+        return renderEmptyState("练习会话不可用", "当前会话内容丢失，请返回学习工作区重新进入。");
+    }
+    const question = practice.currentQuestion;
+    return `
+        <div class="study-status-row">
+            <span class="study-badge">${escapeHtml(practice.progressText)}</span>
+            <span class="study-badge">${escapeHtml(practice.orderModeLabel)}</span>
+        </div>
+        <div class="muted">${escapeHtml(question?.deckName || "未分组")} / ${escapeHtml(question?.cardTitle || "当前卡片")}</div>
+        <div class="study-question-card">
+            <div class="item-head">
+                <strong>题面</strong>
+                <span class="muted">${escapeHtml(practice.progressText)}</span>
+            </div>
+            <div>${escapeHtml(question?.prompt || "当前题目不存在")}</div>
+        </div>
+        <div class="study-question-card">
+            <div class="item-head">
+                <strong>答案</strong>
+                ${practice.answerVisible ? `<span class="muted">已展开</span>` : `<button id="reveal-study-answer-button" class="ghost-button" type="button">显示答案</button>`}
+            </div>
+            <div class="study-answer">${practice.answerVisible ? escapeHtml(question?.answerText || "无答案") : "显示答案后，可继续上一题或下一题。"}</div>
+        </div>
+        <div class="study-action-row">
+            <button id="practice-previous-button" class="ghost-button" type="button" ${practice.canGoPrevious ? "" : "disabled"}>上一题</button>
+            <button id="practice-next-button" class="primary-button" type="button" ${practice.canGoNext ? "" : "disabled"}>下一题</button>
+        </div>
+    `;
+}
+
+function bindStudySessionActions() {
+    const revealButton = document.querySelector("#reveal-study-answer-button");
+    if (revealButton) {
+        revealButton.addEventListener("click", revealStudyAnswer);
+    }
+    const continueButton = document.querySelector("#continue-review-button");
+    if (continueButton) {
+        continueButton.addEventListener("click", continueReviewSession);
+    }
+    document.querySelectorAll("[data-review-rating]").forEach((button) => {
+        button.addEventListener("click", () => submitReviewRating(button.dataset.reviewRating));
+    });
+    const previousButton = document.querySelector("#practice-previous-button");
+    if (previousButton) {
+        previousButton.addEventListener("click", () => navigatePracticeSession("previous"));
+    }
+    const nextButton = document.querySelector("#practice-next-button");
+    if (nextButton) {
+        nextButton.addEventListener("click", () => navigatePracticeSession("next"));
+    }
+}
+
+function renderRatingButton(rating, label, className, disabled) {
+    return `
+        <button class="study-rating-button ${className}" type="button" data-review-rating="${rating}" ${disabled ? "disabled" : ""}>
+            ${escapeHtml(label)}
+        </button>
+    `;
+}
+
+function renderPracticeSelection() {
+    renderPracticeDeckOptions();
+    renderPracticeCardOptions();
+    renderPracticeQuestionOptions();
+    renderPracticeSelectionSummary();
+}
+
+function renderPracticeDeckOptions() {
+    const container = document.querySelector("#practice-deck-options");
+    document.querySelector("#practice-deck-count").textContent = `${state.practiceSelection.selectedDeckIds.size} 已选`;
+    if (!state.decks.length) {
+        container.innerHTML = renderEmptyState("暂无卡组", "先在内容管理中创建卡组，才可以从浏览器端发起自由练习。");
+        return;
+    }
+    container.innerHTML = state.decks.map((deck) => `
+        <div class="option-item">
+            <label>
+                <input type="checkbox" data-practice-deck-id="${deck.id}" ${state.practiceSelection.selectedDeckIds.has(deck.id) ? "checked" : ""}>
+                <span>
+                    <strong>${escapeHtml(deck.name)}</strong>
+                    <span class="muted">${deck.cardCount} 张卡片 · ${deck.questionCount} 个问题</span>
+                </span>
+            </label>
+        </div>
+    `).join("");
+    container.querySelectorAll("[data-practice-deck-id]").forEach((input) => {
+        input.addEventListener("change", () => togglePracticeDeck(input.dataset.practiceDeckId));
+    });
+}
+
+function renderPracticeCardOptions() {
+    const container = document.querySelector("#practice-card-options");
+    const availableCards = collectPracticeCards();
+    document.querySelector("#practice-card-count").textContent = `${state.practiceSelection.selectedCardIds.size} 已选`;
+    if (!state.practiceSelection.selectedDeckIds.size) {
+        container.innerHTML = renderEmptyState("先选择卡组", "至少选中一个卡组后，浏览器才会加载该范围内的卡片。");
+        return;
+    }
+    if (state.practiceSelection.isLoadingCards) {
+        container.innerHTML = renderEmptyState("正在读取卡片", "稍等片刻，系统正在汇总所选卡组下的可练习卡片。");
+        return;
+    }
+    if (!availableCards.length) {
+        container.innerHTML = renderEmptyState("当前范围没有卡片", "请换一个卡组，或先在内容管理中整理卡片。");
+        return;
+    }
+    container.innerHTML = availableCards.map((card) => `
+        <div class="option-item">
+            <label>
+                <input type="checkbox" data-practice-card-id="${card.id}" ${state.practiceSelection.selectedCardIds.has(card.id) ? "checked" : ""}>
+                <span>
+                    <strong>${escapeHtml(card.title)}</strong>
+                    <span class="muted">${escapeHtml(resolveDeckName(card.deckId))} · ${card.questionCount} 个问题</span>
+                </span>
+            </label>
+        </div>
+    `).join("");
+    container.querySelectorAll("[data-practice-card-id]").forEach((input) => {
+        input.addEventListener("change", () => togglePracticeCard(input.dataset.practiceCardId));
+    });
+}
+
+function renderPracticeQuestionOptions() {
+    const container = document.querySelector("#practice-question-options");
+    const availableQuestions = collectPracticeQuestions();
+    document.querySelector("#practice-question-count").textContent = `${state.practiceSelection.selectedQuestionIds.size} 已选`;
+    if (!state.practiceSelection.selectedCardIds.size) {
+        container.innerHTML = renderEmptyState("先选择卡片", "题目级范围建立在已选卡片之上，这样刷新恢复后仍能清楚知道当前题来自哪张卡。");
+        return;
+    }
+    if (state.practiceSelection.isLoadingQuestions) {
+        container.innerHTML = renderEmptyState("正在读取题目", "稍等片刻，系统正在拉取所选卡片下的可练习题目。");
+        return;
+    }
+    if (!availableQuestions.length) {
+        container.innerHTML = renderEmptyState("当前范围没有题目", "这些卡片下暂时没有可练习题目，请调整选择范围。");
+        return;
+    }
+    container.innerHTML = availableQuestions.map((question) => `
+        <div class="option-item">
+            <label>
+                <input type="checkbox" data-practice-question-id="${question.id}" ${state.practiceSelection.selectedQuestionIds.has(question.id) ? "checked" : ""}>
+                <span>
+                    <strong>${escapeHtml(question.prompt)}</strong>
+                    <span class="muted">${escapeHtml(resolveCardTitle(question.cardId))}</span>
+                </span>
+            </label>
+        </div>
+    `).join("");
+    container.querySelectorAll("[data-practice-question-id]").forEach((input) => {
+        input.addEventListener("change", () => togglePracticeQuestion(input.dataset.practiceQuestionId));
+    });
+}
+
+function renderPracticeSelectionSummary() {
+    const summary = document.querySelector("#practice-selection-summary");
+    const deckCount = state.practiceSelection.selectedDeckIds.size;
+    const cardCount = state.practiceSelection.selectedCardIds.size;
+    const questionCount = state.practiceSelection.selectedQuestionIds.size;
+    const modeLabel = state.practiceSelection.orderMode === "random" ? "单次随机" : "稳定顺序";
+    if (!deckCount && !cardCount && !questionCount) {
+        summary.textContent = "当前尚未选择练习范围。";
+        return;
+    }
+    summary.textContent = `已选 ${deckCount} 个卡组、${cardCount} 张卡片、${questionCount} 道题，开始练习后将按“${modeLabel}”进入浏览器只读会话。`;
+}
+
+async function togglePracticeDeck(deckId) {
+    applyToggle(state.practiceSelection.selectedDeckIds, deckId);
+    const availableDeckIds = new Set(state.decks.map((deck) => deck.id));
+    pruneSetByAvailability(state.practiceSelection.selectedDeckIds, availableDeckIds);
+    if (!state.practiceSelection.selectedDeckIds.size) {
+        state.practiceSelection.selectedCardIds.clear();
+        state.practiceSelection.selectedQuestionIds.clear();
+        state.practiceSelection.cardsByDeckId.clear();
+        state.practiceSelection.questionsByCardId.clear();
+        renderPracticeSelection();
+        return;
+    }
+    await syncPracticeCards();
+}
+
+async function togglePracticeCard(cardId) {
+    applyToggle(state.practiceSelection.selectedCardIds, cardId);
+    if (!state.practiceSelection.selectedCardIds.size) {
+        state.practiceSelection.selectedQuestionIds.clear();
+        state.practiceSelection.questionsByCardId.clear();
+        renderPracticeSelection();
+        return;
+    }
+    await syncPracticeQuestions();
+}
+
+function togglePracticeQuestion(questionId) {
+    applyToggle(state.practiceSelection.selectedQuestionIds, questionId);
+    renderPracticeSelection();
+}
+
+async function syncPracticeCards() {
+    state.practiceSelection.isLoadingCards = true;
+    renderPracticeSelection();
+    const cardsByDeckId = new Map();
+    for (const deckId of state.practiceSelection.selectedDeckIds) {
+        const payload = await fetchJson(`/api/web-console/v1/cards?deckId=${encodeURIComponent(deckId)}`);
+        if (!payload) continue;
+        cardsByDeckId.set(deckId, payload);
+    }
+    state.practiceSelection.cardsByDeckId = cardsByDeckId;
+    state.practiceSelection.isLoadingCards = false;
+    prunePracticeCardSelection();
+    if (state.practiceSelection.selectedCardIds.size) {
+        await syncPracticeQuestions();
+        return;
+    }
+    state.practiceSelection.selectedQuestionIds.clear();
+    state.practiceSelection.questionsByCardId.clear();
+    renderPracticeSelection();
+}
+
+async function syncPracticeQuestions() {
+    state.practiceSelection.isLoadingQuestions = true;
+    renderPracticeSelection();
+    const questionsByCardId = new Map();
+    for (const cardId of state.practiceSelection.selectedCardIds) {
+        const payload = await fetchJson(`/api/web-console/v1/questions?cardId=${encodeURIComponent(cardId)}`);
+        if (!payload) continue;
+        questionsByCardId.set(cardId, payload);
+    }
+    state.practiceSelection.questionsByCardId = questionsByCardId;
+    state.practiceSelection.isLoadingQuestions = false;
+    prunePracticeQuestionSelection();
+    renderPracticeSelection();
+}
+
+async function ensureStudySessionSwitchAllowed(targetType) {
+    if (!state.studySession || state.studySession.type === targetType) {
+        return true;
+    }
+    const targetLabel = targetType === "review" ? "今日复习" : "自由练习";
+    const currentLabel = state.studySession.type === "review" ? "今日复习" : "自由练习";
+    if (!confirmDanger(`当前存在未结束的${currentLabel}会话。确认结束它并切换到${targetLabel}吗？`)) {
+        return false;
+    }
+    const response = await postJson("/api/web-console/v1/study/session/end", {});
+    if (!response) return false;
+    state.studySession = null;
+    renderStudySession();
+    return true;
+}
+
+function buildStudyExitConfirmMessage(studySession) {
+    if (studySession.type === "review") {
+        if (studySession.review?.isSessionCompleted) {
+            return "确认结束当前复习会话吗？结束后会回到学习工作区。";
+        }
+        return "当前今日复习尚未完成。确认结束会话并返回学习工作区吗？";
+    }
+    return "当前自由练习尚未结束。确认结束会话并返回学习工作区吗？";
+}
+
+function collectPracticeCards() {
+    return [...state.practiceSelection.cardsByDeckId.values()].flat();
+}
+
+function collectPracticeQuestions() {
+    return [...state.practiceSelection.questionsByCardId.values()].flat();
+}
+
+function prunePracticeDeckSelection() {
+    const availableDeckIds = new Set(state.decks.map((deck) => deck.id));
+    pruneSetByAvailability(state.practiceSelection.selectedDeckIds, availableDeckIds);
+    if (!state.practiceSelection.selectedDeckIds.size) {
+        state.practiceSelection.selectedCardIds.clear();
+        state.practiceSelection.selectedQuestionIds.clear();
+        state.practiceSelection.cardsByDeckId.clear();
+        state.practiceSelection.questionsByCardId.clear();
+        return;
+    }
+    for (const deckId of [...state.practiceSelection.cardsByDeckId.keys()]) {
+        if (!state.practiceSelection.selectedDeckIds.has(deckId)) {
+            state.practiceSelection.cardsByDeckId.delete(deckId);
+        }
+    }
+    prunePracticeCardSelection();
+}
+
+function prunePracticeCardSelection() {
+    const availableCardIds = new Set(collectPracticeCards().map((card) => card.id));
+    pruneSetByAvailability(state.practiceSelection.selectedCardIds, availableCardIds);
+    for (const cardId of [...state.practiceSelection.questionsByCardId.keys()]) {
+        if (!state.practiceSelection.selectedCardIds.has(cardId)) {
+            state.practiceSelection.questionsByCardId.delete(cardId);
+        }
+    }
+    prunePracticeQuestionSelection();
+}
+
+function prunePracticeQuestionSelection() {
+    const availableQuestionIds = new Set(collectPracticeQuestions().map((question) => question.id));
+    pruneSetByAvailability(state.practiceSelection.selectedQuestionIds, availableQuestionIds);
+}
+
+function pruneSetByAvailability(targetSet, availableIds) {
+    for (const value of [...targetSet]) {
+        if (!availableIds.has(value)) {
+            targetSet.delete(value);
+        }
+    }
+}
+
+function applyToggle(targetSet, value) {
+    if (targetSet.has(value)) targetSet.delete(value);
+    else targetSet.add(value);
+}
+
+function resolveDeckName(deckId) {
+    return state.decks.find((deck) => deck.id === deckId)?.name ?? "未命名卡组";
+}
+
+function resolveCardTitle(cardId) {
+    return collectPracticeCards().find((card) => card.id === cardId)?.title ?? "未命名卡片";
 }
