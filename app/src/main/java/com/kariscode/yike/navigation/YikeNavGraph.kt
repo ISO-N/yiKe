@@ -33,6 +33,7 @@ import com.kariscode.yike.feature.review.ReviewQueueScreen
 import com.kariscode.yike.feature.search.QuestionSearchScreen
 import com.kariscode.yike.feature.settings.SettingsScreen
 import com.kariscode.yike.feature.sync.LanSyncScreen
+import com.kariscode.yike.feature.webconsole.WebConsoleScreen
 import com.kariscode.yike.ui.component.YikePrimaryDestination
 import com.kariscode.yike.ui.component.YikePrimaryNavigationChrome
 
@@ -165,6 +166,12 @@ fun YikeNavGraph(
 
             composable(route = YikeDestination.LAN_SYNC) {
                 LanSyncScreen(
+                    navigator = navigator
+                )
+            }
+
+            composable(route = YikeDestination.WEB_CONSOLE) {
+                WebConsoleScreen(
                     navigator = navigator
                 )
             }

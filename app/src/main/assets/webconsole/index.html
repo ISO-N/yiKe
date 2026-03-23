@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>忆刻网页后台</title>
+    <link rel="stylesheet" href="/app.css">
+</head>
+<body>
+<div id="login-view" class="login-shell">
+    <section class="login-card">
+        <p class="eyebrow">YiKe Web Console</p>
+        <h1>输入访问码登录</h1>
+        <p class="muted">请在手机“网页后台”页查看当前 6 位访问码。</p>
+        <form id="login-form" class="stack">
+            <label for="access-code">一次性访问码</label>
+            <input id="access-code" name="access-code" type="text" maxlength="6" inputmode="numeric" autocomplete="one-time-code" required>
+            <button type="submit" class="primary-button">进入后台</button>
+        </form>
+        <p id="login-error" class="error-text" hidden></p>
+    </section>
+</div>
+
+<div id="app-view" class="app-shell" hidden>
+    <aside class="sidebar">
+        <div>
+            <p class="eyebrow">YiKe</p>
+            <h2>网页后台</h2>
+            <p id="session-summary" class="muted">正在读取服务状态…</p>
+        </div>
+        <nav class="nav-list">
+            <button class="nav-button is-active" data-section="overview">概览</button>
+            <button class="nav-button" data-section="content">内容管理</button>
+            <button class="nav-button" data-section="search">搜索</button>
+            <button class="nav-button" data-section="analytics">统计</button>
+            <button class="nav-button" data-section="settings">设置</button>
+            <button class="nav-button" data-section="backup">备份</button>
+        </nav>
+        <div class="sidebar-actions">
+            <button id="logout-button" class="ghost-button" type="button">退出登录</button>
+            <button id="refresh-button" class="ghost-button" type="button">刷新数据</button>
+        </div>
+    </aside>
+
+    <main class="main-shell">
+        <header class="topbar">
+            <div>
+                <p class="eyebrow">局域网控制台</p>
+                <h1 id="section-title">概览</h1>
+            </div>
+            <div id="global-message" class="toast" hidden></div>
+        </header>
+
+        <section id="section-overview" class="section is-active">
+            <div class="metric-grid" id="overview-metrics"></div>
+            <div class="card">
+                <div class="card-head">
+                    <h3>最近卡组</h3>
+                    <span class="muted">和手机首页使用同一口径</span>
+                </div>
+                <div id="recent-decks" class="list-stack"></div>
+            </div>
+        </section>
+
+        <section id="section-content" class="section">
+            <div class="content-grid">
+                <article class="card">
+                    <div class="card-head">
+                        <h3>卡组</h3>
+                        <button id="new-deck-button" class="ghost-button" type="button">新建卡组</button>
+                    </div>
+                    <div id="deck-list" class="list-stack"></div>
+                </article>
+
+                <article class="card">
+                    <div class="card-head">
+                        <h3>卡片</h3>
+                        <button id="new-card-button" class="ghost-button" type="button">新建卡片</button>
+                    </div>
+                    <div id="card-list" class="list-stack empty-state">先选择一个卡组。</div>
+                </article>
+
+                <article class="card">
+                    <div class="card-head">
+                        <h3>问题</h3>
+                        <button id="new-question-button" class="ghost-button" type="button">新建问题</button>
+                    </div>
+                    <div id="question-list" class="list-stack empty-state">先选择一个卡片。</div>
+                </article>
+            </div>
+
+            <div class="editor-grid">
+                <form id="deck-form" class="card stack" hidden>
+                    <h3>编辑卡组</h3>
+                    <input type="hidden" name="id">
+                    <label>名称<input name="name" required></label>
+                    <label>描述<textarea name="description" rows="3"></textarea></label>
+                    <label>标签（用逗号分隔）<input name="tags"></label>
+                    <label>间隔步数<input name="intervalStepCount" type="number" min="2" max="12" value="4"></label>
+                    <button type="submit" class="primary-button">保存卡组</button>
+                </form>
+
+                <form id="card-form" class="card stack" hidden>
+                    <h3>编辑卡片</h3>
+                    <input type="hidden" name="id">
+                    <label>标题<input name="title" required></label>
+                    <label>描述<textarea name="description" rows="3"></textarea></label>
+                    <button type="submit" class="primary-button">保存卡片</button>
+                </form>
+
+                <form id="question-form" class="card stack" hidden>
+                    <h3>编辑问题</h3>
+                    <input type="hidden" name="id">
+                    <label>题面<textarea name="prompt" rows="3" required></textarea></label>
+                    <label>答案<textarea name="answer" rows="5"></textarea></label>
+                    <label>标签（用逗号分隔）<input name="tags"></label>
+                    <button type="submit" class="primary-button">保存问题</button>
+                </form>
+            </div>
+        </section>
+
+        <section id="section-search" class="section">
+            <form id="search-form" class="card search-form">
+                <label>关键词<input name="keyword" placeholder="输入题面或答案关键词"></label>
+                <label>标签<input name="tag" placeholder="可选"></label>
+                <button type="submit" class="primary-button">开始搜索</button>
+            </form>
+            <div id="search-results" class="list-stack empty-state">输入关键词后开始搜索。</div>
+        </section>
+
+        <section id="section-analytics" class="section">
+            <div id="analytics-metrics" class="metric-grid"></div>
+            <div class="card">
+                <div class="card-head">
+                    <h3>卡组统计拆分</h3>
+                    <span class="muted">用于定位最近最需要补课的主题</span>
+                </div>
+                <div id="analytics-breakdowns" class="list-stack"></div>
+            </div>
+        </section>
+
+        <section id="section-settings" class="section">
+            <form id="settings-form" class="card stack">
+                <h3>全局设置</h3>
+                <label class="toggle-row">
+                    <span>每日提醒</span>
+                    <input name="dailyReminderEnabled" type="checkbox">
+                </label>
+                <div class="two-column">
+                    <label>提醒小时<input name="dailyReminderHour" type="number" min="0" max="23"></label>
+                    <label>提醒分钟<input name="dailyReminderMinute" type="number" min="0" max="59"></label>
+                </div>
+                <label>显示主题
+                    <select name="themeMode">
+                        <option value="LIGHT">浅色</option>
+                        <option value="DARK">深色</option>
+                        <option value="SYSTEM">跟随系统</option>
+                    </select>
+                </label>
+                <button type="submit" class="primary-button">保存设置</button>
+                <p id="settings-backup-time" class="muted"></p>
+            </form>
+        </section>
+
+        <section id="section-backup" class="section">
+            <div class="card stack">
+                <h3>备份导出</h3>
+                <p class="muted">导出的 JSON 与手机端备份页使用同一份格式，可直接下载到当前设备。</p>
+                <button id="export-backup-button" class="primary-button" type="button">导出备份 JSON</button>
+            </div>
+        </section>
+    </main>
+</div>
+
+<script type="module" src="/app.js"></script>
+</body>
+</html>

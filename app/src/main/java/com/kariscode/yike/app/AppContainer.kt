@@ -35,6 +35,7 @@ import com.kariscode.yike.data.sync.LanSyncLocalProfileStore
 import com.kariscode.yike.data.sync.LanSyncPortAllocator
 import com.kariscode.yike.data.sync.KeystoreLanSyncSharedSecretProtector
 import com.kariscode.yike.data.sync.LanSyncRepositoryImpl
+import com.kariscode.yike.data.webconsole.WebConsoleRepositoryImpl
 import com.kariscode.yike.domain.repository.AppSettingsRepository
 import com.kariscode.yike.domain.repository.CardRepository
 import com.kariscode.yike.domain.repository.DeckRepository
@@ -44,6 +45,7 @@ import com.kariscode.yike.domain.repository.QuestionEditorDraftRepository
 import com.kariscode.yike.domain.repository.PracticeRepository
 import com.kariscode.yike.domain.repository.ReviewRepository
 import com.kariscode.yike.domain.repository.StudyInsightsRepository
+import com.kariscode.yike.domain.repository.WebConsoleRepository
 import com.kariscode.yike.domain.scheduler.ReviewSchedulerV1
 
 /**
@@ -358,6 +360,24 @@ class AppContainer(
             cardDao = syncDependencies.contentDataAccess.cardDao,
             questionDao = syncDependencies.contentDataAccess.questionDao,
             reviewRecordDao = syncDependencies.contentDataAccess.reviewRecordDao
+        )
+    }
+
+    /**
+     * 网页后台仓储集中装配内容读取、设置写入与备份导出，是为了让网页控制台和手机端继续复用同一套业务边界。
+     */
+    val webConsoleRepository: WebConsoleRepository by lazy {
+        WebConsoleRepositoryImpl(
+            context = application,
+            deckRepository = deckRepository,
+            cardRepository = cardRepository,
+            questionRepository = questionRepository,
+            studyInsightsRepository = studyInsightsRepository,
+            appSettingsRepository = appSettingsRepository,
+            backupService = backupService,
+            reminderScheduler = reminderScheduler,
+            timeProvider = timeProvider,
+            dispatchers = dispatchers
         )
     }
 

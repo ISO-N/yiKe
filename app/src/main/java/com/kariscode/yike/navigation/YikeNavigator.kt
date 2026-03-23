@@ -92,6 +92,11 @@ interface YikeNavigator {
     fun openLanSync()
 
     /**
+     * 打开网页后台页，是为了把“对局域网开放网页控制台”收敛到统一导航入口，避免设置页直接依赖路由字符串。
+     */
+    fun openWebConsole()
+
+    /**
      * 打开回收站页，是为了把归档内容入口稳定沉淀在同一路由上。
      */
     fun openRecycleBin()
@@ -170,6 +175,13 @@ class NavControllerYikeNavigator(
 
     override fun openLanSync() {
         navController.navigate(YikeDestination.LAN_SYNC)
+    }
+
+    /**
+     * 网页后台仍属于设置流中的高风险能力页，单独路由能避免和局域网同步混用同一个页面状态。
+     */
+    override fun openWebConsole() {
+        navController.navigate(YikeDestination.WEB_CONSOLE)
     }
 
     override fun openRecycleBin() {
