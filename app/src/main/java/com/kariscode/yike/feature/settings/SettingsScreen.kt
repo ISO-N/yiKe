@@ -71,6 +71,7 @@ fun SettingsScreen(
         when (effect) {
             SettingsEffect.OpenBackupRestore -> navigator.openBackupRestore()
             SettingsEffect.OpenLanSync -> navigator.openLanSync()
+            SettingsEffect.OpenWebConsole -> navigator.openWebConsole()
             SettingsEffect.RequestNotificationPermission -> permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
         }
     }
@@ -101,6 +102,7 @@ fun SettingsScreen(
             onThemeModeChange = viewModel::onThemeModeChange,
             onOpenBackupRestore = viewModel::onBackupRestoreClick,
             onOpenLanSync = viewModel::onLanSyncClick,
+            onOpenWebConsole = viewModel::onWebConsoleClick,
             onOpenRecycleBin = navigator::openRecycleBin,
             modifier = modifier,
             contentPadding = padding
@@ -120,6 +122,7 @@ private fun SettingsContent(
     onThemeModeChange: (ThemeMode) -> Unit,
     onOpenBackupRestore: () -> Unit,
     onOpenLanSync: () -> Unit,
+    onOpenWebConsole: () -> Unit,
     onOpenRecycleBin: () -> Unit,
     modifier: Modifier = Modifier,
     contentPadding: PaddingValues = PaddingValues()
@@ -156,6 +159,7 @@ private fun SettingsContent(
             onThemeModeChange = onThemeModeChange,
             onOpenBackupRestore = onOpenBackupRestore,
             onOpenLanSync = onOpenLanSync,
+            onOpenWebConsole = onOpenWebConsole,
             onOpenRecycleBin = onOpenRecycleBin
         )
     }
@@ -202,6 +206,7 @@ private fun ReminderSettingsSection(
     onThemeModeChange: (ThemeMode) -> Unit,
     onOpenBackupRestore: () -> Unit,
     onOpenLanSync: () -> Unit,
+    onOpenWebConsole: () -> Unit,
     onOpenRecycleBin: () -> Unit
 ) {
     YikeListItemCard(
@@ -263,6 +268,18 @@ private fun ReminderSettingsSection(
         YikeSecondaryButton(
             text = "进入同步页",
             onClick = onOpenLanSync,
+            modifier = Modifier.fillMaxWidth()
+        )
+    }
+
+    YikeListItemCard(
+        title = "网页后台",
+        summary = "对电脑和手机浏览器开放后台页面",
+        supporting = "启动后会显示 IP、端口和一次性访问码。"
+    ) {
+        YikeSecondaryButton(
+            text = "进入网页后台页",
+            onClick = onOpenWebConsole,
             modifier = Modifier.fillMaxWidth()
         )
     }

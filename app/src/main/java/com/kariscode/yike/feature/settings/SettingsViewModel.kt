@@ -45,6 +45,7 @@ sealed interface SettingsEffect {
     data object RequestNotificationPermission : SettingsEffect
     data object OpenBackupRestore : SettingsEffect
     data object OpenLanSync : SettingsEffect
+    data object OpenWebConsole : SettingsEffect
 }
 
 /**
@@ -152,6 +153,13 @@ class SettingsViewModel(
      */
     fun onLanSyncClick() {
         _effects.tryEmit(SettingsEffect.OpenLanSync)
+    }
+
+    /**
+     * 网页后台与局域网同步都属于对外开放能力，但生命周期和登录方式不同，因此保持独立入口更利于用户理解风险。
+     */
+    fun onWebConsoleClick() {
+        _effects.tryEmit(SettingsEffect.OpenWebConsole)
     }
 
     /**
