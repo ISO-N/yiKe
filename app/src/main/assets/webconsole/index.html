@@ -73,6 +73,9 @@
         </section>
 
         <section id="section-content" class="section">
+            <div id="content-selection-summary" class="card section-note">
+                先从左侧选择卡组，再逐层浏览卡片和问题。
+            </div>
             <div class="content-grid">
                 <article class="card">
                     <div class="card-head">
@@ -101,30 +104,40 @@
 
             <div class="editor-grid">
                 <form id="deck-form" class="card stack" hidden>
-                    <h3>编辑卡组</h3>
+                    <h3 id="deck-form-title">新建卡组</h3>
                     <input type="hidden" name="id">
                     <label>名称<input name="name" required></label>
                     <label>描述<textarea name="description" rows="3"></textarea></label>
                     <label>标签（用逗号分隔）<input name="tags"></label>
                     <label>间隔步数<input name="intervalStepCount" type="number" min="2" max="12" value="4"></label>
-                    <button type="submit" class="primary-button">保存卡组</button>
+                    <p class="muted">间隔步数建议保持在 2 到 12 之间，便于和手机端复习节奏一致。</p>
+                    <div class="form-actions">
+                        <button type="submit" class="primary-button">保存卡组</button>
+                        <button type="button" class="ghost-button" data-close-form="deck-form">取消</button>
+                    </div>
                 </form>
 
                 <form id="card-form" class="card stack" hidden>
-                    <h3>编辑卡片</h3>
+                    <h3 id="card-form-title">新建卡片</h3>
                     <input type="hidden" name="id">
                     <label>标题<input name="title" required></label>
                     <label>描述<textarea name="description" rows="3"></textarea></label>
-                    <button type="submit" class="primary-button">保存卡片</button>
+                    <div class="form-actions">
+                        <button type="submit" class="primary-button">保存卡片</button>
+                        <button type="button" class="ghost-button" data-close-form="card-form">取消</button>
+                    </div>
                 </form>
 
                 <form id="question-form" class="card stack" hidden>
-                    <h3>编辑问题</h3>
+                    <h3 id="question-form-title">新建问题</h3>
                     <input type="hidden" name="id">
                     <label>题面<textarea name="prompt" rows="3" required></textarea></label>
                     <label>答案<textarea name="answer" rows="5"></textarea></label>
                     <label>标签（用逗号分隔）<input name="tags"></label>
-                    <button type="submit" class="primary-button">保存问题</button>
+                    <div class="form-actions">
+                        <button type="submit" class="primary-button">保存问题</button>
+                        <button type="button" class="ghost-button" data-close-form="question-form">取消</button>
+                    </div>
                 </form>
             </div>
         </section>
@@ -177,6 +190,23 @@
                 <h3>备份导出</h3>
                 <p class="muted">导出的 JSON 与手机端备份页使用同一份格式，可直接下载到当前设备。</p>
                 <button id="export-backup-button" class="primary-button" type="button">导出备份 JSON</button>
+            </div>
+            <div class="card stack">
+                <h3>备份恢复</h3>
+                <p class="muted">上传备份 JSON 后会覆盖当前本地全部数据，恢复成功后会自动同步网页与提醒配置。</p>
+                <label class="upload-field">
+                    <span>选择备份文件</span>
+                    <input id="restore-backup-file" type="file" accept="application/json,.json">
+                </label>
+                <p id="restore-backup-file-meta" class="muted">尚未选择备份文件。</p>
+                <label class="toggle-row danger-toggle">
+                    <span>我确认恢复会覆盖当前本地全部数据</span>
+                    <input id="restore-backup-confirm" type="checkbox">
+                </label>
+                <div class="form-actions">
+                    <button id="restore-backup-button" class="primary-button" type="button" disabled>确认恢复</button>
+                    <button id="clear-restore-file-button" class="ghost-button" type="button">清空选择</button>
+                </div>
             </div>
         </section>
     </main>

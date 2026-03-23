@@ -38,6 +38,12 @@ button {
     border: 0;
 }
 
+button:disabled {
+    cursor: not-allowed;
+    opacity: 0.52;
+    transform: none !important;
+}
+
 input,
 textarea,
 select {
@@ -146,7 +152,8 @@ textarea {
 .metric-grid,
 .content-grid,
 .editor-grid,
-.two-column {
+.two-column,
+.form-actions {
     display: grid;
     gap: 12px;
 }
@@ -262,6 +269,17 @@ textarea {
     padding: 0;
 }
 
+.form-actions {
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+}
+
+.section-note {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    align-items: center;
+}
+
 .search-form {
     grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
     align-items: end;
@@ -284,6 +302,15 @@ textarea {
     padding: 18px 4px;
 }
 
+.empty-state-block {
+    padding: 16px;
+    border-radius: 18px;
+    background: rgba(11, 111, 105, 0.05);
+    border: 1px dashed rgba(11, 111, 105, 0.18);
+    display: grid;
+    gap: 4px;
+}
+
 .login-notes {
     display: grid;
     gap: 12px;
@@ -296,6 +323,22 @@ textarea {
     border: 1px solid rgba(11, 111, 105, 0.12);
     display: grid;
     gap: 4px;
+}
+
+.upload-field {
+    display: grid;
+    gap: 8px;
+}
+
+.upload-field input[type="file"] {
+    padding: 12px;
+}
+
+.danger-toggle {
+    padding: 14px 16px;
+    border-radius: 18px;
+    background: rgba(180, 67, 53, 0.08);
+    border: 1px solid rgba(180, 67, 53, 0.16);
 }
 
 .card:hover,
