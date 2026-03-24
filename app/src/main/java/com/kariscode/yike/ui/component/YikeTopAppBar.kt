@@ -1,6 +1,7 @@
 package com.kariscode.yike.ui.component
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Row
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Icon
@@ -42,13 +43,25 @@ fun YikeTopAppBar(
         },
         navigationIcon = {
             if (navigationAction != null) {
-                IconButton(
-                    onClick = navigationAction.onClick
-                ) {
-                    Icon(
-                        imageVector = navigationAction.icon,
-                        contentDescription = navigationAction.contentDescription
-                    )
+                if (navigationAction.label.isNullOrBlank()) {
+                    IconButton(
+                        onClick = navigationAction.onClick
+                    ) {
+                        Icon(
+                            imageVector = navigationAction.icon,
+                            contentDescription = navigationAction.contentDescription
+                        )
+                    }
+                } else {
+                    TextButton(onClick = navigationAction.onClick) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Icon(
+                                imageVector = navigationAction.icon,
+                                contentDescription = navigationAction.contentDescription
+                            )
+                            Text(text = navigationAction.label)
+                        }
+                    }
                 }
             }
         },
@@ -69,6 +82,7 @@ fun YikeTopAppBar(
 data class NavigationAction(
     val contentDescription: String,
     val icon: androidx.compose.ui.graphics.vector.ImageVector = Icons.AutoMirrored.Filled.ArrowBack,
+    val label: String? = null,
     val onClick: () -> Unit
 )
 
@@ -78,9 +92,11 @@ data class NavigationAction(
  */
 fun backNavigationAction(
     onClick: () -> Unit,
-    contentDescription: String = "返回"
+    contentDescription: String = "返回",
+    label: String? = "返回上级"
 ): NavigationAction = NavigationAction(
     contentDescription = contentDescription,
+    label = label,
     onClick = onClick
 )
 

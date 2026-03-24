@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -135,7 +136,9 @@ private fun SettingsContent(
             YikeStateBanner(
                 title = "正在读取设置",
                 description = "正在同步提醒和备份状态。"
-            )
+            ) {
+                CircularProgressIndicator()
+            }
             return@YikeScrollableColumn
         }
 
@@ -209,6 +212,11 @@ private fun ReminderSettingsSection(
     onOpenWebConsole: () -> Unit,
     onOpenRecycleBin: () -> Unit
 ) {
+    SettingsSectionHeader(
+        title = "提醒与外观",
+        description = "先把每天的复习节奏和界面显示偏好调整到舒服的状态。"
+    )
+
     YikeListItemCard(
         title = "每日提醒",
         summary = if (uiState.dailyReminderEnabled) "已开启" else "已关闭",
@@ -247,6 +255,11 @@ private fun ReminderSettingsSection(
             onThemeModeChange = onThemeModeChange
         )
     }
+
+    SettingsSectionHeader(
+        title = "连接与数据",
+        description = "这些入口会跳转到独立流程页，用于处理备份、同步和局域网访问。"
+    )
 
     YikeListItemCard(
         title = "备份与恢复",
@@ -296,6 +309,11 @@ private fun ReminderSettingsSection(
         )
     }
 
+    SettingsSectionHeader(
+        title = "关于应用",
+        description = "版本信息保留在末尾，是为了让设置页的工具入口和静态信息层级更清楚。"
+    )
+
     YikeListItemCard(
         title = "应用版本",
         summary = "YiKe v${uiState.appVersionName}",
@@ -308,6 +326,20 @@ private fun ReminderSettingsSection(
             YikeBadge(text = "MVP")
         }
     }
+}
+
+/**
+ * 设置页用小节标题分组入口，是为了让“切换类操作”和“跳转类工具”在视觉上先被用户区分开。
+ */
+@Composable
+private fun SettingsSectionHeader(
+    title: String,
+    description: String
+) {
+    YikeStateBanner(
+        title = title,
+        description = description
+    )
 }
 
 /**

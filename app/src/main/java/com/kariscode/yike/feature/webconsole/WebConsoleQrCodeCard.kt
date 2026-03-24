@@ -43,7 +43,7 @@ fun WebConsoleQrCodeCard(
                 contentDescription = "网页后台访问地址二维码",
                 modifier = Modifier
                     .align(Alignment.CenterHorizontally)
-                    .size(220.dp)
+                    .size(180.dp)
             )
         } else {
             Text(

@@ -1,14 +1,22 @@
 package com.kariscode.yike.feature.webconsole
 
 import android.content.ClipData
-import android.widget.Toast
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -29,6 +37,7 @@ import com.kariscode.yike.ui.component.YikeWarningCard
 import com.kariscode.yike.ui.component.backNavigationAction
 import com.kariscode.yike.ui.format.formatLocalDateTime
 import com.kariscode.yike.ui.theme.LocalYikeSpacing
+import kotlinx.coroutines.launch
 
 /**
  * 网页后台页独立成单独流程页，是为了把“对局域网暴露服务”这种高风险能力与普通设置项隔离开。
@@ -40,26 +49,43 @@ fun WebConsoleScreen(
 ) {
     val container = LocalAppContainer.current
     val context = LocalContext.current
+    val spacing = LocalYikeSpacing.current
     val viewModel = viewModel<WebConsoleViewModel>(
         factory = WebConsoleViewModel.factory(
             webConsoleRepository = container.webConsoleRepository
         )
     )
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val snackbarHostState = remember { SnackbarHostState() }
+    val coroutineScope = rememberCoroutineScope()
 
     YikeFlowScaffold(
         title = "网页后台",
         subtitle = "让同一局域网或热点下的其他设备通过 IP:端口访问网页版控制台。",
         navigationAction = backNavigationAction(onClick = navigator::back)
     ) { padding ->
-        WebConsoleContent(
-            state = uiState.state,
-            onStart = { WebConsoleForegroundService.start(context) },
-            onStop = { WebConsoleForegroundService.stop(context) },
-            onRefreshAccessCode = { WebConsoleForegroundService.refreshAccessCode(context) },
-            modifier = modifier,
-            contentPadding = padding
-        )
+        Box(modifier = Modifier.fillMaxSize()) {
+            WebConsoleContent(
+                state = uiState.state,
+                onStart = { WebConsoleForegroundService.start(context) },
+                onStop = { WebConsoleForegroundService.stop(context) },
+                onRefreshAccessCode = { WebConsoleForegroundService.refreshAccessCode(context) },
+                onCopyCompleted = { label ->
+                    coroutineScope.launch {
+                        snackbarHostState.currentSnackbarData?.dismiss()
+                        snackbarHostState.showSnackbar("已复制$label")
+                    }
+                },
+                modifier = modifier.fillMaxSize(),
+                contentPadding = padding
+            )
+            SnackbarHost(
+                hostState = snackbarHostState,
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(horizontal = spacing.lg, vertical = spacing.lg)
+            )
+        }
     }
 }
 
@@ -72,6 +98,7 @@ private fun WebConsoleContent(
     onStart: () -> Unit,
     onStop: () -> Unit,
     onRefreshAccessCode: () -> Unit,
+    onCopyCompleted: (String) -> Unit,
     modifier: Modifier = Modifier,
     contentPadding: PaddingValues = PaddingValues()
 ) {
@@ -140,6 +167,13 @@ private fun WebConsoleContent(
                     enabled = state.isRunning
                 )
             }
+            if (!state.isRunning) {
+                Text(
+                    text = "需先启动服务才能刷新访问码，避免浏览器继续沿用已经失效的登录凭证。",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
         }
 
         YikeListItemCard(
@@ -155,7 +189,8 @@ private fun WebConsoleContent(
                         copyTextToClipboard(
                             text = accessCode,
                             label = "访问码",
-                            context = context
+                            context = context,
+                            onCopyCompleted = onCopyCompleted
                         )
                     }
                 },
@@ -188,7 +223,8 @@ private fun WebConsoleContent(
                             copyTextToClipboard(
                                 text = address.url,
                                 label = address.label,
-                                context = context
+                                context = context,
+                                onCopyCompleted = onCopyCompleted
                             )
                         }
                     )
@@ -204,10 +240,11 @@ private fun WebConsoleContent(
 private fun copyTextToClipboard(
     text: String,
     label: String,
-    context: android.content.Context
+    context: android.content.Context,
+    onCopyCompleted: (String) -> Unit
 ) {
     context.getSystemService(android.content.ClipboardManager::class.java)?.setPrimaryClip(
         ClipData.newPlainText(label, text)
     )
-    Toast.makeText(context, "已复制$label", Toast.LENGTH_SHORT).show()
+    onCopyCompleted(label)
 }
