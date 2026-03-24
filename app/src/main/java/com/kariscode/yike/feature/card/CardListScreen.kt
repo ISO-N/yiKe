@@ -23,9 +23,10 @@ import com.kariscode.yike.domain.model.CardSummary
 import com.kariscode.yike.domain.model.PracticeSessionArgs
 import com.kariscode.yike.navigation.YikeNavigator
 import com.kariscode.yike.ui.component.backNavigationAction
+import com.kariscode.yike.ui.component.YikeActionDialog
 import com.kariscode.yike.ui.component.YikeBadge
-import com.kariscode.yike.ui.component.YikeDangerButton
-import com.kariscode.yike.ui.component.YikeAlertDialog
+import com.kariscode.yike.ui.component.YikeDialogAction
+import com.kariscode.yike.ui.component.YikeDialogActionStyle
 import com.kariscode.yike.ui.component.YikeFab
 import com.kariscode.yike.ui.component.YikeFlowScaffold
 import com.kariscode.yike.ui.component.YikeHeroCard
@@ -372,85 +373,47 @@ private fun CardSummaryCard(
     }
 
     if (actionDialogVisible) {
-        CardActionDialog(
-            cardTitle = item.card.title,
+        YikeActionDialog(
+            title = "卡片操作",
             onDismiss = { actionDialogVisible = false },
-            onEditMeta = {
-                actionDialogVisible = false
-                onEditMeta()
-            },
-            onOpenSearch = {
-                actionDialogVisible = false
-                onOpenSearch()
-            },
-            onArchive = {
-                actionDialogVisible = false
-                onArchive()
-            },
-            onDelete = {
-                actionDialogVisible = false
-                onDelete()
-            }
-        )
-    }
-}
-
-/**
- * 卡片页把低频维护动作集中到上下文菜单，是为了在窄屏下优先保留“练习 / 编辑问题”两条高频路径，
- * 同时让长按整张卡片也能快速进入同一组维护动作。
- */
-@Composable
-private fun CardActionDialog(
-    cardTitle: String,
-    onDismiss: () -> Unit,
-    onEditMeta: () -> Unit,
-    onOpenSearch: () -> Unit,
-    onArchive: () -> Unit,
-    onDelete: () -> Unit
-) {
-    val spacing = LocalYikeSpacing.current
-    YikeAlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("卡片操作") },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
-                Text("“$cardTitle” 的低频动作会集中在这里，避免卡片列表首屏信息过载。")
-                Text("也可以直接长按卡片，快速打开同一组操作。")
-            }
-        },
-        confirmButton = {
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(spacing.sm)
-            ) {
-                YikePrimaryButton(
+            actions = listOf(
+                YikeDialogAction(
                     text = "编辑卡片",
-                    onClick = onEditMeta,
-                    modifier = Modifier.fillMaxWidth()
-                )
-                YikeSecondaryButton(
+                    style = YikeDialogActionStyle.PRIMARY,
+                    onClick = {
+                        actionDialogVisible = false
+                        onEditMeta()
+                    }
+                ),
+                YikeDialogAction(
                     text = "检索本卡",
-                    onClick = onOpenSearch,
-                    modifier = Modifier.fillMaxWidth()
-                )
-                YikeSecondaryButton(
+                    style = YikeDialogActionStyle.SECONDARY,
+                    onClick = {
+                        actionDialogVisible = false
+                        onOpenSearch()
+                    }
+                ),
+                YikeDialogAction(
                     text = "归档这张卡片",
-                    onClick = onArchive,
-                    modifier = Modifier.fillMaxWidth()
-                )
-                YikeDangerButton(
+                    style = YikeDialogActionStyle.SECONDARY,
+                    onClick = {
+                        actionDialogVisible = false
+                        onArchive()
+                    }
+                ),
+                YikeDialogAction(
                     text = "删除这张卡片",
-                    onClick = onDelete,
-                    modifier = Modifier.fillMaxWidth()
+                    style = YikeDialogActionStyle.DANGER,
+                    onClick = {
+                        actionDialogVisible = false
+                        onDelete()
+                    }
                 )
-            }
-        },
-        dismissButton = {
-            YikeSecondaryButton(
-                text = "关闭",
-                onClick = onDismiss
             )
+        ) {
+            Text("“${item.card.title}” 的低频动作会集中在这里，避免卡片列表首屏信息过载。")
+            Text("也可以直接长按卡片，快速打开同一组操作。")
         }
-    )
+    }
 }
 

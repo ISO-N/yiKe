@@ -24,8 +24,9 @@ import com.kariscode.yike.domain.model.DeckSummary
 import com.kariscode.yike.domain.model.PracticeSessionArgs
 import com.kariscode.yike.navigation.YikeNavigator
 import com.kariscode.yike.ui.component.YikeBadge
-import com.kariscode.yike.ui.component.YikeAlertDialog
-import com.kariscode.yike.ui.component.YikeDangerButton
+import com.kariscode.yike.ui.component.YikeActionDialog
+import com.kariscode.yike.ui.component.YikeDialogAction
+import com.kariscode.yike.ui.component.YikeDialogActionStyle
 import com.kariscode.yike.ui.component.YikeFab
 import com.kariscode.yike.ui.component.YikeHeroCard
 import com.kariscode.yike.ui.component.YikeListItemCard
@@ -324,18 +325,31 @@ private fun DeckSummaryCard(
     }
 
     if (actionDialogVisible) {
-        DeckActionDialog(
-            deckName = item.deck.name,
+        YikeActionDialog(
+            title = "卡组操作",
             onDismiss = { actionDialogVisible = false },
-            onEdit = {
-                actionDialogVisible = false
-                onEdit()
-            },
-            onArchive = {
-                actionDialogVisible = false
-                onArchive()
-            }
-        )
+            actions = listOf(
+                YikeDialogAction(
+                    text = "编辑信息",
+                    style = YikeDialogActionStyle.PRIMARY,
+                    onClick = {
+                        actionDialogVisible = false
+                        onEdit()
+                    }
+                ),
+                YikeDialogAction(
+                    text = "归档这组内容",
+                    style = YikeDialogActionStyle.DANGER,
+                    onClick = {
+                        actionDialogVisible = false
+                        onArchive()
+                    }
+                )
+            ),
+            dismissText = "取消"
+        ) {
+            Text("“${item.deck.name}” 的低频维护动作会集中在这里，避免列表首屏被按钮挤满。")
+        }
     }
 }
 
@@ -381,32 +395,3 @@ private fun DeckTagRow(
     }
 }
 
-/**
- * 卡组页把低频维护动作收进二级弹窗，是为了给窄屏保留更稳定的主操作密度，
- * 同时仍让编辑与归档保留明确可达入口。
- */
-@Composable
-private fun DeckActionDialog(
-    deckName: String,
-    onDismiss: () -> Unit,
-    onEdit: () -> Unit,
-    onArchive: () -> Unit
-) {
-    YikeAlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("卡组操作") },
-        text = { Text("“$deckName” 的低频维护动作会集中在这里，避免列表首屏被按钮挤满。") },
-        confirmButton = {
-            YikeDangerButton(
-                text = "归档这组内容",
-                onClick = onArchive
-            )
-        },
-        dismissButton = {
-            Row(horizontalArrangement = Arrangement.spacedBy(LocalYikeSpacing.current.sm)) {
-                YikeSecondaryButton(text = "取消", onClick = onDismiss)
-                YikePrimaryButton(text = "编辑信息", onClick = onEdit)
-            }
-        }
-    )
-}

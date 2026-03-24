@@ -14,6 +14,26 @@ import androidx.compose.ui.unit.dp
 import com.kariscode.yike.ui.theme.LocalYikeSpacing
 
 /**
+ * 对话框动作显式区分语义层级后，复用弹窗就能同时承载编辑、普通操作和危险操作，
+ * 而不需要每个页面各自再拼一套按钮骨架。
+ */
+enum class YikeDialogActionStyle {
+    PRIMARY,
+    SECONDARY,
+    DANGER
+}
+
+/**
+ * 动作模型独立出来后，页面只需要声明“有哪些动作”，
+ * 不必再反复编写 AlertDialog 的按钮列布局。
+ */
+data class YikeDialogAction(
+    val text: String,
+    val style: YikeDialogActionStyle,
+    val onClick: () -> Unit
+)
+
+/**
  * 对话框外观收敛到单一入口，是为了让风险确认、输入编辑和同步预览共享同一层级语气，
  * 避免页面直接调用默认 Material3 弹窗后逐渐偏离应用自己的视觉语言。
  */
@@ -160,6 +180,63 @@ fun YikeDangerConfirmationDialog(
         text = { Text(description) },
         confirmButton = {
             YikeDangerButton(text = confirmText, onClick = onConfirm)
+        },
+        dismissButton = {
+            YikeSecondaryButton(text = dismissText, onClick = onDismiss)
+        }
+    )
+}
+
+/**
+ * 多动作维护弹窗收敛为共享组件后，卡组页和卡片页可以复用同一套说明区与按钮层级，
+ * 避免低频操作菜单继续在各自页面里演化出不同结构。
+ */
+@Composable
+fun YikeActionDialog(
+    title: String,
+    onDismiss: () -> Unit,
+    actions: List<YikeDialogAction>,
+    modifier: Modifier = Modifier,
+    dismissText: String = "关闭",
+    content: @Composable ColumnScope.() -> Unit
+) {
+    val spacing = LocalYikeSpacing.current
+    YikeAlertDialog(
+        modifier = modifier,
+        onDismissRequest = onDismiss,
+        title = { Text(title) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
+                content()
+            }
+        },
+        confirmButton = {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(spacing.sm)
+            ) {
+                actions.forEach { action ->
+                    when (action.style) {
+                        YikeDialogActionStyle.PRIMARY -> YikePrimaryButton(
+                            text = action.text,
+                            onClick = action.onClick,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+
+                        YikeDialogActionStyle.SECONDARY -> YikeSecondaryButton(
+                            text = action.text,
+                            onClick = action.onClick,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+
+                        YikeDialogActionStyle.DANGER -> YikeDangerButton(
+                            text = action.text,
+                            onClick = action.onClick,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                }
+            }
         },
         dismissButton = {
             YikeSecondaryButton(text = dismissText, onClick = onDismiss)
