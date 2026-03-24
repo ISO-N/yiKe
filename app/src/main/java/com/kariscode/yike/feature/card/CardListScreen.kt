@@ -291,7 +291,7 @@ private fun CardMasterySection(
 }
 
 /**
- * 单卡片列表项直接暴露“进入编辑”和“维护元信息”入口，是为了缩短内容管理主路径。
+ * 单卡片列表项把主操作和维护操作拆开，是为了在窄屏与大字号下仍保留清晰的点击层级。
  */
 @Composable
 private fun CardSummaryCard(
@@ -320,28 +320,30 @@ private fun CardSummaryCard(
             )
         }
     ) {
+        YikePrimaryButton(
+            text = "练习本卡",
+            onClick = onOpenPractice,
+            modifier = Modifier.fillMaxWidth()
+        )
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(spacing.sm)
         ) {
-            YikePrimaryButton(
-                text = "练习本卡",
-                onClick = onOpenPractice,
-                modifier = Modifier.weight(1f)
-            )
             YikeSecondaryButton(
                 text = "编辑问题",
                 onClick = onOpenEditor,
                 modifier = Modifier.weight(1f)
             )
+            YikeSecondaryButton(
+                text = "编辑卡片",
+                onClick = onEditMeta,
+                modifier = Modifier.weight(1f)
+            )
         }
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(spacing.sm)
-        ) {
-            TextButton(onClick = onOpenSearch, modifier = Modifier.weight(1f)) { Text("检索本卡") }
-            TextButton(onClick = onEditMeta, modifier = Modifier.weight(1f)) { Text("编辑卡片") }
-        }
+        TextButton(
+            onClick = onOpenSearch,
+            modifier = Modifier.fillMaxWidth()
+        ) { Text("检索本卡") }
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(spacing.sm)

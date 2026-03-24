@@ -36,6 +36,7 @@ fun DeckTagEditor(
     val spacing = LocalYikeSpacing.current
     val keyboardController = LocalSoftwareKeyboardController.current
     var pendingTag by rememberSaveable { mutableStateOf("") }
+    val reachedTagLimit = tags.size >= MAX_TAG_COUNT
     val suggestionTags = availableTags
         .filter { candidate ->
             candidate !in tags &&
@@ -51,6 +52,9 @@ fun DeckTagEditor(
             .trim()
             .replace(Regex("\\s+"), " ")
         if (normalizedTag.isBlank()) {
+            return
+        }
+        if (tags.size >= MAX_TAG_COUNT) {
             return
         }
         onTagsChange(tags + normalizedTag)
@@ -69,6 +73,10 @@ fun DeckTagEditor(
         placeholder = { Text("输入后按完成或点建议") },
         singleLine = true,
         modifier = modifier.fillMaxWidth(),
+        supportingText = {
+            Text("当前 ${tags.size}/$MAX_TAG_COUNT 个标签，最多保留 $MAX_TAG_COUNT 个以维持搜索和编辑可读性。")
+        },
+        enabled = !reachedTagLimit,
         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
         keyboardActions = KeyboardActions(
             onDone = { submitPendingTag(pendingTag) }
@@ -83,6 +91,7 @@ fun DeckTagEditor(
                 FilterChip(
                     selected = false,
                     onClick = { submitPendingTag(tag) },
+                    enabled = !reachedTagLimit,
                     label = { Text(tag) }
                 )
             }
@@ -109,3 +118,5 @@ fun DeckTagEditor(
         }
     }
 }
+
+private const val MAX_TAG_COUNT: Int = 8

@@ -2,6 +2,7 @@ package com.kariscode.yike.feature.practice
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -19,6 +20,7 @@ import com.kariscode.yike.ui.component.YikeBadge
 import com.kariscode.yike.ui.component.YikeFlowScaffold
 import com.kariscode.yike.ui.component.YikeHeaderBlock
 import com.kariscode.yike.ui.component.YikePrimaryButton
+import com.kariscode.yike.ui.component.YikeProgressBar
 import com.kariscode.yike.ui.component.YikeScrollableColumn
 import com.kariscode.yike.ui.component.YikeSecondaryButton
 import com.kariscode.yike.ui.component.YikeStateBanner
@@ -54,7 +56,7 @@ fun PracticeSessionScreen(
     }
 
     YikeFlowScaffold(
-        title = "练习中",
+        title = if (uiState.isCompleted) "练习完成" else "自由练习",
         subtitle = buildPracticeSessionSubtitle(uiState),
         navigationAction = backNavigationAction(
             onClick = viewModel::onFinishPracticeClick,
@@ -68,6 +70,7 @@ fun PracticeSessionScreen(
             onPreviousQuestion = viewModel::onPreviousQuestionClick,
             onNextQuestion = viewModel::onNextQuestionClick,
             onFinishPractice = viewModel::onFinishPracticeClick,
+            onRestartFromSetup = { navigator.openPracticeSetup(args) },
             modifier = modifier,
             contentPadding = padding
         )
@@ -85,6 +88,7 @@ private fun PracticeSessionContent(
     onPreviousQuestion: () -> Unit,
     onNextQuestion: () -> Unit,
     onFinishPractice: () -> Unit,
+    onRestartFromSetup: () -> Unit,
     contentPadding: PaddingValues = PaddingValues(),
     modifier: Modifier = Modifier
 ) {
@@ -135,6 +139,14 @@ private fun PracticeSessionContent(
                 }
             }
 
+            uiState.isCompleted -> {
+                PracticeCompletedSection(
+                    uiState = uiState,
+                    onFinishPractice = onFinishPractice,
+                    onRestartFromSetup = onRestartFromSetup
+                )
+            }
+
             else -> {
                 PracticeSessionProgressSection(uiState = uiState)
                 PracticePromptSection(question = uiState.currentQuestion)
@@ -156,9 +168,9 @@ private fun PracticeSessionContent(
                         modifier = Modifier.weight(1f)
                     )
                     YikePrimaryButton(
-                        text = "下一题",
-                        onClick = onNextQuestion,
-                        enabled = uiState.currentIndex < uiState.totalCount - 1,
+                        text = if (uiState.currentIndex >= uiState.totalCount - 1) "完成练习" else "下一题",
+                        onClick = if (uiState.currentIndex >= uiState.totalCount - 1) onFinishPractice else onNextQuestion,
+                        enabled = true,
                         modifier = Modifier.weight(1f)
                     )
                 }
@@ -174,6 +186,7 @@ private fun PracticeSessionContent(
 private fun PracticeSessionProgressSection(
     uiState: PracticeSessionUiState
 ) {
+    val progress = if (uiState.totalCount == 0) 0f else (uiState.currentIndex + 1).toFloat() / uiState.totalCount.toFloat()
     val sessionTag = when (uiState.orderMode) {
         com.kariscode.yike.domain.model.PracticeOrderMode.SEQUENTIAL -> "顺序练习"
         com.kariscode.yike.domain.model.PracticeOrderMode.RANDOM -> "随机练习"
@@ -182,6 +195,7 @@ private fun PracticeSessionProgressSection(
         title = "本次练习不会影响正式复习计划",
         description = "第 ${uiState.currentIndex + 1} 题，共 ${uiState.totalCount} 题。随时可以结束，也可以返回查看上一题。"
     ) {
+        YikeProgressBar(progress = progress)
         Row(horizontalArrangement = Arrangement.spacedBy(LocalYikeSpacing.current.sm)) {
             YikeBadge(text = sessionTag)
             uiState.sessionSeed?.let { seed ->
@@ -241,6 +255,45 @@ private fun PracticeAnswerSection(
 private fun buildPracticeSessionSubtitle(uiState: PracticeSessionUiState): String = when {
     uiState.isLoading -> "正在恢复本次练习题序。"
     uiState.isEmpty -> "当前范围下暂无题目。"
+    uiState.isCompleted -> "本次练习已经收尾，不会写入任何正式评分。"
     uiState.currentQuestion != null -> "第 ${uiState.currentIndex + 1} 题，共 ${uiState.totalCount} 题"
     else -> "练习会话已准备完成。"
+}
+
+/**
+ * 完成态显式说明“已结束但未写分”，是为了把自由练习和正式复习的收尾语义彻底分开。
+ */
+@Composable
+private fun PracticeCompletedSection(
+    uiState: PracticeSessionUiState,
+    onFinishPractice: () -> Unit,
+    onRestartFromSetup: () -> Unit
+) {
+    val spacing = LocalYikeSpacing.current
+    val elapsedMinutes = uiState.startedAtEpochMillis?.let { startedAt ->
+        ((System.currentTimeMillis() - startedAt).coerceAtLeast(0L) / 60000L).toInt()
+    } ?: 0
+    YikeStateBanner(
+        title = "本轮自由练习已完成",
+        description = "共浏览 ${uiState.totalCount} 题，耗时约 ${elapsedMinutes.coerceAtLeast(1)} 分钟。本次只做回忆和核对，没有写入正式评分。"
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
+                YikeBadge(text = if (uiState.orderMode == com.kariscode.yike.domain.model.PracticeOrderMode.RANDOM) "随机模式" else "顺序模式")
+                YikeBadge(text = "${uiState.totalCount} 题已完成")
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
+                YikeSecondaryButton(
+                    text = "重新调整范围",
+                    onClick = onRestartFromSetup,
+                    modifier = Modifier.weight(1f)
+                )
+                YikePrimaryButton(
+                    text = "返回首页",
+                    onClick = onFinishPractice,
+                    modifier = Modifier.weight(1f)
+                )
+            }
+        }
+    }
 }

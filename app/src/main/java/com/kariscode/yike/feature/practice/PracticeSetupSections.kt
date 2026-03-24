@@ -40,6 +40,14 @@ fun PracticeHeroSection(
         description = "这条流程只负责主动回忆与浏览答案，不会生成 ReviewRecord，也不会改动任何调度字段。"
     ) {
         Row(horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
+            YikeBadge(text = buildDeckScopeLabel(uiState))
+            YikeBadge(text = buildCardScopeLabel(uiState))
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
+            YikeBadge(text = buildQuestionScopeLabel(uiState))
+            YikeBadge(text = if (uiState.orderMode == PracticeOrderMode.RANDOM) "随机出题" else "顺序出题")
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
             PracticeOrderMode.entries.forEach { mode ->
                 FilterChip(
                     selected = uiState.orderMode == mode,
@@ -71,7 +79,7 @@ fun PracticeEmptyStateSection(
     }
     YikeStateBanner(
         title = "当前范围下没有可练习题目",
-        description = "可以放宽卡组或卡片范围，或者恢复当前题目全选后再开始。"
+        description = "当前全局范围是“${buildDeckScopeLabel(uiState)} / ${buildCardScopeLabel(uiState)} / ${buildQuestionScopeLabel(uiState)}”，可以放宽任一层级后再开始。"
     ) {
         YikeSecondaryButton(
             text = "恢复当前题目全选",
@@ -267,4 +275,32 @@ fun PracticeQuestionCard(
             modifier = Modifier.fillMaxWidth()
         )
     }
+}
+
+/**
+ * 卡组范围摘要始终可见，是为了让用户在折叠状态下也能理解当前练习会覆盖哪些顶层内容。
+ */
+private fun buildDeckScopeLabel(uiState: PracticeSetupUiState): String = when {
+    uiState.deckOptions.isEmpty() -> "暂无卡组"
+    uiState.selectedDeckIds.isEmpty() -> "全部卡组"
+    else -> "已选 ${uiState.selectedDeckIds.size} 个卡组"
+}
+
+/**
+ * 卡片范围摘要用“全部/已选 N 张”表达，是为了把二级范围预览压缩成用户一眼能懂的短语。
+ */
+private fun buildCardScopeLabel(uiState: PracticeSetupUiState): String = when {
+    uiState.cardOptions.isEmpty() -> "暂无卡片"
+    uiState.selectedCardIds.isEmpty() -> "全部卡片"
+    else -> "已选 ${uiState.selectedCardIds.size} 张卡片"
+}
+
+/**
+ * 题目范围摘要单独标出手选状态，是为了帮助用户判断当前题量是来自全选还是局部排除。
+ */
+private fun buildQuestionScopeLabel(uiState: PracticeSetupUiState): String = when {
+    uiState.questionOptions.isEmpty() -> "0 题"
+    uiState.selectedQuestionIds == null -> "${uiState.effectiveQuestionCount} 题全选"
+    uiState.selectedQuestionIds.isEmpty() -> "已清空题目"
+    else -> "手选 ${uiState.effectiveQuestionCount} 题"
 }

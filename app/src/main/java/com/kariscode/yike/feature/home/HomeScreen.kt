@@ -173,41 +173,29 @@ private fun HomeHeroSection(
                 modifier = Modifier.weight(1f)
             )
         }
-        Row(horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
-            when (contentMode) {
-                HomeContentMode.REVIEW_READY -> {
-                    YikePrimaryButton(
-                        text = "开始复习",
-                        onClick = navigator::openReviewQueue,
-                        modifier = Modifier.weight(1f)
-                    )
-                    YikeSecondaryButton(
-                        text = "自由练习",
-                        onClick = { navigator.openPracticeSetup(PracticeSessionArgs()) },
-                        modifier = Modifier.weight(1f)
-                    )
-                }
+        when (contentMode) {
+            HomeContentMode.REVIEW_READY -> {
+                YikePrimaryButton(
+                    text = "开始今日复习",
+                    onClick = navigator::openReviewQueue,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
 
-                HomeContentMode.REVIEW_CLEARED -> {
-                    YikePrimaryButton(
-                        text = "自由练习",
-                        onClick = { navigator.openPracticeSetup(PracticeSessionArgs()) },
-                        modifier = Modifier.weight(1f)
-                    )
-                    YikeSecondaryButton(
-                        text = "今日预览",
-                        onClick = navigator::openTodayPreview,
-                        modifier = Modifier.weight(1f)
-                    )
-                }
+            HomeContentMode.REVIEW_CLEARED -> {
+                YikePrimaryButton(
+                    text = "开始自由练习",
+                    onClick = { navigator.openPracticeSetup(PracticeSessionArgs()) },
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
 
-                HomeContentMode.CONTENT_EMPTY -> {
-                    YikePrimaryButton(
-                        text = "创建内容",
-                        onClick = navigator::openDeckList,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
+            HomeContentMode.CONTENT_EMPTY -> {
+                YikePrimaryButton(
+                    text = "创建内容",
+                    onClick = navigator::openDeckList,
+                    modifier = Modifier.fillMaxWidth()
+                )
             }
         }
     }
@@ -251,11 +239,19 @@ private fun HomeRhythmSection(
         )
         Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
             Row(horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
-                YikeSecondaryButton(
-                    text = "复习统计",
-                    onClick = navigator::openAnalytics,
-                    modifier = Modifier.weight(1f)
-                )
+                if (contentMode == HomeContentMode.REVIEW_READY) {
+                    YikeSecondaryButton(
+                        text = "自由练习",
+                        onClick = { navigator.openPracticeSetup(PracticeSessionArgs()) },
+                        modifier = Modifier.weight(1f)
+                    )
+                } else {
+                    YikeSecondaryButton(
+                        text = "今日预览",
+                        onClick = navigator::openTodayPreview,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
                 YikeSecondaryButton(
                     text = "问题检索",
                     onClick = { navigator.openQuestionSearch() },
@@ -263,8 +259,8 @@ private fun HomeRhythmSection(
                 )
             }
             YikeSecondaryButton(
-                text = "浏览卡组",
-                onClick = navigator::openDeckList,
+                text = "复习统计",
+                onClick = navigator::openAnalytics,
                 modifier = Modifier.fillMaxWidth()
             )
         }

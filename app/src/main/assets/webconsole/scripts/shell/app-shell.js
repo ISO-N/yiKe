@@ -151,6 +151,7 @@ async function bootstrapAppPage() {
 function renderCurrentPage(page) {
     elements.pageRoot.innerHTML = renderPageTemplate(page);
     syncElements();
+    syncShellHeading(page);
     markActiveNav(page);
     setMobileNavOpen(false);
     updateCommandAvailability();
@@ -320,6 +321,7 @@ function markActiveNav(page) {
  * 顶部玻璃壳层统一渲染，是为了让状态芯片和上下文条在多页面中仍保持稳定表达。
  */
 function renderShellChrome() {
+    syncShellHeading(state.currentSection);
     renderShellStatus();
     renderContextStrip();
 }
@@ -472,4 +474,16 @@ function setMobileNavOpen(open) {
     }
     elements.primaryNav.classList.toggle("is-open", open);
     elements.navMenuToggle.setAttribute("aria-expanded", String(open));
+    elements.navMenuToggle.textContent = open ? "× 收起导航" : "☰ 菜单导航";
+}
+
+/**
+ * 壳层主标题与页面标题同步更新，是为了让桌面端、平板端和浏览器标签页都能感知当前工作区位置。
+ */
+function syncShellHeading(page) {
+    const title = SECTION_TITLES[page] ?? SECTION_TITLES.study;
+    if (elements.sectionTitle) {
+        elements.sectionTitle.textContent = title;
+    }
+    document.title = `${title} · 忆刻网页后台`;
 }

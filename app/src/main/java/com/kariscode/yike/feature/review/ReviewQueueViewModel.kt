@@ -31,6 +31,7 @@ sealed interface ReviewQueueEffect {
  */
 data class ReviewQueueUiState(
     val isLoading: Boolean,
+    val isAllDone: Boolean,
     val errorMessage: String?
 )
 
@@ -42,7 +43,7 @@ class ReviewQueueViewModel(
     private val questionRepository: QuestionRepository,
     private val timeProvider: TimeProvider
 ) : ViewModel() {
-    private val _uiState = MutableStateFlow(ReviewQueueUiState(isLoading = true, errorMessage = null))
+    private val _uiState = MutableStateFlow(ReviewQueueUiState(isLoading = true, isAllDone = false, errorMessage = null))
     val uiState: StateFlow<ReviewQueueUiState> = _uiState.asStateFlow()
 
     private val _effects = MutableSharedFlow<ReviewQueueEffect>(extraBufferCapacity = 1)
@@ -59,15 +60,21 @@ class ReviewQueueViewModel(
      * 提供显式重试入口，避免数据库异常时用户只能返回首页再重新进入。
      */
     fun loadNext() {
-        _uiState.update { it.copy(isLoading = true, errorMessage = null) }
+        _uiState.update { it.copy(isLoading = true, isAllDone = false, errorMessage = null) }
         launchResult(
             action = {
                 val now = timeProvider.nowEpochMillis()
                 questionRepository.findNextDueCardId(now)
             },
             onSuccess = { nextCardId ->
-                _uiState.update { it.copy(isLoading = false, errorMessage = null) }
-                if (nextCardId == null) _effects.tryEmit(ReviewQueueEffect.BackToHomeCompleted)
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        isAllDone = nextCardId == null,
+                        errorMessage = null
+                    )
+                }
+                if (nextCardId == null) return@launchResult
                 else _effects.tryEmit(ReviewQueueEffect.NavigateToCard(nextCardId))
             },
             onFailure = { throwable ->

@@ -137,8 +137,7 @@ export function showMessage(message, isError = false) {
     }
     elements.globalMessage.hidden = false;
     elements.globalMessage.textContent = message;
-    elements.globalMessage.style.background = isError ? "rgba(180, 67, 53, 0.12)" : "rgba(11, 111, 105, 0.12)";
-    elements.globalMessage.style.color = isError ? "#b44335" : "#0b6f69";
+    elements.globalMessage.className = `toast ${isError ? "is-error" : "is-success"}`;
     window.clearTimeout(showMessage.timer);
     showMessage.timer = window.setTimeout(() => {
         elements.globalMessage.hidden = true;

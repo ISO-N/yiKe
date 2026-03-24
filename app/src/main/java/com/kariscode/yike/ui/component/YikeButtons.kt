@@ -4,8 +4,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExtendedFloatingActionButton
@@ -17,18 +17,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.kariscode.yike.domain.model.ReviewRating
 import com.kariscode.yike.ui.theme.YikeBestContainer
-import com.kariscode.yike.ui.theme.YikeBestContainerDark
 import com.kariscode.yike.ui.theme.YikeCriticalContainer
-import com.kariscode.yike.ui.theme.YikeCriticalContainerDark
-import com.kariscode.yike.ui.theme.YikeSuccessContainerDark
 import com.kariscode.yike.ui.theme.YikeSuccessContainer
-import com.kariscode.yike.ui.theme.YikeWarningContainerDark
 import com.kariscode.yike.ui.theme.YikeWarningContainer
+import com.kariscode.yike.ui.theme.YikeThemeTokens
 
 /**
  * 主按钮承担页面最重要动作，统一封装后能让异步状态和层级关系在各页面保持一致。
@@ -42,15 +39,20 @@ fun YikePrimaryButton(
 ) {
     Button(
         onClick = onClick,
-        modifier = modifier.height(48.dp),
+        modifier = modifier.heightIn(min = 48.dp),
         enabled = enabled,
-        shape = RoundedCornerShape(18.dp),
+        shape = MaterialTheme.shapes.medium,
         colors = ButtonDefaults.buttonColors(
             containerColor = MaterialTheme.colorScheme.primary,
             contentColor = MaterialTheme.colorScheme.onPrimary
         )
     ) {
-        Text(text = text)
+        Text(
+            text = text,
+            style = MaterialTheme.typography.labelLarge,
+            textAlign = TextAlign.Center,
+            maxLines = 2
+        )
     }
 }
 
@@ -66,11 +68,19 @@ fun YikeSecondaryButton(
 ) {
     OutlinedButton(
         onClick = onClick,
-        modifier = modifier.height(48.dp),
+        modifier = modifier.heightIn(min = 48.dp),
         enabled = enabled,
-        shape = RoundedCornerShape(18.dp)
+        shape = MaterialTheme.shapes.medium,
+        colors = ButtonDefaults.outlinedButtonColors(
+            contentColor = MaterialTheme.colorScheme.onSurface
+        )
     ) {
-        Text(text = text)
+        Text(
+            text = text,
+            style = MaterialTheme.typography.labelLarge,
+            textAlign = TextAlign.Center,
+            maxLines = 2
+        )
     }
 }
 
@@ -86,15 +96,20 @@ fun YikeDangerButton(
 ) {
     Button(
         onClick = onClick,
-        modifier = modifier.height(48.dp),
+        modifier = modifier.heightIn(min = 48.dp),
         enabled = enabled,
-        shape = RoundedCornerShape(18.dp),
+        shape = MaterialTheme.shapes.medium,
         colors = ButtonDefaults.buttonColors(
             containerColor = MaterialTheme.colorScheme.errorContainer,
             contentColor = MaterialTheme.colorScheme.onErrorContainer
         )
     ) {
-        Text(text = text)
+        Text(
+            text = text,
+            style = MaterialTheme.typography.labelLarge,
+            textAlign = TextAlign.Center,
+            maxLines = 2
+        )
     }
 }
 
@@ -114,7 +129,7 @@ fun YikeRatingButton(
         onClick = onClick,
         modifier = modifier.height(52.dp),
         enabled = enabled,
-        shape = RoundedCornerShape(18.dp),
+        shape = MaterialTheme.shapes.medium,
         colors = ButtonDefaults.buttonColors(
             containerColor = containerColor,
             contentColor = contentColor
@@ -191,71 +206,30 @@ object YikeRatingPalette {
     val successContainer: Color = YikeSuccessContainer
     val bestContainer: Color = YikeBestContainer
 
-    private val criticalContentLight: Color = Color(0xFF8C1212)
-    private val warningContentLight: Color = Color(0xFF8C5400)
-    private val successContentLight: Color = Color(0xFF1D6620)
-    private val bestContentLight: Color = Color(0xFF005048)
-
-    private val criticalContentDark: Color = Color(0xFFFFDAD6)
-    private val warningContentDark: Color = Color(0xFFFFE2B8)
-    private val successContentDark: Color = Color(0xFFC7F1C9)
-    private val bestContentDark: Color = Color(0xFFB8F1E7)
-
     /**
      * 复习评分按钮需要随主题切换成对调整前景与背景，
-     * 因此用单一入口基于当前配色亮度推导 tone，避免调用方各自判断深浅色。
+     * 因此用单一入口读取扩展语义令牌，避免调用方再自行判断浅深色和容器色。
      */
     @Composable
     fun toneFor(rating: ReviewRating): YikeRatingTone {
-        val isDarkTheme = MaterialTheme.colorScheme.surface.luminance() < 0.5f
+        val semanticColors = YikeThemeTokens.semanticColors
         return when (rating) {
-            ReviewRating.AGAIN -> if (isDarkTheme) {
-                YikeRatingTone(
-                    containerColor = YikeCriticalContainerDark,
-                    contentColor = criticalContentDark
-                )
-            } else {
-                YikeRatingTone(
-                    containerColor = criticalContainer,
-                    contentColor = criticalContentLight
-                )
-            }
-
-            ReviewRating.HARD -> if (isDarkTheme) {
-                YikeRatingTone(
-                    containerColor = YikeWarningContainerDark,
-                    contentColor = warningContentDark
-                )
-            } else {
-                YikeRatingTone(
-                    containerColor = warningContainer,
-                    contentColor = warningContentLight
-                )
-            }
-
-            ReviewRating.GOOD -> if (isDarkTheme) {
-                YikeRatingTone(
-                    containerColor = YikeSuccessContainerDark,
-                    contentColor = successContentDark
-                )
-            } else {
-                YikeRatingTone(
-                    containerColor = successContainer,
-                    contentColor = successContentLight
-                )
-            }
-
-            ReviewRating.EASY -> if (isDarkTheme) {
-                YikeRatingTone(
-                    containerColor = YikeBestContainerDark,
-                    contentColor = bestContentDark
-                )
-            } else {
-                YikeRatingTone(
-                    containerColor = bestContainer,
-                    contentColor = bestContentLight
-                )
-            }
+            ReviewRating.AGAIN -> YikeRatingTone(
+                containerColor = semanticColors.criticalContainer,
+                contentColor = semanticColors.onCriticalContainer
+            )
+            ReviewRating.HARD -> YikeRatingTone(
+                containerColor = semanticColors.warningContainer,
+                contentColor = semanticColors.onWarningContainer
+            )
+            ReviewRating.GOOD -> YikeRatingTone(
+                containerColor = semanticColors.successContainer,
+                contentColor = semanticColors.onSuccessContainer
+            )
+            ReviewRating.EASY -> YikeRatingTone(
+                containerColor = semanticColors.bestContainer,
+                contentColor = semanticColors.onBestContainer
+            )
         }
     }
 }

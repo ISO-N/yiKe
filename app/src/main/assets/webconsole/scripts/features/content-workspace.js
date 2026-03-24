@@ -1,4 +1,5 @@
 import {
+    confirmDanger,
     elements,
     escapeHtml,
     fetchJson,
@@ -15,6 +16,7 @@ import { closeContentForm, openCardForm, openDeckForm, openQuestionForm } from "
 import { buildInternalPath } from "../shared/navigation.js";
 import { launchPracticeSession } from "./practice-session-actions.js";
 import { resolvePracticeLaunchLabel, syncContentQuery } from "./content-navigation.js";
+import { renderCardDetails, renderDeckDetails, renderQuestionDetails } from "./content-workbench-view.js";
 
 /**
  * 内容树读取集中在工作区模块，是为了让卡组、卡片和问题 drill-down 按同一节奏刷新。
@@ -114,15 +116,23 @@ export function updateContentSelection() {
         <div>
             <strong>当前上下文</strong>
             <div class="muted">${escapeHtml(deck?.name || "未选择卡组")} / ${escapeHtml(card?.title || "未选择卡片")} / ${escapeHtml(question?.prompt || "未选择问题")}</div>
+            <div class="muted">批量入口会根据当前上下文自动限制作用范围，避免跨层级误操作。</div>
         </div>
         <div class="item-actions">
             ${deck ? `<button type="button" data-content-action="practice-deck">练当前卡组</button>` : ""}
             ${card ? `<button type="button" data-content-action="practice-card">练当前卡片</button>` : ""}
             ${question ? `<button type="button" data-content-action="practice-question">练这题</button>` : ""}
+            ${deck && state.cards.length ? `<button type="button" data-content-batch="archive-deck-cards">批量归档本卡组卡片</button>` : ""}
+            ${card && state.questions.length ? `<button type="button" data-content-batch="delete-card-questions">批量删除本卡片问题</button>` : ""}
         </div>
     `;
     elements.contentSelectionSummary.querySelectorAll("[data-content-action]").forEach((button) => {
         button.addEventListener("click", () => launchPracticeFromContent(button.dataset.contentAction));
+    });
+    elements.contentSelectionSummary.querySelectorAll("[data-content-batch]").forEach((button) => {
+        button.addEventListener("click", () => {
+            void launchBatchMaintenance(button.dataset.contentBatch);
+        });
     });
     renderContentWorkbench(deck, card, question);
     syncContentQuery();
@@ -153,9 +163,9 @@ function renderDeckItem(item) {
             <div class="muted">${item.cardCount} 张卡片 · ${item.questionCount} 个问题</div>
             <div class="muted">${item.description ? escapeHtml(item.description) : "暂无描述"}</div>
             <div class="item-actions">
-                <button type="button" data-deck-id="${item.id}">查看</button>
-                <button type="button" data-deck-edit="${item.id}">编辑</button>
-                <button type="button" data-deck-archive-id="${item.id}" data-deck-archive="${item.archived ? "false" : "true"}">${item.archived ? "恢复" : "归档"}</button>
+                <button type="button" data-deck-id="${item.id}">查看卡组</button>
+                <button type="button" data-deck-edit="${item.id}">编辑卡组</button>
+                <button type="button" data-deck-archive-id="${item.id}" data-deck-archive="${item.archived ? "false" : "true"}">${item.archived ? "恢复卡组" : "归档卡组"}</button>
             </div>
         </div>
     `;
@@ -174,9 +184,9 @@ function renderCardItem(item) {
             <div class="muted">${item.questionCount} 个问题</div>
             <div class="muted">${item.description ? escapeHtml(item.description) : "暂无描述"}</div>
             <div class="item-actions">
-                <button type="button" data-card-id="${item.id}">查看</button>
-                <button type="button" data-card-edit="${item.id}">编辑</button>
-                <button type="button" data-card-archive-id="${item.id}" data-card-archive="${item.archived ? "false" : "true"}">${item.archived ? "恢复" : "归档"}</button>
+                <button type="button" data-card-id="${item.id}">查看卡片</button>
+                <button type="button" data-card-edit="${item.id}">编辑卡片</button>
+                <button type="button" data-card-archive-id="${item.id}" data-card-archive="${item.archived ? "false" : "true"}">${item.archived ? "恢复卡片" : "归档卡片"}</button>
             </div>
         </div>
     `;
@@ -195,8 +205,8 @@ function renderQuestionItem(item) {
             <div>${escapeHtml(item.answer || "暂无答案")}</div>
             <div class="muted">${item.tags.length ? item.tags.map(escapeHtml).join(" / ") : "暂无标签"}</div>
             <div class="item-actions">
-                <button type="button" data-question-select="${item.id}">查看</button>
-                <button type="button" data-question-edit="${item.id}">编辑</button>
+                <button type="button" data-question-select="${item.id}">查看问题</button>
+                <button type="button" data-question-edit="${item.id}">编辑问题</button>
                 <button type="button" data-question-delete="${item.id}">删除</button>
             </div>
         </div>
@@ -223,6 +233,11 @@ function bindDeckActions(container, decks) {
     });
     container.querySelectorAll("[data-deck-archive-id]").forEach((button) => {
         button.addEventListener("click", async () => {
+            const deck = decks.find((item) => item.id === button.dataset.deckArchiveId);
+            const actionLabel = button.dataset.deckArchive === "true" ? "归档" : "恢复";
+            if (!confirmDanger(`确认${actionLabel}卡组“${deck?.name || "当前卡组"}”吗？`)) {
+                return;
+            }
             const response = await postJson("/api/web-console/v1/decks/archive", {
                 id: button.dataset.deckArchiveId,
                 archived: button.dataset.deckArchive === "true",
@@ -254,6 +269,11 @@ function bindCardActions(container, cards) {
     });
     container.querySelectorAll("[data-card-archive-id]").forEach((button) => {
         button.addEventListener("click", async () => {
+            const card = cards.find((item) => item.id === button.dataset.cardArchiveId);
+            const actionLabel = button.dataset.cardArchive === "true" ? "归档" : "恢复";
+            if (!confirmDanger(`确认${actionLabel}卡片“${card?.title || "当前卡片"}”吗？`)) {
+                return;
+            }
             const response = await postJson("/api/web-console/v1/cards/archive", {
                 id: button.dataset.cardArchiveId,
                 archived: button.dataset.cardArchive === "true",
@@ -288,6 +308,10 @@ function bindQuestionActions(container, questions) {
     });
     container.querySelectorAll("[data-question-delete]").forEach((button) => {
         button.addEventListener("click", async () => {
+            const question = questions.find((item) => item.id === button.dataset.questionDelete);
+            if (!confirmDanger(`确认删除问题“${question?.prompt || "当前问题"}”吗？该操作不会删除整张卡片。`)) {
+                return;
+            }
             const response = await postJson("/api/web-console/v1/questions/delete", {
                 id: button.dataset.questionDelete,
             });
@@ -297,6 +321,52 @@ function bindQuestionActions(container, questions) {
             await loadStudyWorkspace();
         });
     });
+}
+
+/**
+ * 批量维护入口统一按当前上下文执行，是为了让多对象整理拥有明确起点而不必离开当前工作台。
+ */
+async function launchBatchMaintenance(action) {
+    if (action === "archive-deck-cards") {
+        const deck = state.decks.find((item) => item.id === state.selectedDeckId);
+        const activeCards = state.cards.filter((item) => !item.archived);
+        if (!deck || !activeCards.length) {
+            showMessage("当前卡组下没有可批量归档的卡片。", true);
+            return;
+        }
+        if (!confirmDanger(`确认批量归档卡组“${deck.name}”下的 ${activeCards.length} 张卡片吗？`)) {
+            return;
+        }
+        const responses = await Promise.all(activeCards.map((item) => postJson("/api/web-console/v1/cards/archive", {
+            id: item.id,
+            archived: true,
+        })));
+        if (responses.every(Boolean)) {
+            showMessage(`已批量归档 ${activeCards.length} 张卡片。`);
+            await loadDecks();
+            await loadStudyWorkspace();
+        }
+        return;
+    }
+
+    if (action === "delete-card-questions") {
+        const card = state.cards.find((item) => item.id === state.selectedCardId);
+        if (!card || !state.questions.length) {
+            showMessage("当前卡片下没有可批量删除的问题。", true);
+            return;
+        }
+        if (!confirmDanger(`确认批量删除卡片“${card.title}”下的 ${state.questions.length} 条问题吗？此操作不会删除卡片本身。`)) {
+            return;
+        }
+        const responses = await Promise.all(state.questions.map((item) => postJson("/api/web-console/v1/questions/delete", {
+            id: item.id,
+        })));
+        if (responses.every(Boolean)) {
+            showMessage(`已批量删除 ${state.questions.length} 条问题。`);
+            await loadQuestions(state.selectedCardId);
+            await loadStudyWorkspace();
+        }
+    }
 }
 
 /**
@@ -333,100 +403,6 @@ function renderContentWorkbench(deck, card, question) {
     elements.contentCardDetails.innerHTML = renderCardDetails(card);
     elements.contentQuestionDetails.innerHTML = renderQuestionDetails(question);
     bindWorkbenchActions(deck, card, question);
-}
-
-/**
- * 卡组详情需要带出统计、标签和下一步动作，是为了让用户无需离开当前工作区就能继续下钻或学习。
- */
-function renderDeckDetails(deck) {
-    if (!deck) {
-        return `
-            <strong>等待选择卡组</strong>
-            <p class="muted">先在左侧确定一个卡组，再继续整理卡片与问题。</p>
-        `;
-    }
-    return `
-        <div class="item-head">
-            <strong>${escapeHtml(deck.name)}</strong>
-            <span class="muted">卡组上下文</span>
-        </div>
-        <p class="muted">${escapeHtml(deck.description || "当前卡组还没有描述。")}</p>
-        <div class="content-detail-metrics">
-            <span class="content-detail-chip">${deck.cardCount} 张卡片</span>
-            <span class="content-detail-chip">${deck.questionCount} 个问题</span>
-            <span class="content-detail-chip">${deck.dueQuestionCount} 题到期</span>
-            <span class="content-detail-chip">${deck.intervalStepCount} 步间隔</span>
-        </div>
-        <div class="content-detail-tags">
-            ${(deck.tags.length ? deck.tags : ["暂无标签"]).map((tag) => `<span class="content-detail-chip">${escapeHtml(tag)}</span>`).join("")}
-        </div>
-        <div class="item-actions">
-            <button type="button" data-workbench-action="edit-deck">编辑卡组</button>
-            <button type="button" data-workbench-action="new-card">新建卡片</button>
-            <button type="button" data-workbench-action="practice-deck">练当前卡组</button>
-        </div>
-    `;
-}
-
-/**
- * 卡片详情显式绑定当前卡组，是为了让用户在编辑或发起学习前再次确认自己没有跳出原路径。
- */
-function renderCardDetails(card) {
-    if (!card) {
-        return `
-            <strong>等待选择卡片</strong>
-            <p class="muted">卡片详情会跟随当前卡组自动同步。</p>
-        `;
-    }
-    return `
-        <div class="item-head">
-            <strong>${escapeHtml(card.title)}</strong>
-            <span class="muted">卡片上下文</span>
-        </div>
-        <p class="muted">${escapeHtml(card.description || "当前卡片还没有描述。")}</p>
-        <div class="content-detail-metrics">
-            <span class="content-detail-chip">${card.questionCount} 个问题</span>
-            <span class="content-detail-chip">${card.dueQuestionCount} 题到期</span>
-        </div>
-        <div class="item-actions">
-            <button type="button" data-workbench-action="edit-card">编辑卡片</button>
-            <button type="button" data-workbench-action="new-question">新建问题</button>
-            <button type="button" data-workbench-action="practice-card">练当前卡片</button>
-        </div>
-    `;
-}
-
-/**
- * 问题详情单独呈现题面和答案，是为了让题目级编辑与练习入口拥有稳定的就地工作台语义。
- */
-function renderQuestionDetails(question) {
-    if (!question) {
-        return `
-            <strong>等待选择问题</strong>
-            <p class="muted">选中题目后，这里会保留题面、答案和练习入口。</p>
-        `;
-    }
-    return `
-        <div class="item-head">
-            <strong>${escapeHtml(question.prompt)}</strong>
-            <span class="muted">${escapeHtml(question.status)}</span>
-        </div>
-        <div class="content-detail-answer">${escapeHtml(question.answer || "当前问题还没有答案。")}</div>
-        <div class="content-detail-metrics">
-            <span class="content-detail-chip">阶段 ${question.stageIndex}</span>
-            <span class="content-detail-chip">复习 ${question.reviewCount} 次</span>
-            <span class="content-detail-chip">lapse ${question.lapseCount} 次</span>
-            <span class="content-detail-chip">到期 ${formatDateTime(question.dueAt)}</span>
-            ${question.lastReviewedAt ? `<span class="content-detail-chip">上次复习 ${formatDateTime(question.lastReviewedAt)}</span>` : ""}
-        </div>
-        <div class="content-detail-tags">
-            ${(question.tags.length ? question.tags : ["暂无标签"]).map((tag) => `<span class="content-detail-chip">${escapeHtml(tag)}</span>`).join("")}
-        </div>
-        <div class="item-actions">
-            <button type="button" data-workbench-action="edit-question">编辑问题</button>
-            <button type="button" data-workbench-action="practice-question">练这题</button>
-        </div>
-    `;
 }
 
 /**

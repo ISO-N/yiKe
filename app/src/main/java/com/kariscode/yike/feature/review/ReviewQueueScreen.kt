@@ -11,6 +11,7 @@ import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.kariscode.yike.app.LocalAppContainer
+import com.kariscode.yike.domain.model.PracticeSessionArgs
 import com.kariscode.yike.navigation.YikeNavigator
 import com.kariscode.yike.ui.component.CollectFlowEffect
 import com.kariscode.yike.ui.component.backNavigationAction
@@ -53,6 +54,7 @@ fun ReviewQueueScreen(
             uiState = uiState,
             onRetry = viewModel::loadNext,
             onBackToHome = navigator::backToHome,
+            onOpenPractice = { navigator.openPracticeSetup(PracticeSessionArgs()) },
             modifier = modifier,
             contentPadding = padding
         )
@@ -67,6 +69,7 @@ private fun ReviewQueueContent(
     uiState: ReviewQueueUiState,
     onRetry: () -> Unit,
     onBackToHome: () -> Unit,
+    onOpenPractice: () -> Unit,
     contentPadding: PaddingValues = PaddingValues(),
     modifier: Modifier = Modifier
 ) {
@@ -92,6 +95,26 @@ private fun ReviewQueueContent(
                         YikePrimaryButton(
                             text = "重新选择",
                             onClick = onRetry,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        YikeSecondaryButton(
+                            text = "返回首页",
+                            onClick = onBackToHome,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                }
+            }
+
+            uiState.isAllDone -> {
+                YikeStateBanner(
+                    title = "今日复习已经完成",
+                    description = "当前没有新的到期卡片了。你可以回首页收尾，或直接进入自由练习继续巩固。"
+                ) {
+                    Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
+                        YikePrimaryButton(
+                            text = "进入自由练习",
+                            onClick = onOpenPractice,
                             modifier = Modifier.fillMaxWidth()
                         )
                         YikeSecondaryButton(

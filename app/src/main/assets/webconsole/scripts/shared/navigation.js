@@ -75,7 +75,8 @@ export function replaceCurrentQuery(query) {
  * 当前查询参数读取单独暴露，是为了让各工作区按需恢复自己的 URL 上下文。
  */
 export function getQueryParam(name) {
-    return new URLSearchParams(window.location.search).get(name);
+    const value = new URLSearchParams(window.location.search).get(name);
+    return normalizeNullableQueryValue(value);
 }
 
 /**
@@ -147,6 +148,20 @@ function applyQueryParams(searchParams, query) {
         }
         searchParams.set(key, value);
     });
+}
+
+/**
+ * 查询参数中的空值字符串统一回收成 null，是为了避免 `deckId=null` 这类无效状态破坏上下文恢复。
+ */
+function normalizeNullableQueryValue(value) {
+    if (value === null) {
+        return null;
+    }
+    const trimmedValue = String(value).trim();
+    if (!trimmedValue || trimmedValue === "null" || trimmedValue === "undefined") {
+        return null;
+    }
+    return trimmedValue;
 }
 
 function isSafeInternalPath(value) {

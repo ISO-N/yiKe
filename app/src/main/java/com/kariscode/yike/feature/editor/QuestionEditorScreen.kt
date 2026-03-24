@@ -12,6 +12,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -22,6 +25,7 @@ import com.kariscode.yike.app.LocalAppContainer
 import com.kariscode.yike.navigation.YikeNavigator
 import com.kariscode.yike.ui.component.CollectFlowEffect
 import com.kariscode.yike.ui.component.YikeBadge
+import com.kariscode.yike.ui.component.YikeDangerConfirmationDialog
 import com.kariscode.yike.ui.component.YikeFlowScaffold
 import com.kariscode.yike.ui.component.YikeHeaderBlock
 import com.kariscode.yike.ui.component.YikePrimaryButton
@@ -137,6 +141,7 @@ internal fun QuestionEditorContent(
     modifier: Modifier = Modifier
 ) {
     val spacing = LocalYikeSpacing.current
+    var pendingDeleteQuestionId by rememberSaveable { mutableStateOf<String?>(null) }
     YikeScrollableColumn(
         modifier = modifier,
         contentPadding = contentPadding
@@ -162,7 +167,7 @@ internal fun QuestionEditorContent(
                     onAddQuestion = onAddQuestion,
                     onPromptChange = onPromptChange,
                     onAnswerChange = onAnswerChange,
-                    onDeleteQuestion = onDeleteQuestion
+                    onDeleteQuestion = { questionId -> pendingDeleteQuestionId = questionId }
                 )
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -184,6 +189,23 @@ internal fun QuestionEditorContent(
             }
         }
     }
+    val pendingDeleteDraft = uiState.questions.firstOrNull { draft -> draft.id == pendingDeleteQuestionId }
+    if (pendingDeleteDraft != null) {
+        YikeDangerConfirmationDialog(
+            title = if (pendingDeleteDraft.isNew) "删除这条草稿问题？" else "删除这条正式问题？",
+            description = if (pendingDeleteDraft.isNew) {
+                "这会移除当前卡片中的这条草稿问题，不会影响其他问题。"
+            } else {
+                "这会在保存修改时删除当前卡片中的这条正式问题，不会删除整张卡片。"
+            },
+            confirmText = if (pendingDeleteDraft.isNew) "删除草稿问题" else "删除正式问题",
+            onDismiss = { pendingDeleteQuestionId = null },
+            onConfirm = {
+                onDeleteQuestion(pendingDeleteDraft.id)
+                pendingDeleteQuestionId = null
+            }
+        )
+    }
 }
 
 /**
@@ -193,39 +215,42 @@ internal fun QuestionEditorContent(
 private fun QuestionEditorFeedback(
     uiState: QuestionEditorUiState
 ) {
-    when {
-        uiState.errorMessage != null -> {
-            YikeStateBanner(
-                title = "保存前还需要处理",
-                description = uiState.errorMessage
-            )
-        }
+    val statusText = when {
+        uiState.errorMessage != null -> "保存前还需要处理"
+        uiState.isDraftSaving -> "草稿保存中"
+        uiState.hasUnsavedChanges && !uiState.hasPendingDraftChanges && uiState.lastDraftSavedAt != null -> "草稿已保存到本机"
+        uiState.hasUnsavedChanges -> "有未正式保存修改"
+        uiState.message != null -> "状态已更新"
+        else -> null
+    } ?: return
 
-        uiState.message != null -> {
-            YikeStateBanner(
-                title = "状态已更新",
-                description = uiState.message
-            )
-        }
-
-        uiState.isDraftSaving -> {
-            YikeStateBanner(
-                title = "正在保存草稿",
-                description = "我们会把你刚刚的修改安全地留在本机，下次回来可以继续编辑。"
-            )
-        }
-
+    val detailText = when {
+        uiState.errorMessage != null -> uiState.errorMessage
+        uiState.isDraftSaving -> "我们会把最新修改安全留在本机，下次回来可以继续编辑。"
         uiState.hasUnsavedChanges && !uiState.hasPendingDraftChanges && uiState.lastDraftSavedAt != null -> {
-            YikeStateBanner(
-                title = "草稿已保存到本机",
-                description = "上次保存于 ${formatPreviewDateTime(uiState.lastDraftSavedAt)}，仍需点击“保存修改”才会正式生效。"
-            )
+            "上次保存于 ${formatPreviewDateTime(uiState.lastDraftSavedAt)}，仍需点击“保存修改”才会正式生效。"
         }
+        uiState.hasUnsavedChanges -> "当前修改会自动落到本机草稿，但还没有正式写入卡片。"
+        else -> uiState.message
+    }
 
-        uiState.hasUnsavedChanges -> {
-            YikeStateBanner(
-                title = "有未正式保存修改",
-                description = "我们会自动保存到本机；如果你准备先离开，也可以手动点右上角“保存草稿”。"
+    YikeSurfaceCard {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            YikeHeaderBlock(
+                eyebrow = "Editor Status",
+                title = statusText,
+                subtitle = detailText.orEmpty()
+            )
+            YikeBadge(
+                text = when {
+                    uiState.errorMessage != null -> "需处理"
+                    uiState.isDraftSaving -> "保存中"
+                    uiState.hasUnsavedChanges -> "未正式提交"
+                    else -> "已同步"
+                }
             )
         }
     }
@@ -412,7 +437,7 @@ private fun QuestionDraftCard(
             horizontalArrangement = Arrangement.spacedBy(spacing.sm)
         ) {
             YikeSecondaryButton(
-                text = "删除问题",
+                text = if (draft.isNew) "删除这条草稿问题" else "删除这条正式问题",
                 onClick = onDelete,
                 modifier = Modifier.fillMaxWidth()
             )

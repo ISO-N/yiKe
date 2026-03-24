@@ -11,7 +11,7 @@
     <header class="glass-topbar">
         <div class="topbar-main">
             <div class="topbar-brand">
-                <button id="nav-menu-toggle" class="ghost-button nav-menu-toggle" type="button" aria-expanded="false" aria-controls="primary-nav">菜单</button>
+                <button id="nav-menu-toggle" class="ghost-button nav-menu-toggle" type="button" aria-expanded="false" aria-controls="primary-nav">☰ 菜单导航</button>
                 <div>
                     <p class="eyebrow">局域网控制台</p>
                     <h1 id="section-title">学习工作区</h1>
@@ -19,13 +19,28 @@
                 </div>
             </div>
             <nav id="primary-nav" class="primary-nav" aria-label="主导航">
-                <a class="nav-button" data-page-link="study" href="/study">学习</a>
-                <a class="nav-button" data-page-link="overview" href="/overview">概览</a>
-                <a class="nav-button" data-page-link="content" href="/content">内容管理</a>
-                <a class="nav-button" data-page-link="search" href="/search">搜索</a>
-                <a class="nav-button" data-page-link="analytics" href="/analytics">统计</a>
-                <a class="nav-button" data-page-link="settings" href="/settings">设置</a>
-                <a class="nav-button" data-page-link="backup" href="/backup">备份</a>
+                <div class="nav-group">
+                    <p class="nav-group-label">学习核心</p>
+                    <div class="nav-group-links">
+                        <a class="nav-button" data-page-link="study" href="/study">学习</a>
+                        <a class="nav-button" data-page-link="overview" href="/overview">概览</a>
+                        <a class="nav-button" data-page-link="analytics" href="/analytics">统计</a>
+                    </div>
+                </div>
+                <div class="nav-group">
+                    <p class="nav-group-label">内容维护</p>
+                    <div class="nav-group-links">
+                        <a class="nav-button" data-page-link="content" href="/content">内容管理</a>
+                        <a class="nav-button" data-page-link="search" href="/search">搜索</a>
+                    </div>
+                </div>
+                <div class="nav-group">
+                    <p class="nav-group-label">系统管理</p>
+                    <div class="nav-group-links">
+                        <a class="nav-button" data-page-link="settings" href="/settings">设置</a>
+                        <a class="nav-button" data-page-link="backup" href="/backup">备份</a>
+                    </div>
+                </div>
             </nav>
         </div>
         <div class="topbar-meta">

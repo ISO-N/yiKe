@@ -45,6 +45,8 @@ data class PracticeSessionUiState(
     val currentQuestion: PracticeSessionQuestionUiModel?,
     val answerVisible: Boolean,
     val sessionSeed: Long?,
+    val startedAtEpochMillis: Long?,
+    val isCompleted: Boolean,
     val isEmpty: Boolean,
     val errorMessage: String?
 )
@@ -67,6 +69,10 @@ class PracticeSessionViewModel(
     private val savedStateHandle: SavedStateHandle
 ) : ViewModel() {
     private var orderedQuestions: List<PracticeSessionQuestionUiModel> = emptyList()
+    private val sessionStartedAtEpochMillis: Long = savedStateHandle[STARTED_AT_KEY]
+        ?: timeProvider.nowEpochMillis().also { startedAt ->
+            savedStateHandle[STARTED_AT_KEY] = startedAt
+        }
 
     private val _uiState = MutableStateFlow(
         PracticeSessionUiState(
@@ -77,6 +83,8 @@ class PracticeSessionViewModel(
             currentQuestion = null,
             answerVisible = savedStateHandle[ANSWER_VISIBLE_KEY] ?: false,
             sessionSeed = savedStateHandle[SESSION_SEED_KEY],
+            startedAtEpochMillis = sessionStartedAtEpochMillis,
+            isCompleted = false,
             isEmpty = false,
             errorMessage = null
         )
@@ -125,6 +133,8 @@ class PracticeSessionViewModel(
                     currentQuestion = orderedQuestions.getOrNull(currentIndex),
                     answerVisible = savedStateHandle[ANSWER_VISIBLE_KEY] ?: false,
                     sessionSeed = savedStateHandle[SESSION_SEED_KEY],
+                    startedAtEpochMillis = sessionStartedAtEpochMillis,
+                    isCompleted = false,
                     isEmpty = orderedQuestions.isEmpty(),
                     errorMessage = null
                 )
@@ -144,6 +154,9 @@ class PracticeSessionViewModel(
      * 练习节奏仍然要求用户主动展开答案，是为了保留“先回忆、再核对”的核心动作。
      */
     fun onRevealAnswerClick() {
+        if (_uiState.value.isCompleted) {
+            return
+        }
         savedStateHandle[ANSWER_VISIBLE_KEY] = true
         _uiState.update { state -> state.copy(answerVisible = true) }
     }
@@ -152,6 +165,10 @@ class PracticeSessionViewModel(
      * 下一题只移动索引，不产生任何持久化副作用，是为了守住练习模式只读边界。
      */
     fun onNextQuestionClick() {
+        if (_uiState.value.isCompleted) {
+            _effects.tryEmit(PracticeSessionEffect.ExitPractice)
+            return
+        }
         moveToIndex(_uiState.value.currentIndex + 1)
     }
 
@@ -159,6 +176,9 @@ class PracticeSessionViewModel(
      * 上一题允许回看刚才的内容，是为了让随机与顺序模式都保留可解释的会话内导航体验。
      */
     fun onPreviousQuestionClick() {
+        if (_uiState.value.isCompleted) {
+            return
+        }
         moveToIndex(_uiState.value.currentIndex - 1)
     }
 
@@ -166,7 +186,17 @@ class PracticeSessionViewModel(
      * 结束练习统一发出退出效果，是为了让页面层自行决定返回首页还是回到来源页。
      */
     fun onFinishPracticeClick() {
-        _effects.tryEmit(PracticeSessionEffect.ExitPractice)
+        if (_uiState.value.isCompleted || _uiState.value.isEmpty) {
+            _effects.tryEmit(PracticeSessionEffect.ExitPractice)
+            return
+        }
+        _uiState.update { state ->
+            state.copy(
+                isCompleted = true,
+                answerVisible = true,
+                errorMessage = null
+            )
+        }
     }
 
     /**
@@ -183,7 +213,8 @@ class PracticeSessionViewModel(
             state.copy(
                 currentIndex = boundedIndex,
                 currentQuestion = orderedQuestions[boundedIndex],
-                answerVisible = false
+                answerVisible = false,
+                isCompleted = false
             )
         }
     }
@@ -227,6 +258,7 @@ class PracticeSessionViewModel(
         private const val CURRENT_INDEX_KEY = "practice_current_index"
         private const val ANSWER_VISIBLE_KEY = "practice_answer_visible"
         private const val SESSION_SEED_KEY = "practice_session_seed"
+        private const val STARTED_AT_KEY = "practice_started_at"
 
         /**
          * 会话页工厂需要显式拿到 SavedStateHandle，

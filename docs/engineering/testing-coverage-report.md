@@ -8,6 +8,7 @@
 - 当前主机侧已覆盖 JVM 纯单测与 Robolectric 主机集成测试，并包含同步仓储、NSD 发现服务与数据层新增回归。
 - `androidTest` 本轮未重跑；最近一次设备侧验证记录仍以 `manual-acceptance-v0-1.md` 中 2026-03-15 的结果为准。
 - `.\scripts\verify-webconsole.ps1` 已在 2026-03-24 本地跑通，覆盖网页后台入口产物校验、模块语法检查、网页后台相关 JVM 回归与 `assembleDebug`。
+- `.\gradlew.bat compileDebugKotlin` 已在 2026-03-24 针对本轮 UI/UX 收敛改动重新跑通，用于兜底共享主题、首页导航、复习/练习与网页后台壳层联动编译。
 - 本报告统一按四层门禁记录，不再只统计 `src/test`：
   - `JVM 单测`
   - `Robolectric 主机集成`
@@ -71,6 +72,7 @@
 
 - 新增 `scripts/build-webconsole.mjs`，统一生成 `assets/webconsole/app.js`、`app.css` 并校验前端体量预算
 - 新增 `scripts/verify-webconsole.ps1`，固定网页后台的入口产物校验、语法检查、JVM 回归与 Debug 构建顺序
+- 本轮已用 `verify-webconsole.ps1` 重新验证导航分组、标题同步、上下文恢复、对象级确认与批量入口改动后的产物完整性
 - `WebConsoleHttpServerTest` 继续承接网页后台本地 API 契约，并新增工作区切换、上下文恢复、局部失败隔离与学习会话中断边界回归
 - `WebConsoleStudyPayloadMapperTest` 继续承接学习工作区完成态与恢复摘要的 DTO 契约
 - 桌面/移动浏览器行为仍需人工验收补位，因此自动化测试面已补强，但不替代真实浏览器验收

@@ -36,6 +36,8 @@ data class ReviewCardUiState(
     val answerVisible: Boolean,
     val isSubmitting: Boolean,
     val isCompleted: Boolean,
+    val sessionStartedAtEpochMillis: Long?,
+    val ratingCounts: Map<ReviewRating, Int>,
     val errorMessage: String?,
     val exitConfirmationVisible: Boolean
 )
@@ -49,9 +51,21 @@ data class ReviewQuestionUiModel(
     val prompt: String,
     val answerText: String,
     val stageIndex: Int,
+    val plannedIntervalDays: Int,
     val overdueBadgeText: String?,
     val overdueHintText: String?,
-    val needsReinforcement: Boolean
+    val needsReinforcement: Boolean,
+    val ratingHints: List<ReviewRatingHintUiModel>
+)
+
+/**
+ * 评分提示模型提前把“按钮文案 + 下次间隔暗示”绑在一起，是为了让页面不用重复推导调度结果。
+ */
+data class ReviewRatingHintUiModel(
+    val rating: ReviewRating,
+    val title: String,
+    val intervalHint: String,
+    val stageHint: String
 )
 
 /**
@@ -88,6 +102,8 @@ class ReviewCardViewModel(
             answerVisible = false,
             isSubmitting = false,
             isCompleted = false,
+            sessionStartedAtEpochMillis = null,
+            ratingCounts = ReviewRating.entries.associateWith { 0 },
             errorMessage = null,
             exitConfirmationVisible = false
         )
@@ -136,7 +152,8 @@ class ReviewCardViewModel(
                     pendingQuestions = dueQuestions.map { question ->
                         question.toReviewQuestionUiModel(
                             scheduler = overduePreviewScheduler,
-                            nowEpochMillis = presentedAt
+                            nowEpochMillis = presentedAt,
+                            intervalStepCount = ReviewSchedulerV1.DEFAULT_INTERVAL_STEP_COUNT
                         )
                     }
                     questionPresentedAtEpochMillis = presentedAt
@@ -150,6 +167,8 @@ class ReviewCardViewModel(
                             answerVisible = false,
                             isSubmitting = false,
                             isCompleted = false,
+                            sessionStartedAtEpochMillis = presentedAt,
+                            ratingCounts = ReviewRating.entries.associateWith { 0 },
                             errorMessage = null
                         )
                     }
@@ -203,6 +222,7 @@ class ReviewCardViewModel(
                             currentQuestion = null,
                             answerVisible = false,
                             isCompleted = true,
+                            ratingCounts = state.ratingCounts.increment(rating),
                             errorMessage = null
                         )
                     }
@@ -214,6 +234,7 @@ class ReviewCardViewModel(
                             completedCount = nextCompletedCount,
                             currentQuestion = pendingQuestions.first(),
                             answerVisible = false,
+                            ratingCounts = state.ratingCounts.increment(rating),
                             errorMessage = null
                         )
                     }
@@ -300,12 +321,14 @@ class ReviewCardViewModel(
  */
 private fun Question.toReviewQuestionUiModel(
     scheduler: ReviewSchedulerV1,
-    nowEpochMillis: Long
+    nowEpochMillis: Long,
+    intervalStepCount: Int
 ): ReviewQuestionUiModel {
     val overdueAssessment = scheduler.assessOverdueState(
         currentStageIndex = stageIndex,
         dueAtEpochMillis = dueAt,
-        reviewedAtEpochMillis = nowEpochMillis
+        reviewedAtEpochMillis = nowEpochMillis,
+        intervalStepCount = intervalStepCount
     )
     val overdueBadgeText = overdueAssessment.overdueDays
         .takeIf { overdueDays -> overdueDays > 0 }
@@ -321,8 +344,51 @@ private fun Question.toReviewQuestionUiModel(
         prompt = prompt,
         answerText = answer.ifBlank { "无答案" },
         stageIndex = stageIndex,
+        plannedIntervalDays = overdueAssessment.plannedIntervalDays,
         overdueBadgeText = overdueBadgeText,
         overdueHintText = overdueHintText,
-        needsReinforcement = overdueAssessment.hasDecay
+        needsReinforcement = overdueAssessment.hasDecay,
+        ratingHints = ReviewRating.entries.map { rating ->
+            val scheduleResult = scheduler.scheduleNext(
+                currentStageIndex = stageIndex,
+                rating = rating,
+                reviewedAtEpochMillis = nowEpochMillis,
+                dueAtEpochMillis = dueAt,
+                intervalStepCount = intervalStepCount
+            )
+            ReviewRatingHintUiModel(
+                rating = rating,
+                title = rating.displayLabel(),
+                intervalHint = buildReviewIntervalHint(scheduleResult.intervalDays),
+                stageHint = "下一阶段 ${scheduleResult.nextStageIndex}"
+            )
+        }
     )
+}
+
+/**
+ * 评分计数统一走 map 更新，是为了让完成态摘要和提交流程共享同一份分布数据来源。
+ */
+private fun Map<ReviewRating, Int>.increment(rating: ReviewRating): Map<ReviewRating, Int> =
+    toMutableMap().apply {
+        this[rating] = (this[rating] ?: 0) + 1
+    }
+
+/**
+ * 下次复习提示压缩成短句，是为了让评分决策在手机宽度下仍然能一眼比较不同档位差异。
+ */
+private fun buildReviewIntervalHint(intervalDays: Int): String = when (intervalDays) {
+    0 -> "今天内再看一次"
+    1 -> "明天再看"
+    else -> "$intervalDays 天后再看"
+}
+
+/**
+ * 评分文案集中定义，是为了让按钮标题、完成态摘要和测试断言共用同一套命名。
+ */
+private fun ReviewRating.displayLabel(): String = when (this) {
+    ReviewRating.AGAIN -> "完全不会"
+    ReviewRating.HARD -> "有印象"
+    ReviewRating.GOOD -> "基本会"
+    ReviewRating.EASY -> "很轻松"
 }

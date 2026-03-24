@@ -158,6 +158,7 @@ fun ReviewCardContent(
                         onRevealAnswer = onRevealAnswer
                     )
                     RatingSection(
+                        question = currentQuestion,
                         answerVisible = uiState.answerVisible,
                         isSubmitting = uiState.isSubmitting,
                         onRate = onRate
@@ -182,10 +183,14 @@ private fun ReviewProgressSection(
     uiState: ReviewCardUiState
 ) {
     val totalCount = uiState.totalCount.coerceAtLeast(1)
-    val progress = uiState.completedCount.toFloat() / totalCount.toFloat()
+    val progress = (uiState.completedCount + if (uiState.answerVisible) 1 else 0).coerceAtMost(totalCount).toFloat() / totalCount.toFloat()
     YikeStateBanner(
         title = "本卡完成度",
-        description = "第 ${uiState.completedCount + 1} 题，共 ${uiState.totalCount} 题",
+        description = if (uiState.answerVisible) {
+            "第 ${uiState.completedCount + 1} 题已展开答案，下一步请选择最贴近的评分。"
+        } else {
+            "第 ${uiState.completedCount + 1} 题，共 ${uiState.totalCount} 题，先尝试完整回忆再展开答案。"
+        },
         trailing = {
             YikeBadge(text = "${(progress * 100).toInt()}%")
         }
@@ -209,7 +214,7 @@ private fun QuestionPromptSection(
             YikeHeaderBlock(
                 eyebrow = "问题",
                 title = "先在脑中组织答案",
-                subtitle = buildQuestionSubtitle(question)
+                subtitle = "${buildQuestionSubtitle(question)} · 计划间隔 ${question.plannedIntervalDays} 天"
             )
             question.overdueBadgeText?.let { badgeText ->
                 YikeBadge(text = if (question.needsReinforcement) "重新巩固" else badgeText)
@@ -251,10 +256,10 @@ private fun AnswerSection(
         ) {
             YikeHeaderBlock(
                 eyebrow = "答案",
-                title = "已展开",
-                subtitle = "对照答案后，立即给出这题的掌握度。"
+                title = "已展开，准备评分",
+                subtitle = "先核对答案，再根据下次复习间隔暗示选择最贴近的一档评分。"
             )
-            YikeBadge(text = "已展开")
+            YikeBadge(text = "等待评分")
         }
         Text(text = answerText)
     }
@@ -265,57 +270,30 @@ private fun AnswerSection(
  */
 @Composable
 private fun RatingSection(
+    question: ReviewQuestionUiModel,
     answerVisible: Boolean,
     isSubmitting: Boolean,
     onRate: (ReviewRating) -> Unit
 ) {
     val spacing = LocalYikeSpacing.current
-    val againTone = YikeRatingPalette.toneFor(ReviewRating.AGAIN)
-    val hardTone = YikeRatingPalette.toneFor(ReviewRating.HARD)
-    val goodTone = YikeRatingPalette.toneFor(ReviewRating.GOOD)
-    val easyTone = YikeRatingPalette.toneFor(ReviewRating.EASY)
     if (!answerVisible) return
     Column(verticalArrangement = Arrangement.spacedBy(spacing.md)) {
         YikeHeaderBlock(
             eyebrow = "Rating",
             title = "这题掌握得怎么样？",
-            subtitle = if (isSubmitting) "正在记录本次评分，请稍等。" else "评分后会自动推进到下一题或本卡完成态。"
+            subtitle = if (isSubmitting) "正在记录本次评分，请稍等。" else "四档评分都会显示对应的下次复习间隔，帮助你避免只凭感觉判断。"
         )
-        Row(horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
-            YikeRatingButton(
-                text = "完全不会",
-                containerColor = againTone.containerColor,
-                contentColor = againTone.contentColor,
-                onClick = { onRate(ReviewRating.AGAIN) },
-                modifier = Modifier.weight(1f),
-                enabled = !isSubmitting
-            )
-            YikeRatingButton(
-                text = "有印象",
-                containerColor = hardTone.containerColor,
-                contentColor = hardTone.contentColor,
-                onClick = { onRate(ReviewRating.HARD) },
-                modifier = Modifier.weight(1f),
-                enabled = !isSubmitting
-            )
-        }
-        Row(horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
-            YikeRatingButton(
-                text = "基本会",
-                containerColor = goodTone.containerColor,
-                contentColor = goodTone.contentColor,
-                onClick = { onRate(ReviewRating.GOOD) },
-                modifier = Modifier.weight(1f),
-                enabled = !isSubmitting
-            )
-            YikeRatingButton(
-                text = "很轻松",
-                containerColor = easyTone.containerColor,
-                contentColor = easyTone.contentColor,
-                onClick = { onRate(ReviewRating.EASY) },
-                modifier = Modifier.weight(1f),
-                enabled = !isSubmitting
-            )
+        question.ratingHints.chunked(2).forEach { rowHints ->
+            Row(horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
+                rowHints.forEach { hint ->
+                    ReviewRatingHintCard(
+                        hint = hint,
+                        isSubmitting = isSubmitting,
+                        onRate = onRate,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+            }
         }
     }
 }
@@ -330,13 +308,24 @@ private fun ReviewCompletedSection(
     onBackHome: () -> Unit
 ) {
     val spacing = LocalYikeSpacing.current
+    val elapsedMinutes = uiState.sessionStartedAtEpochMillis?.let { startedAt ->
+        ((System.currentTimeMillis() - startedAt).coerceAtLeast(0L) / 60000L).toInt().coerceAtLeast(1)
+    } ?: 1
     YikeStateBanner(
         title = "本卡完成",
-        description = "已完成 ${uiState.completedCount} / ${uiState.totalCount} 题，现在可以继续下一张或先回首页。"
+        description = "已完成 ${uiState.completedCount} / ${uiState.totalCount} 题，耗时约 $elapsedMinutes 分钟。现在可以前往下一张卡片，或先回首页收尾。"
     ) {
         Row(horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
+            ReviewRating.entries.forEach { rating ->
+                val count = uiState.ratingCounts[rating] ?: 0
+                if (count > 0) {
+                    YikeBadge(text = "${rating.displayLabel()} $count")
+                }
+            }
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
             YikePrimaryButton(
-                text = "继续下一张",
+                text = "前往下一张卡片",
                 onClick = onContinueNextCard,
                 modifier = Modifier.weight(1f)
             )
@@ -367,4 +356,47 @@ private fun buildQuestionSubtitle(question: ReviewQuestionUiModel): String = bui
         append(" · ")
         append(badgeText)
     }
+}
+
+/**
+ * 评分提示卡把按钮和下次间隔说明放在一起，是为了让用户直接比较四档评分的节奏差异。
+ */
+@Composable
+private fun ReviewRatingHintCard(
+    hint: ReviewRatingHintUiModel,
+    isSubmitting: Boolean,
+    onRate: (ReviewRating) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val tone = YikeRatingPalette.toneFor(hint.rating)
+    YikeSurfaceCard(modifier = modifier) {
+        YikeRatingButton(
+            text = hint.title,
+            containerColor = tone.containerColor,
+            contentColor = tone.contentColor,
+            onClick = { onRate(hint.rating) },
+            enabled = !isSubmitting,
+            modifier = Modifier.fillMaxWidth()
+        )
+        Text(
+            text = hint.intervalHint,
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.onSurface
+        )
+        Text(
+            text = hint.stageHint,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+}
+
+/**
+ * 完成态和评分区共用同一套文案，是为了避免按钮标题与统计摘要出现两种不同叫法。
+ */
+private fun ReviewRating.displayLabel(): String = when (this) {
+    ReviewRating.AGAIN -> "完全不会"
+    ReviewRating.HARD -> "有印象"
+    ReviewRating.GOOD -> "基本会"
+    ReviewRating.EASY -> "很轻松"
 }

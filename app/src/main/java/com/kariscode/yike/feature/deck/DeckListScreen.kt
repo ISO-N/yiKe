@@ -19,6 +19,7 @@ import com.kariscode.yike.domain.model.DeckSummary
 import com.kariscode.yike.domain.model.PracticeSessionArgs
 import com.kariscode.yike.navigation.YikeNavigator
 import com.kariscode.yike.ui.component.YikeBadge
+import com.kariscode.yike.ui.component.YikeDangerButton
 import com.kariscode.yike.ui.component.YikeFab
 import com.kariscode.yike.ui.component.YikeHeroCard
 import com.kariscode.yike.ui.component.YikeListItemCard
@@ -264,36 +265,31 @@ private fun DeckSummaryCard(
         if (item.deck.tags.isNotEmpty()) {
             DeckTagRow(tags = item.deck.tags)
         }
+        YikePrimaryButton(
+            text = "进入卡组",
+            onClick = onOpen,
+            modifier = Modifier.fillMaxWidth()
+        )
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(LocalYikeSpacing.current.sm)
         ) {
-            YikePrimaryButton(
-                text = "进入卡组",
-                onClick = onOpen,
-                modifier = Modifier.weight(1f)
-            )
             YikeSecondaryButton(
-                text = "练习卡组",
+                text = "开始练习",
                 onClick = onPractice,
                 modifier = Modifier.weight(1f)
             )
-        }
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(LocalYikeSpacing.current.sm)
-        ) {
             YikeSecondaryButton(
-                text = "编辑",
+                text = "编辑信息",
                 onClick = onEdit,
                 modifier = Modifier.weight(1f)
             )
-            YikeSecondaryButton(
-                text = "归档",
-                onClick = onArchive,
-                modifier = Modifier.weight(1f)
-            )
         }
+        YikeDangerButton(
+            text = "归档这组内容",
+            onClick = onArchive,
+            modifier = Modifier.fillMaxWidth()
+        )
     }
 }
 

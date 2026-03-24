@@ -1,10 +1,9 @@
 .login-card,
 .card {
     background: var(--surface);
-    border: 1px solid rgba(255, 255, 255, 0.6);
-    border-radius: 28px;
-    box-shadow: var(--shadow);
-    backdrop-filter: blur(16px);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-soft);
 }
 
 .login-card {
@@ -20,8 +19,8 @@
     justify-content: center;
     min-height: 44px;
     padding: 0 16px;
-    border-radius: 16px;
-    transition: transform 180ms ease, background 180ms ease, border-color 180ms ease, color 180ms ease;
+    border-radius: var(--radius-sm);
+    transition: transform var(--duration-base) ease, background var(--duration-base) ease, border-color var(--duration-base) ease, color var(--duration-base) ease, box-shadow var(--duration-base) ease;
 }
 
 .nav-button,
@@ -32,7 +31,7 @@
 
 .nav-button.is-active {
     background: var(--primary-soft);
-    color: var(--primary);
+    color: var(--primary-strong);
     font-weight: 700;
 }
 
@@ -40,10 +39,12 @@
     background: var(--primary);
     color: white;
     font-weight: 700;
+    box-shadow: 0 10px 24px rgba(11, 111, 105, 0.18);
 }
 
 .ghost-button {
     border: 1px solid var(--border);
+    background: var(--surface-strong);
 }
 
 .button-link {
@@ -55,6 +56,15 @@
 .primary-button:hover,
 .study-rating-button:hover {
     transform: translateY(-1px);
+    box-shadow: var(--shadow-soft);
+}
+
+.nav-button:active,
+.ghost-button:active,
+.primary-button:active,
+.study-rating-button:active {
+    transform: translateY(0);
+    box-shadow: none;
 }
 
 .nav-button:focus-visible,
@@ -88,10 +98,10 @@ select:focus-visible {
 
 .metric {
     padding: 18px;
-    border-radius: 22px;
-    background: var(--surface);
-    border: 1px solid rgba(255, 255, 255, 0.75);
-    box-shadow: var(--shadow);
+    border-radius: var(--radius-md);
+    background: var(--surface-muted);
+    border: 1px solid var(--border);
+    box-shadow: none;
     transition: transform 180ms ease, box-shadow 180ms ease;
 }
 
@@ -103,7 +113,7 @@ select:focus-visible {
 
 .item {
     padding: 14px 16px;
-    border-radius: 18px;
+    border-radius: var(--radius-md);
     background: var(--surface-strong);
     border: 1px solid var(--border);
     display: grid;
@@ -113,7 +123,7 @@ select:focus-visible {
 
 .item.is-selected {
     border-color: rgba(11, 111, 105, 0.42);
-    background: #eef9f7;
+    background: var(--surface-accent);
 }
 
 .item-head,
@@ -132,8 +142,9 @@ select:focus-visible {
 
 .item-actions button {
     background: transparent;
-    color: var(--primary);
+    color: var(--primary-strong);
     padding: 0;
+    font-weight: 700;
 }
 
 .form-actions {
@@ -143,9 +154,20 @@ select:focus-visible {
 .toast {
     width: min(100%, 360px);
     padding: 12px 14px;
-    border-radius: 16px;
-    background: rgba(11, 111, 105, 0.12);
-    color: var(--primary);
+    border-radius: var(--radius-sm);
+    border: 1px solid transparent;
+    background: var(--success-soft);
+    color: var(--primary-strong);
+}
+
+.toast.is-success {
+    border-color: rgba(11, 111, 105, 0.16);
+}
+
+.toast.is-error {
+    background: var(--danger-soft);
+    border-color: rgba(180, 67, 53, 0.18);
+    color: var(--danger);
 }
 
 .status-chip-row,
@@ -183,9 +205,9 @@ select:focus-visible {
 
 .empty-state-block {
     padding: 16px;
-    border-radius: 18px;
-    background: rgba(11, 111, 105, 0.05);
-    border: 1px dashed rgba(11, 111, 105, 0.18);
+    border-radius: var(--radius-md);
+    background: var(--surface-accent);
+    border: 1px dashed rgba(11, 111, 105, 0.22);
     display: grid;
     gap: 4px;
 }
@@ -194,24 +216,24 @@ select:focus-visible {
     display: grid;
     gap: 4px;
     padding: 16px 18px;
-    border-radius: 18px;
+    border-radius: var(--radius-md);
     border: 1px solid rgba(11, 111, 105, 0.18);
-    background: rgba(11, 111, 105, 0.05);
+    background: var(--surface-accent);
 }
 
 .workspace-feedback.is-success {
     border-color: rgba(11, 111, 105, 0.2);
-    background: rgba(11, 111, 105, 0.08);
+    background: var(--success-soft);
 }
 
 .workspace-feedback.is-warning {
-    border-color: rgba(180, 121, 0, 0.18);
-    background: rgba(180, 121, 0, 0.07);
+    border-color: rgba(154, 90, 5, 0.2);
+    background: var(--warning-soft);
 }
 
 .workspace-feedback.is-error {
     border-color: rgba(180, 67, 53, 0.2);
-    background: rgba(180, 67, 53, 0.08);
+    background: var(--danger-soft);
 }
 
 .login-notes {
@@ -261,7 +283,7 @@ select:focus-visible {
 }
 
 .danger-toggle {
-    background: rgba(180, 67, 53, 0.08);
+    background: var(--danger-soft);
     border: 1px solid rgba(180, 67, 53, 0.16);
 }
 

@@ -9,11 +9,10 @@
 .route-card {
     width: min(100%, 480px);
     padding: 32px;
-    border-radius: 28px;
-    border: 1px solid rgba(255, 255, 255, 0.65);
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--border);
     background: var(--surface);
-    box-shadow: var(--shadow);
-    backdrop-filter: blur(18px);
+    box-shadow: var(--shadow-soft);
 }
 
 .app-page-shell {
@@ -30,11 +29,10 @@
     display: grid;
     gap: 16px;
     padding: 18px 20px;
-    border: 1px solid rgba(255, 255, 255, 0.75);
-    border-radius: 30px;
-    background: rgba(255, 255, 255, 0.72);
-    box-shadow: 0 24px 50px rgba(21, 38, 37, 0.12);
-    backdrop-filter: blur(22px);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-xl);
+    background: rgba(255, 255, 255, 0.9);
+    box-shadow: var(--shadow-soft);
 }
 
 .topbar-main,
@@ -62,9 +60,29 @@
 
 .primary-nav {
     display: flex;
-    flex-wrap: wrap;
-    gap: 10px;
+    flex-wrap: nowrap;
+    gap: 12px;
     justify-content: flex-end;
+}
+
+.nav-group {
+    display: grid;
+    gap: 8px;
+}
+
+.nav-group-label {
+    margin: 0;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+}
+
+.nav-group-links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
 }
 
 .nav-menu-toggle {
@@ -118,7 +136,7 @@
     }
 }
 
-@media (max-width: 1180px) {
+@media (max-width: 1024px) {
     .topbar-main {
         flex-direction: column;
     }
@@ -134,7 +152,7 @@
     }
 }
 
-@media (max-width: 900px) {
+@media (max-width: 768px) {
     .app-page-shell {
         padding: 12px 14px 24px;
     }
@@ -165,9 +183,13 @@
         flex-direction: column;
         align-items: stretch;
     }
+
+    .nav-group-links {
+        width: 100%;
+    }
 }
 
-@media (max-width: 720px) {
+@media (max-width: 768px) {
     .context-strip,
     .search-form,
     .two-column,
