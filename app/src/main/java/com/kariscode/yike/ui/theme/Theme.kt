@@ -1,15 +1,19 @@
 package com.kariscode.yike.ui.theme
 
 import android.app.Activity
+import android.os.Build
 import android.content.Context
 import android.content.ContextWrapper
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.dynamicDarkColorScheme
+import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.SideEffect
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 import com.kariscode.yike.domain.model.ThemeMode
@@ -77,19 +81,29 @@ fun YikeTheme(
     themeMode: ThemeMode = ThemeMode.LIGHT,
     content: @Composable () -> Unit
 ) {
+    val context = LocalContext.current
     val useDarkColors = when (themeMode) {
         ThemeMode.LIGHT -> false
         ThemeMode.DARK -> true
         ThemeMode.SYSTEM -> isSystemInDarkTheme()
     }
+    val colorScheme = when {
+        Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && useDarkColors -> dynamicDarkColorScheme(context)
+        Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> dynamicLightColorScheme(context)
+        useDarkColors -> DarkColorScheme
+        else -> LightColorScheme
+    }
     YikeSystemBarAppearance(useDarkColors = useDarkColors)
     CompositionLocalProvider(
         LocalYikeSpacing provides YikeSpacing(),
         LocalYikeSemanticColors provides if (useDarkColors) DarkSemanticColors else LightSemanticColors,
-        LocalYikeChromeColors provides if (useDarkColors) DarkChromeColors else LightChromeColors
+        LocalYikeChromeColors provides yikeChromeColorsFor(
+            colorScheme = colorScheme,
+            isDark = useDarkColors
+        )
     ) {
         MaterialTheme(
-            colorScheme = if (useDarkColors) DarkColorScheme else LightColorScheme,
+            colorScheme = colorScheme,
             typography = Typography,
             shapes = YikeShapes,
             content = content

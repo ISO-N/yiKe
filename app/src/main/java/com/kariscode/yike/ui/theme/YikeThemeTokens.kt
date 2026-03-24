@@ -1,5 +1,6 @@
 package com.kariscode.yike.ui.theme
 
+import androidx.compose.material3.ColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.staticCompositionLocalOf
@@ -75,6 +76,23 @@ internal val DarkChromeColors = YikeChromeColors(
     navigationBorder = YikeOutlineVariantDark.copy(alpha = 0.92f),
     navigationSelectedContainer = YikePrimaryDark.copy(alpha = 0.22f),
     navigationSelectedContent = YikePrimaryDark
+)
+
+/**
+ * Chrome 令牌在动态配色启用时需要跟随当前 `ColorScheme` 一起变化，
+ * 这样导航壳、背景辉光和 Hero 渐变才不会停留在旧品牌色导致界面割裂。
+ */
+internal fun yikeChromeColorsFor(
+    colorScheme: ColorScheme,
+    isDark: Boolean
+): YikeChromeColors = YikeChromeColors(
+    screenGlow = colorScheme.primary.copy(alpha = if (isDark) 0.18f else 0.24f),
+    heroGradientStart = colorScheme.primaryContainer.copy(alpha = if (isDark) 0.68f else 0.72f),
+    heroGradientEnd = colorScheme.surface,
+    navigationContainer = colorScheme.surface.copy(alpha = if (isDark) 0.94f else 0.96f),
+    navigationBorder = colorScheme.outlineVariant.copy(alpha = if (isDark) 0.92f else 0.75f),
+    navigationSelectedContainer = colorScheme.primary.copy(alpha = if (isDark) 0.22f else 0.12f),
+    navigationSelectedContent = colorScheme.primary
 )
 
 /**

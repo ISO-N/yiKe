@@ -2,6 +2,7 @@ package com.kariscode.yike.app
 
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Composable
+import androidx.compose.material3.windowsizeclass.WindowSizeClass
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.compose.rememberNavController
@@ -9,7 +10,9 @@ import com.kariscode.yike.data.settings.SettingsConstants
 import com.kariscode.yike.domain.model.AppSettings
 import com.kariscode.yike.domain.model.ThemeMode
 import com.kariscode.yike.navigation.YikeNavGraph
+import com.kariscode.yike.ui.theme.LocalYikeAdaptiveLayout
 import com.kariscode.yike.ui.theme.YikeTheme
+import com.kariscode.yike.ui.theme.yikeAdaptiveLayoutFor
 
 /**
  * 将导航与页面根节点集中在一个 Composable 中，可以让 Activity 保持“只负责承载”的职责，
@@ -18,6 +21,7 @@ import com.kariscode.yike.ui.theme.YikeTheme
 @Composable
 fun YikeApp(
     container: AppContainer,
+    windowSizeClass: WindowSizeClass,
     modifier: Modifier = Modifier
 ) {
     val navController = rememberNavController()
@@ -32,7 +36,10 @@ fun YikeApp(
         )
     )
     YikeTheme(themeMode = settings.value.themeMode) {
-        CompositionLocalProvider(LocalAppContainer provides container) {
+        CompositionLocalProvider(
+            LocalAppContainer provides container,
+            LocalYikeAdaptiveLayout provides yikeAdaptiveLayoutFor(windowSizeClass.widthSizeClass)
+        ) {
             YikeNavGraph(
                 navController = navController,
                 modifier = modifier

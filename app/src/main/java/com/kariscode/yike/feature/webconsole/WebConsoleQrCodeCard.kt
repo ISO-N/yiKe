@@ -16,6 +16,7 @@ import com.google.zxing.EncodeHintType
 import com.google.zxing.MultiFormatWriter
 import com.kariscode.yike.domain.model.WebConsoleAddress
 import com.kariscode.yike.ui.component.YikeSurfaceCard
+import com.kariscode.yike.ui.theme.YikeAdaptiveTokens
 
 /**
  * 二维码卡片直接展示推荐访问地址，是为了让同一 Wi‑Fi 或热点下的电脑/平板能用扫码快速进入网页后台。
@@ -27,6 +28,7 @@ fun WebConsoleQrCodeCard(
     modifier: Modifier = Modifier
 ) {
     val qrBitmap = remember(address.url) { generateQrCodeBitmap(address.url) }
+    val adaptiveLayout = YikeAdaptiveTokens.layout
     YikeSurfaceCard(modifier = modifier) {
         Text(
             text = "扫码打开推荐地址",
@@ -43,7 +45,7 @@ fun WebConsoleQrCodeCard(
                 contentDescription = "网页后台访问地址二维码",
                 modifier = Modifier
                     .align(Alignment.CenterHorizontally)
-                    .size(220.dp)
+                    .size(adaptiveLayout.qrCodeSize)
             )
         } else {
             Text(

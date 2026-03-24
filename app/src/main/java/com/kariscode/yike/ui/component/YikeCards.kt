@@ -68,13 +68,14 @@ fun YikeHeroCard(
 @Composable
 fun YikeSurfaceCard(
     modifier: Modifier = Modifier,
+    containerColor: androidx.compose.ui.graphics.Color = MaterialTheme.colorScheme.surface,
     content: @Composable ColumnScope.() -> Unit
 ) {
     val spacing = LocalYikeSpacing.current
     ElevatedCard(
         modifier = modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.large,
-        colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surface),
+        colors = CardDefaults.elevatedCardColors(containerColor = containerColor),
         elevation = CardDefaults.elevatedCardElevation(defaultElevation = 1.dp)
     ) {
         Column(
@@ -166,11 +167,15 @@ fun YikeListItemCard(
     summary: String,
     modifier: Modifier = Modifier,
     badge: @Composable (() -> Unit)? = null,
+    containerColor: androidx.compose.ui.graphics.Color = MaterialTheme.colorScheme.surface,
     supporting: String? = null,
     actions: @Composable ColumnScope.() -> Unit = {}
 ) {
     val spacing = LocalYikeSpacing.current
-    YikeSurfaceCard(modifier = modifier) {
+    YikeSurfaceCard(
+        modifier = modifier,
+        containerColor = containerColor
+    ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,

@@ -1,6 +1,14 @@
 package com.kariscode.yike.feature.review
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.togetherWith
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -66,7 +74,8 @@ fun ReviewCardScreen(
         subtitle = buildReviewSubtitle(uiState),
         navigationAction = backNavigationAction(
             onClick = viewModel::onExitAttempt,
-            contentDescription = "退出复习"
+            contentDescription = "退出复习",
+            label = "退出复习"
         )
     ) { padding ->
         ReviewCardContent(
@@ -240,28 +249,36 @@ private fun AnswerSection(
     answerText: String,
     onRevealAnswer: () -> Unit
 ) {
-    if (!answerVisible) {
-        YikePrimaryButton(
-            text = "显示答案",
-            onClick = onRevealAnswer,
-            modifier = Modifier.fillMaxWidth()
-        )
-        return
-    }
-
-    YikeSurfaceCard {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            YikeHeaderBlock(
-                eyebrow = "答案",
-                title = "已展开，准备评分",
-                subtitle = "先核对答案，再根据下次复习间隔暗示选择最贴近的一档评分。"
+    AnimatedContent(
+        targetState = answerVisible,
+        transitionSpec = {
+            (fadeIn(animationSpec = tween(durationMillis = 320)) + expandVertically()) togetherWith
+                (fadeOut(animationSpec = tween(durationMillis = 180)) + shrinkVertically())
+        },
+        label = "answer_section_transition"
+    ) { isAnswerVisible ->
+        if (!isAnswerVisible) {
+            YikePrimaryButton(
+                text = "显示答案",
+                onClick = onRevealAnswer,
+                modifier = Modifier.fillMaxWidth()
             )
-            YikeBadge(text = "等待评分")
+        } else {
+            YikeSurfaceCard {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    YikeHeaderBlock(
+                        eyebrow = "答案",
+                        title = "已展开，准备评分",
+                        subtitle = "先核对答案，再根据下次复习间隔暗示选择最贴近的一档评分。"
+                    )
+                    YikeBadge(text = "等待评分")
+                }
+                Text(text = answerText)
+            }
         }
-        Text(text = answerText)
     }
 }
 
@@ -276,22 +293,27 @@ private fun RatingSection(
     onRate: (ReviewRating) -> Unit
 ) {
     val spacing = LocalYikeSpacing.current
-    if (!answerVisible) return
-    Column(verticalArrangement = Arrangement.spacedBy(spacing.md)) {
-        YikeHeaderBlock(
-            eyebrow = "Rating",
-            title = "这题掌握得怎么样？",
-            subtitle = if (isSubmitting) "正在记录本次评分，请稍等。" else "四档评分都会显示对应的下次复习间隔，帮助你避免只凭感觉判断。"
-        )
-        question.ratingHints.chunked(2).forEach { rowHints ->
-            Row(horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
-                rowHints.forEach { hint ->
-                    ReviewRatingHintCard(
-                        hint = hint,
-                        isSubmitting = isSubmitting,
-                        onRate = onRate,
-                        modifier = Modifier.weight(1f)
-                    )
+    AnimatedVisibility(
+        visible = answerVisible,
+        enter = fadeIn(animationSpec = tween(durationMillis = 320)) + expandVertically(),
+        exit = fadeOut(animationSpec = tween(durationMillis = 180)) + shrinkVertically()
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(spacing.md)) {
+            YikeHeaderBlock(
+                eyebrow = "评分",
+                title = "这题掌握得怎么样？",
+                subtitle = if (isSubmitting) "正在记录本次评分，请稍等。" else "四档评分都会显示对应的下次复习间隔，帮助你避免只凭感觉判断。"
+            )
+            question.ratingHints.chunked(2).forEach { rowHints ->
+                Row(horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
+                    rowHints.forEach { hint ->
+                        ReviewRatingHintCard(
+                            hint = hint,
+                            isSubmitting = isSubmitting,
+                            onRate = onRate,
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
                 }
             }
         }

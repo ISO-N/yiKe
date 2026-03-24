@@ -11,7 +11,9 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -135,7 +137,9 @@ private fun SettingsContent(
             YikeStateBanner(
                 title = "正在读取设置",
                 description = "正在同步提醒和备份状态。"
-            )
+            ) {
+                CircularProgressIndicator()
+            }
             return@YikeScrollableColumn
         }
 
@@ -209,6 +213,11 @@ private fun ReminderSettingsSection(
     onOpenWebConsole: () -> Unit,
     onOpenRecycleBin: () -> Unit
 ) {
+    SettingsSectionHeader(
+        title = "提醒与外观",
+        description = "先把每天的复习节奏和界面显示偏好调整到舒服的状态。"
+    )
+
     YikeListItemCard(
         title = "每日提醒",
         summary = if (uiState.dailyReminderEnabled) "已开启" else "已关闭",
@@ -248,10 +257,17 @@ private fun ReminderSettingsSection(
         )
     }
 
+    SettingsSectionHeader(
+        title = "连接与数据",
+        description = "这些入口会跳转到独立流程页，用于处理备份、同步和局域网访问。"
+    )
+
     YikeListItemCard(
         title = "备份与恢复",
         summary = uiState.lastBackupAt?.let { formatLocalDateTime(it) } ?: "暂无备份记录",
-        supporting = "导出 JSON 或恢复本地备份。"
+        supporting = "导出 JSON 或恢复本地备份。",
+        containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.42f),
+        badge = { NavigationEntryBadge() }
     ) {
         YikeSecondaryButton(
             text = "进入备份页",
@@ -263,7 +279,9 @@ private fun ReminderSettingsSection(
     YikeListItemCard(
         title = "局域网同步",
         summary = "发现同一 Wi-Fi 下的设备",
-        supporting = "支持设备配对、同步预览与冲突确认。"
+        supporting = "支持设备配对、同步预览与冲突确认。",
+        containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.42f),
+        badge = { NavigationEntryBadge() }
     ) {
         YikeSecondaryButton(
             text = "进入同步页",
@@ -275,7 +293,9 @@ private fun ReminderSettingsSection(
     YikeListItemCard(
         title = "网页后台",
         summary = "对电脑和手机浏览器开放后台页面",
-        supporting = "启动后会显示 IP、端口和一次性访问码。"
+        supporting = "启动后会显示 IP、端口和一次性访问码。",
+        containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.42f),
+        badge = { NavigationEntryBadge() }
     ) {
         YikeSecondaryButton(
             text = "进入网页后台页",
@@ -287,7 +307,9 @@ private fun ReminderSettingsSection(
     YikeListItemCard(
         title = "已归档内容",
         summary = "集中恢复或清理归档数据",
-        supporting = "先归档，再按需恢复或彻底删除。"
+        supporting = "先归档，再按需恢复或彻底删除。",
+        containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.42f),
+        badge = { NavigationEntryBadge() }
     ) {
         YikeSecondaryButton(
             text = "查看已归档内容",
@@ -295,6 +317,11 @@ private fun ReminderSettingsSection(
             modifier = Modifier.fillMaxWidth()
         )
     }
+
+    SettingsSectionHeader(
+        title = "关于应用",
+        description = "版本信息保留在末尾，是为了让设置页的工具入口和静态信息层级更清楚。"
+    )
 
     YikeListItemCard(
         title = "应用版本",
@@ -308,6 +335,32 @@ private fun ReminderSettingsSection(
             YikeBadge(text = "MVP")
         }
     }
+}
+
+/**
+ * 设置页用小节标题分组入口，是为了让“切换类操作”和“跳转类工具”在视觉上先被用户区分开。
+ */
+@Composable
+private fun SettingsSectionHeader(
+    title: String,
+    description: String
+) {
+    YikeStateBanner(
+        title = title,
+        description = description
+    )
+}
+
+/**
+ * 跳转类入口统一带上“工具页”徽标，是为了让用户在扫读设置页时一眼区分“立即切换”和“进入子流程”。
+ */
+@Composable
+private fun NavigationEntryBadge() {
+    YikeBadge(
+        text = "工具页",
+        containerColor = MaterialTheme.colorScheme.secondaryContainer,
+        contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+    )
 }
 
 /**

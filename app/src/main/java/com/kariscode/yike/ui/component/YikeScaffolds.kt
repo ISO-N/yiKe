@@ -25,6 +25,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CollectionsBookmark
@@ -51,6 +52,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.kariscode.yike.navigation.YikeDestination
+import com.kariscode.yike.ui.theme.YikeAdaptiveTokens
 import com.kariscode.yike.ui.theme.LocalYikeSpacing
 import com.kariscode.yike.ui.theme.YikeThemeTokens
 
@@ -103,9 +105,10 @@ fun YikePrimaryScaffold(
     floatingActionButton: @Composable (() -> Unit)? = null,
     content: @Composable (PaddingValues) -> Unit
 ) {
+    val adaptiveLayout = YikeAdaptiveTokens.layout
     val navigationBottomPadding = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
-    val contentBottomPadding = navigationBottomPadding + 110.dp
-    val fabBottomPadding = navigationBottomPadding + 68.dp
+    val contentBottomPadding = navigationBottomPadding + adaptiveLayout.primaryContentBottomInset
+    val fabBottomPadding = navigationBottomPadding + adaptiveLayout.primaryFabBottomInset
     val spacing = YikeThemeTokens.spacing
 
     YikeScreenBackground {
@@ -114,18 +117,29 @@ fun YikePrimaryScaffold(
                 modifier = Modifier
                     .fillMaxSize()
                     .windowInsetsPadding(WindowInsets.statusBars.only(WindowInsetsSides.Top))
-                    .padding(horizontal = spacing.lg)
+                    .padding(horizontal = adaptiveLayout.horizontalPadding)
             ) {
-                YikePrimaryHeaderBlock(
-                    eyebrow = currentDestination.label,
-                    title = title,
-                    subtitle = subtitle
-                )
-                Spacer(modifier = Modifier.height(spacing.sm))
                 Box(
-                    modifier = Modifier.fillMaxSize()
+                    modifier = Modifier.fillMaxWidth(),
+                    contentAlignment = Alignment.TopCenter
                 ) {
-                    content(PaddingValues(bottom = contentBottomPadding))
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .widthIn(max = adaptiveLayout.maxContentWidth)
+                    ) {
+                        YikePrimaryHeaderBlock(
+                            eyebrow = currentDestination.label,
+                            title = title,
+                            subtitle = subtitle
+                        )
+                        Spacer(modifier = Modifier.height(spacing.sm))
+                        Box(
+                            modifier = Modifier.fillMaxSize()
+                        ) {
+                            content(PaddingValues(bottom = contentBottomPadding))
+                        }
+                    }
                 }
             }
 
@@ -133,7 +147,7 @@ fun YikePrimaryScaffold(
                 Box(
                     modifier = Modifier
                         .align(Alignment.BottomEnd)
-                        .padding(end = spacing.lg, bottom = fabBottomPadding)
+                        .padding(end = adaptiveLayout.horizontalPadding, bottom = fabBottomPadding)
                 ) {
                     floatingActionButton()
                 }
@@ -152,6 +166,7 @@ fun YikePrimaryNavigationChrome(
     onNavigate: (YikePrimaryDestination) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val adaptiveLayout = YikeAdaptiveTokens.layout
     val navigationBarPadding = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
     val navigationBottomOffset = navigationBarPadding + 2.dp
     val spacing = YikeThemeTokens.spacing
@@ -162,8 +177,9 @@ fun YikePrimaryNavigationChrome(
             onNavigate = onNavigate,
             modifier = Modifier
                 .align(Alignment.BottomCenter)
-                .padding(horizontal = spacing.lg)
+                .padding(horizontal = adaptiveLayout.horizontalPadding)
                 .padding(bottom = navigationBottomOffset)
+                .widthIn(max = adaptiveLayout.maxContentWidth)
         )
     }
 }
@@ -177,6 +193,7 @@ private fun YikeBottomNavigation(
     onNavigate: (YikePrimaryDestination) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val adaptiveLayout = YikeAdaptiveTokens.layout
     val spacing = YikeThemeTokens.spacing
     val chromeColors = YikeThemeTokens.chromeColors
     val navigationShape = MaterialTheme.shapes.large
@@ -221,7 +238,7 @@ private fun YikeBottomNavigation(
                         Icon(
                             imageVector = destination.icon,
                             contentDescription = destination.label,
-                            modifier = Modifier.size(20.dp)
+                            modifier = Modifier.size(adaptiveLayout.bottomNavigationIconSize)
                         )
                         Text(
                             text = destination.label,
@@ -247,6 +264,7 @@ fun YikeFlowScaffold(
     onActionClick: (() -> Unit)? = null,
     content: @Composable (PaddingValues) -> Unit
 ) {
+    val adaptiveLayout = YikeAdaptiveTokens.layout
     val spacing = YikeThemeTokens.spacing
     Scaffold(
         containerColor = Color.Transparent,
@@ -265,10 +283,17 @@ fun YikeFlowScaffold(
                 modifier = Modifier
                     .fillMaxSize()
                     .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Bottom))
-                    .padding(horizontal = spacing.lg)
                     .padding(top = spacing.md)
+                    .padding(horizontal = adaptiveLayout.horizontalPadding)
             ) {
-                content(padding)
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .widthIn(max = adaptiveLayout.maxContentWidth)
+                        .align(Alignment.TopCenter)
+                ) {
+                    content(padding)
+                }
             }
         }
     }
