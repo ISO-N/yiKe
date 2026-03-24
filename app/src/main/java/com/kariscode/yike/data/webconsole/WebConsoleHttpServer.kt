@@ -335,8 +335,17 @@ private fun Route.registerSettingsRoutes(handler: WebConsoleApiHandler) {
  * 静态资源路由单独挂载，是为了让前端目录结构升级后仍保持与 API 路由完全分离。
  */
 private fun Route.registerAssetRoutes(assetLoader: WebConsoleAssetLoader) {
-    get("/{...}") {
-        val requestedPath = call.request.path().removePrefix("/")
+    get("/") {
+        val asset = assetLoader.load("/")
+        if (asset == null) {
+            call.respondText("Not Found", status = HttpStatusCode.NotFound)
+            return@get
+        }
+        call.respondBytes(asset.bytes, contentType = asset.contentType)
+    }
+
+    get("/{asset...}") {
+        val requestedPath = call.parameters.getAll("asset").orEmpty().joinToString("/")
         val asset = assetLoader.load(requestedPath) ?: assetLoader.load("/")
         if (asset == null) {
             call.respondText("Not Found", status = HttpStatusCode.NotFound)

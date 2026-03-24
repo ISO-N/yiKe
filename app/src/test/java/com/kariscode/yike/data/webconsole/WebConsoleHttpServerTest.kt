@@ -305,6 +305,45 @@ class WebConsoleHttpServerTest {
     }
 
     /**
+     * 登录页友好路径必须直接返回独立登录页面，
+     * 否则多页面壳层退化后，浏览器书签和会话失效跳转都会落回模糊的单入口体验。
+     */
+    @Test
+    fun loginRoute_servesDedicatedLoginPage() = testApplication {
+        application {
+            configureWebConsoleRoutes(
+                assetLoader = WebConsoleAssetLoader(RuntimeEnvironment.getApplication()),
+                handler = createHandler()
+            )
+        }
+
+        val response = client.get("/login")
+
+        assertEquals(HttpStatusCode.OK, response.status)
+        assertTrue(response.bodyAsText().contains("输入访问码登录"))
+    }
+
+    /**
+     * 正式工作区友好路径必须返回应用壳层模板，
+     * 否则浏览器直接访问 `/study` 这类地址时就无法表现出真正多页面站点的路由语义。
+     */
+    @Test
+    fun studyRoute_servesApplicationShellPage() = testApplication {
+        application {
+            configureWebConsoleRoutes(
+                assetLoader = WebConsoleAssetLoader(RuntimeEnvironment.getApplication()),
+                handler = createHandler()
+            )
+        }
+
+        val response = client.get("/study")
+
+        assertEquals(HttpStatusCode.OK, response.status)
+        assertTrue(response.bodyAsText().contains("id=\"primary-nav\""))
+        assertTrue(response.bodyAsText().contains("id=\"page-root\""))
+    }
+
+    /**
      * 测试处理器集中在单点构造，是为了让路由测试只描述当前关心的契约，而不用在每个用例里重复铺开整套桩实现。
      */
     private fun createHandler(): WebConsoleApiHandler = object : WebConsoleApiHandler {
