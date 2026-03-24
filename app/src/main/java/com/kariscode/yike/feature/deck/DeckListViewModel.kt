@@ -3,7 +3,6 @@ package com.kariscode.yike.feature.deck
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
-import com.kariscode.yike.core.id.EntityIds
 import com.kariscode.yike.core.message.ErrorMessages
 import com.kariscode.yike.core.message.SuccessMessages
 import com.kariscode.yike.core.message.userMessageOr
@@ -11,11 +10,15 @@ import com.kariscode.yike.core.time.TimeProvider
 import com.kariscode.yike.core.viewmodel.launchStateMutation
 import com.kariscode.yike.core.viewmodel.launchStateResult
 import com.kariscode.yike.core.viewmodel.typedViewModelFactory
-import com.kariscode.yike.domain.model.Deck
 import com.kariscode.yike.domain.model.DeckSummary
 import com.kariscode.yike.domain.repository.DeckRepository
 import com.kariscode.yike.domain.repository.StudyInsightsRepository
 import com.kariscode.yike.domain.scheduler.ReviewSchedulerV1
+import com.kariscode.yike.domain.usecase.DeckSaveRequest
+import com.kariscode.yike.domain.usecase.GetDeckAvailableTagsUseCase
+import com.kariscode.yike.domain.usecase.ObserveDeckSummariesUseCase
+import com.kariscode.yike.domain.usecase.SaveDeckUseCase
+import com.kariscode.yike.domain.usecase.ToggleDeckArchiveUseCase
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -46,7 +49,15 @@ data class DeckListUiState(
 class DeckListViewModel(
     private val deckRepository: DeckRepository,
     private val studyInsightsRepository: StudyInsightsRepository,
-    private val timeProvider: TimeProvider
+    timeProvider: TimeProvider,
+    private val observeDeckSummariesUseCase: ObserveDeckSummariesUseCase =
+        ObserveDeckSummariesUseCase(deckRepository = deckRepository, timeProvider = timeProvider),
+    private val getDeckAvailableTagsUseCase: GetDeckAvailableTagsUseCase =
+        GetDeckAvailableTagsUseCase(studyInsightsRepository = studyInsightsRepository),
+    private val saveDeckUseCase: SaveDeckUseCase =
+        SaveDeckUseCase(deckRepository = deckRepository, timeProvider = timeProvider),
+    private val toggleDeckArchiveUseCase: ToggleDeckArchiveUseCase =
+        ToggleDeckArchiveUseCase(deckRepository = deckRepository, timeProvider = timeProvider)
 ) : ViewModel() {
     /**
      * 卡组聚合流在失败后需要可重启，因此单独保存订阅任务，供“重试”明确取消并重新拉起。
@@ -199,22 +210,16 @@ class DeckListViewModel(
         launchStateMutation(
             state = _uiState,
             action = {
-                val now = timeProvider.nowEpochMillis()
                 val normalizedTags = DeckTagNormalizer.normalize(editor.tags)
-                // Room 的 upsert 会自动处理"不存在则插入，存在则更新"的逻辑
-                // 直接构建对象并 upsert，无需先查询
-                val deck = Deck(
-                    id = editor.entityId ?: EntityIds.newDeckId(),
-                    name = trimmedName,
-                    description = editor.description,
-                    tags = normalizedTags,
-                    intervalStepCount = intervalStepCount,
-                    archived = false,
-                    sortOrder = 0,
-                    createdAt = now,
-                    updatedAt = now
+                saveDeckUseCase(
+                    DeckSaveRequest(
+                        deckId = editor.entityId,
+                        name = trimmedName,
+                        description = editor.description,
+                        tags = normalizedTags,
+                        intervalStepCount = intervalStepCount
+                    )
                 )
-                deckRepository.upsert(deck)
             },
             onSuccess = DeckListStateReducer::saveSucceeded,
             onFailure = { state, _ -> DeckListStateReducer.mutationFailed(state, ErrorMessages.SAVE_FAILED) }
@@ -227,7 +232,7 @@ class DeckListViewModel(
     private fun refreshAvailableTags() {
         launchStateResult(
             state = _uiState,
-            action = { studyInsightsRepository.listAvailableTags(limit = 12) },
+            action = { getDeckAvailableTagsUseCase(limit = 12) },
             onSuccess = { state, tags ->
                 insightTags = DeckTagNormalizer.normalize(tags)
                 DeckListStateReducer.availableTagsLoaded(
@@ -248,8 +253,7 @@ class DeckListViewModel(
     private fun observeDeckSummaries() {
         deckSummariesJob?.cancel()
         deckSummariesJob = viewModelScope.launch {
-            val now = timeProvider.nowEpochMillis()
-            deckRepository.observeActiveDeckSummaries(now)
+            observeDeckSummariesUseCase()
                 .catch { throwable ->
                     _uiState.update { state ->
                         DeckListStateReducer.loadFailed(
@@ -284,10 +288,9 @@ class DeckListViewModel(
         launchStateMutation(
             state = _uiState,
             action = {
-                deckRepository.setArchived(
+                toggleDeckArchiveUseCase(
                     deckId = item.deck.id,
-                    archived = !item.deck.archived,
-                    updatedAt = timeProvider.nowEpochMillis()
+                    archived = !item.deck.archived
                 )
             },
             onSuccess = { state -> DeckListStateReducer.archiveToggled(state, item.deck.archived) },
