@@ -25,7 +25,7 @@ internal fun TodayPreviewHeroSection(
 ) {
     val spacing = LocalYikeSpacing.current
     YikeHeroCard(
-        eyebrow = "Today Preview",
+        eyebrow = "今日预览",
         title = "${uiState.totalDueQuestions} 个问题，预计 ${uiState.estimatedMinutes} 分钟",
         description = "估时基于最近 7 天的平均响应时间，先给自己一个可接受的心理预期。"
     ) {

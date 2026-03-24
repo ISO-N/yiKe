@@ -31,7 +31,7 @@ fun PracticeHeroSection(
 ) {
     val spacing = LocalYikeSpacing.current
     YikeHeroCard(
-        eyebrow = "Practice Mode",
+        eyebrow = "练习模式",
         title = if (uiState.effectiveQuestionCount > 0) {
             "当前将练习 ${uiState.effectiveQuestionCount} 题"
         } else {
@@ -102,7 +102,7 @@ fun PracticeDeckSection(
     val spacing = LocalYikeSpacing.current
     Column(verticalArrangement = Arrangement.spacedBy(spacing.lg)) {
         PracticeExpandableSectionCard(
-            eyebrow = "Step 1",
+            eyebrow = "第一步",
             title = "选择卡组范围",
             subtitle = "不选卡组时默认包含全部 active 且未归档的内容。",
             summaryBadges = {
@@ -142,7 +142,7 @@ fun PracticeCardSection(
     val spacing = LocalYikeSpacing.current
     Column(verticalArrangement = Arrangement.spacedBy(spacing.lg)) {
         PracticeExpandableSectionCard(
-            eyebrow = "Step 2",
+            eyebrow = "第二步",
             title = "按卡片进一步缩圈",
             subtitle = "不选卡片时，默认练习当前卡组范围下的全部题目。",
             summaryBadges = {
@@ -190,7 +190,7 @@ fun PracticeQuestionSectionHeader(
     val spacing = LocalYikeSpacing.current
     Column(verticalArrangement = Arrangement.spacedBy(spacing.lg)) {
         PracticeExpandableSectionCard(
-            eyebrow = "Step 3",
+            eyebrow = "第三步",
             title = "题目级手选",
             subtitle = "默认全选当前范围。若只想刷局部题集，可以在这里继续排除。",
             summaryBadges = {

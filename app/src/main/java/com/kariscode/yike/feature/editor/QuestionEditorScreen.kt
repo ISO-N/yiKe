@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -25,6 +24,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.kariscode.yike.app.LocalAppContainer
 import com.kariscode.yike.navigation.YikeNavigator
 import com.kariscode.yike.ui.component.CollectFlowEffect
+import com.kariscode.yike.ui.component.YikeAlertDialog
 import com.kariscode.yike.ui.component.YikeBadge
 import com.kariscode.yike.ui.component.YikeDangerConfirmationDialog
 import com.kariscode.yike.ui.component.YikeFlowScaffold
@@ -242,7 +242,7 @@ private fun QuestionEditorFeedback(
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             YikeHeaderBlock(
-                eyebrow = "Editor Status",
+                eyebrow = "编辑状态",
                 title = statusText,
                 subtitle = detailText.orEmpty()
             )
@@ -267,7 +267,7 @@ internal fun QuestionEditorRestoreDraftDialog(
     onRestore: () -> Unit,
     onDiscard: () -> Unit
 ) {
-    AlertDialog(
+    YikeAlertDialog(
         onDismissRequest = {},
         title = { Text("发现未提交草稿") },
         text = {
@@ -327,7 +327,7 @@ private fun CardInfoSection(
     val spacing = LocalYikeSpacing.current
     YikeSurfaceCard {
         YikeHeaderBlock(
-            eyebrow = "Card Info",
+            eyebrow = "卡片信息",
             title = if (title.isBlank()) "先给卡片起个标题" else title,
             subtitle = "卡片标题和说明越明确，复习时越容易快速进入语境。"
         )
@@ -364,7 +364,7 @@ private fun QuestionDraftSection(
     val spacing = LocalYikeSpacing.current
     Column(verticalArrangement = Arrangement.spacedBy(spacing.md)) {
         YikeHeaderBlock(
-            eyebrow = "Question Drafts",
+            eyebrow = "问题草稿",
             title = "问题草稿",
             subtitle = "题面不能为空，答案允许先留空，后续复习会显示“无答案”。"
         )
@@ -411,7 +411,7 @@ private fun QuestionDraftCard(
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             YikeHeaderBlock(
-                eyebrow = "Question $index",
+                eyebrow = "问题 $index",
                 title = "问题 $index",
                 subtitle = "先保证题面明确，再补答案。"
             )

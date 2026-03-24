@@ -5,11 +5,42 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import com.kariscode.yike.ui.theme.LocalYikeSpacing
+
+/**
+ * 对话框外观收敛到单一入口，是为了让风险确认、输入编辑和同步预览共享同一层级语气，
+ * 避免页面直接调用默认 Material3 弹窗后逐渐偏离应用自己的视觉语言。
+ */
+@Composable
+fun YikeAlertDialog(
+    onDismissRequest: () -> Unit,
+    title: @Composable () -> Unit,
+    text: @Composable () -> Unit,
+    confirmButton: @Composable () -> Unit,
+    dismissButton: @Composable (() -> Unit)? = null,
+    modifier: Modifier = Modifier
+) {
+    AlertDialog(
+        modifier = modifier,
+        onDismissRequest = onDismissRequest,
+        title = title,
+        text = text,
+        confirmButton = confirmButton,
+        dismissButton = dismissButton,
+        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+        iconContentColor = MaterialTheme.colorScheme.primary,
+        titleContentColor = MaterialTheme.colorScheme.onSurface,
+        textContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+        tonalElevation = 8.dp,
+        shape = MaterialTheme.shapes.extraLarge
+    )
+}
 
 /**
  * 文本元信息编辑在卡组和卡片页里属于同一类“轻量就地维护”交互，
@@ -30,7 +61,7 @@ fun YikeTextMetadataDialog(
     onConfirm: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    AlertDialog(
+    YikeAlertDialog(
         modifier = modifier,
         onDismissRequest = onDismiss,
         title = { Text(title) },
@@ -81,7 +112,7 @@ fun YikeSingleInputDialog(
     onConfirm: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    AlertDialog(
+    YikeAlertDialog(
         modifier = modifier,
         onDismissRequest = onDismiss,
         title = { Text(title) },
@@ -122,7 +153,7 @@ fun YikeDangerConfirmationDialog(
     onConfirm: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    AlertDialog(
+    YikeAlertDialog(
         modifier = modifier,
         onDismissRequest = onDismiss,
         title = { Text(title) },

@@ -41,7 +41,7 @@ internal fun AnalyticsHeroSection(
 ) {
     val spacing = LocalYikeSpacing.current
     YikeHeroCard(
-        eyebrow = "Review Analytics",
+        eyebrow = "复习统计",
         title = if (uiState.streakDays > 0) "学习状态保持了 ${uiState.streakDays} 天连贯" else "先建立连续复习节奏",
         description = "把最影响节奏的 4 个指标放在首屏，是为了先判断当前学习是否健康。"
     ) {

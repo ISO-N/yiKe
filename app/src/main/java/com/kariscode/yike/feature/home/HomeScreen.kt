@@ -149,7 +149,7 @@ private fun HomeHeroSection(
 ) {
     val spacing = LocalYikeSpacing.current
     YikeHeroCard(
-        eyebrow = "Today Review",
+        eyebrow = "今日复习",
         title = when (contentMode) {
             HomeContentMode.REVIEW_READY -> "$dueQuestions 个问题待复习"
             HomeContentMode.REVIEW_CLEARED -> "今天的复习已经清空"
@@ -292,7 +292,7 @@ private fun RecentDeckSection(
 
     Column(verticalArrangement = Arrangement.spacedBy(spacing.md)) {
         YikeHeaderBlock(
-            eyebrow = "Recent Decks",
+            eyebrow = "最近卡组",
             title = "最近卡组",
             subtitle = "优先进入最近在维护或今天有到期内容的卡组。"
         )

@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -26,6 +25,7 @@ import com.kariscode.yike.navigation.YikeNavigator
 import com.kariscode.yike.ui.component.backNavigationAction
 import com.kariscode.yike.ui.component.YikeBadge
 import com.kariscode.yike.ui.component.YikeDangerButton
+import com.kariscode.yike.ui.component.YikeAlertDialog
 import com.kariscode.yike.ui.component.YikeFab
 import com.kariscode.yike.ui.component.YikeFlowScaffold
 import com.kariscode.yike.ui.component.YikeHeroCard
@@ -246,7 +246,7 @@ private fun CardOverviewSection(
     val totalQuestions = items.sumOf { it.questionCount }
     val totalDue = items.sumOf { it.dueQuestionCount }
     YikeHeroCard(
-        eyebrow = "Chapter Cards",
+        eyebrow = "卡片总览",
         title = "${items.size} 张卡片",
         description = "按章节或知识块拆分卡片，复习时更容易保持上下文。"
     ) {
@@ -409,7 +409,7 @@ private fun CardActionDialog(
     onDelete: () -> Unit
 ) {
     val spacing = LocalYikeSpacing.current
-    AlertDialog(
+    YikeAlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("卡片操作") },
         text = {

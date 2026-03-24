@@ -148,7 +148,7 @@ private fun RecycleBinOverviewSection(
 ) {
     val spacing = LocalYikeSpacing.current
     YikeHeroCard(
-        eyebrow = "Recycle Bin",
+        eyebrow = "回收站",
         title = "${uiState.archivedDecks.size} 个卡组 · ${uiState.archivedCards.size} 张卡片",
         description = "归档内容默认不会出现在卡组、卡片列表和复习流程里。"
     ) {

@@ -14,7 +14,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.selection.selectable
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
@@ -35,6 +34,7 @@ import com.kariscode.yike.domain.model.LanSyncStage
 import com.kariscode.yike.domain.model.LanSyncTrustState
 import com.kariscode.yike.navigation.YikeNavigator
 import com.kariscode.yike.ui.component.YikeFlowScaffold
+import com.kariscode.yike.ui.component.YikeAlertDialog
 import com.kariscode.yike.ui.component.YikeListItemCard
 import com.kariscode.yike.ui.component.YikeOperationFeedback
 import com.kariscode.yike.ui.component.YikePrimaryButton
@@ -368,7 +368,7 @@ private fun PreviewDialog(
     onConfirm: () -> Unit
 ) {
     val spacing = LocalYikeSpacing.current
-    AlertDialog(
+    YikeAlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(text = "同步预览") },
         text = {
@@ -407,7 +407,7 @@ private fun ConflictDialog(
 ) {
     val preview = uiState.pendingPreview ?: return
     val spacing = LocalYikeSpacing.current
-    AlertDialog(
+    YikeAlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(text = "确认冲突决议") },
         text = {

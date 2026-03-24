@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -25,6 +24,7 @@ import com.kariscode.yike.domain.model.DeckSummary
 import com.kariscode.yike.domain.model.PracticeSessionArgs
 import com.kariscode.yike.navigation.YikeNavigator
 import com.kariscode.yike.ui.component.YikeBadge
+import com.kariscode.yike.ui.component.YikeAlertDialog
 import com.kariscode.yike.ui.component.YikeDangerButton
 import com.kariscode.yike.ui.component.YikeFab
 import com.kariscode.yike.ui.component.YikeHeroCard
@@ -242,7 +242,7 @@ private fun DeckListContent(
 private fun DeckOverviewSection(items: List<DeckSummary>) {
     val totalDue = items.sumOf { it.dueQuestionCount }
     YikeHeroCard(
-        eyebrow = "Overview",
+        eyebrow = "内容总览",
         title = "${items.size} 个活跃卡组",
         description = "先看数量，再决定今天先维护哪组内容。"
     ) {
@@ -392,7 +392,7 @@ private fun DeckActionDialog(
     onEdit: () -> Unit,
     onArchive: () -> Unit
 ) {
-    AlertDialog(
+    YikeAlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("卡组操作") },
         text = { Text("“$deckName” 的低频维护动作会集中在这里，避免列表首屏被按钮挤满。") },

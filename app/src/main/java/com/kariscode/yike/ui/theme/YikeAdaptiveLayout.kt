@@ -41,7 +41,7 @@ fun yikeAdaptiveLayoutFor(
         maxContentWidth = 680.dp,
         primaryContentBottomInset = 110.dp,
         primaryFabBottomInset = 68.dp,
-        bottomNavigationIconSize = 20.dp,
+        bottomNavigationIconSize = 24.dp,
         qrCodeSize = 168.dp
     )
     WindowWidthSizeClass.Medium -> YikeAdaptiveLayout(
@@ -50,7 +50,7 @@ fun yikeAdaptiveLayoutFor(
         maxContentWidth = 840.dp,
         primaryContentBottomInset = 118.dp,
         primaryFabBottomInset = 76.dp,
-        bottomNavigationIconSize = 22.dp,
+        bottomNavigationIconSize = 24.dp,
         qrCodeSize = 188.dp
     )
     else -> YikeAdaptiveLayout(
