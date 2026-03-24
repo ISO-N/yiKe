@@ -235,6 +235,11 @@ private fun HomeRhythmSection(
                 HomeContentMode.REVIEW_READY -> 0f
                 HomeContentMode.REVIEW_CLEARED -> 1f
                 HomeContentMode.CONTENT_EMPTY -> 0f
+            },
+            description = when (contentMode) {
+                HomeContentMode.REVIEW_READY -> "今日节奏进度 0%，还有 $dueQuestions 题待处理"
+                HomeContentMode.REVIEW_CLEARED -> "今日节奏进度 100%，今天的待复习已经处理完成"
+                HomeContentMode.CONTENT_EMPTY -> "今日节奏进度 0%，当前还没有可复习内容"
             }
         )
         Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {

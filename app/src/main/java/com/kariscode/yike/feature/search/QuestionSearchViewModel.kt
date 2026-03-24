@@ -3,7 +3,6 @@ package com.kariscode.yike.feature.search
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import com.kariscode.yike.core.coroutine.parallel
-import com.kariscode.yike.core.coroutine.parallel3
 import com.kariscode.yike.core.message.ErrorMessages
 import com.kariscode.yike.core.message.userMessageOr
 import com.kariscode.yike.core.time.TimeProvider
@@ -16,6 +15,9 @@ import com.kariscode.yike.domain.model.QuestionStatus
 import com.kariscode.yike.domain.repository.CardRepository
 import com.kariscode.yike.domain.repository.DeckRepository
 import com.kariscode.yike.domain.repository.StudyInsightsRepository
+import com.kariscode.yike.domain.usecase.GetQuestionSearchMetadataUseCase
+import com.kariscode.yike.domain.usecase.QuestionSearchMetadataSnapshot
+import com.kariscode.yike.domain.usecase.SearchQuestionsUseCase
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -30,9 +32,8 @@ class QuestionSearchViewModel(
     private val initialDeckId: String?,
     private val initialCardId: String?,
     private val initialTag: String?,
-    private val studyInsightsRepository: StudyInsightsRepository,
-    private val deckRepository: DeckRepository,
-    private val cardRepository: CardRepository,
+    private val getQuestionSearchMetadataUseCase: GetQuestionSearchMetadataUseCase,
+    private val searchQuestionsUseCase: SearchQuestionsUseCase,
     private val timeProvider: TimeProvider
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(
@@ -118,7 +119,12 @@ class QuestionSearchViewModel(
      */
     fun onDeckSelected(deckId: String?) {
         launchResult(
-            action = { loadCardsForDeck(deckId) },
+            action = {
+                getQuestionSearchMetadataUseCase(
+                    selectedDeckId = deckId,
+                    tagLimit = 8
+                ).cards.map { card -> SearchCardOption(id = card.id, title = card.title) }
+            },
             onSuccess = { cards ->
                 updateSearchFilters {
                     QuestionSearchStateFactory.withDeckSelection(
@@ -202,30 +208,24 @@ class QuestionSearchViewModel(
     }
 
     /**
-     * 卡片候选始终根据当前卡组即时查询，是为了保证“检索本卡”入口能准确落到最新内容。
-     */
-    private suspend fun loadCardsForDeck(deckId: String?): List<SearchCardOption> {
-        if (deckId == null) return emptyList()
-        return cardRepository.listActiveCards(deckId)
-            .map { card -> SearchCardOption(id = card.id, title = card.title) }
-    }
-
-    /**
      * 刷新把标签、卡组和当前卡片候选一次性并发取回，是为了让搜索页只维护一轮一致的筛选快照。
      */
     private suspend fun loadSearchMetadata(selectedDeckId: String?): SearchMetadata {
-        val (tags, decks, cards) = parallel3(
-            first = { studyInsightsRepository.listAvailableTags(limit = 8) },
-            second = {
-                deckRepository.listActiveDecks()
-                    .map { deck -> SearchDeckOption(id = deck.id, name = deck.name) }
-            },
-            third = { loadCardsForDeck(selectedDeckId) }
+        val metadata = getQuestionSearchMetadataUseCase(
+            selectedDeckId = selectedDeckId,
+            tagLimit = 8
         )
+        return metadata.toSearchMetadata()
+    }
+
+    /**
+     * 搜索元数据到 UI 选项的映射保留在 ViewModel 内，是为了让领域层继续只关心模型，界面层自行决定展示文案。
+     */
+    private fun QuestionSearchMetadataSnapshot.toSearchMetadata(): SearchMetadata {
         return SearchMetadata(
             tags = tags,
-            decks = decks,
-            cards = cards
+            decks = decks.map { deck -> SearchDeckOption(id = deck.id, name = deck.name) },
+            cards = cards.map { card -> SearchCardOption(id = card.id, title = card.title) }
         )
     }
 
@@ -234,7 +234,7 @@ class QuestionSearchViewModel(
      */
     private suspend fun searchQuestions(snapshot: QuestionSearchUiState): List<QuestionSearchResultUiModel> {
         val now = timeProvider.nowEpochMillis()
-        val questionContexts = studyInsightsRepository.searchQuestionContexts(
+        val questionContexts = searchQuestionsUseCase(
             filters = QuestionSearchStateFactory.toQueryFilters(snapshot)
         )
         return QuestionSearchStateFactory.buildResults(
@@ -271,9 +271,14 @@ class QuestionSearchViewModel(
                 initialDeckId = initialDeckId,
                 initialCardId = initialCardId,
                 initialTag = initialTag,
-                studyInsightsRepository = studyInsightsRepository,
-                deckRepository = deckRepository,
-                cardRepository = cardRepository,
+                getQuestionSearchMetadataUseCase = GetQuestionSearchMetadataUseCase(
+                    studyInsightsRepository = studyInsightsRepository,
+                    deckRepository = deckRepository,
+                    cardRepository = cardRepository
+                ),
+                searchQuestionsUseCase = SearchQuestionsUseCase(
+                    studyInsightsRepository = studyInsightsRepository
+                ),
                 timeProvider = timeProvider
             )
         }

@@ -13,7 +13,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.unit.dp
+import com.kariscode.yike.ui.theme.YikeThemeTokens
 
 /**
  * Material3 的 TopAppBar 目前仍处于实验 API，集中封装能把 opt-in 控制在单点，
@@ -28,9 +28,10 @@ fun YikeTopAppBar(
     actionText: String? = null,
     onActionClick: (() -> Unit)? = null
 ) {
+    val spacing = YikeThemeTokens.spacing
     TopAppBar(
         title = {
-            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(spacing.xxs)) {
                 Text(text = title)
                 if (!subtitle.isNullOrBlank()) {
                     Text(
@@ -54,10 +55,10 @@ fun YikeTopAppBar(
                     }
                 } else {
                     TextButton(onClick = navigationAction.onClick) {
-                        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(spacing.xs)) {
                             Icon(
                                 imageVector = navigationAction.icon,
-                                contentDescription = navigationAction.contentDescription
+                                contentDescription = null
                             )
                             Text(text = navigationAction.label)
                         }

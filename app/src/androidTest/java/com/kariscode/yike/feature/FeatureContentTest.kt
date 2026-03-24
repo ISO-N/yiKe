@@ -6,6 +6,7 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import com.kariscode.yike.domain.model.PracticeSessionArgs
+import com.kariscode.yike.domain.model.ReviewRating
 import com.kariscode.yike.domain.model.TodayReviewSummary
 import com.kariscode.yike.feature.backup.BackupRestoreContent
 import com.kariscode.yike.feature.backup.BackupRestoreUiState
@@ -44,7 +45,7 @@ class FeatureContentTest {
         override fun openPracticeSession(args: PracticeSessionArgs) = Unit
         override fun openTodayPreview() = Unit
         override fun openAnalytics() = Unit
-        override fun openQuestionSearch(deckId: String?, cardId: String?) = Unit
+        override fun openQuestionSearch(deckId: String?, cardId: String?, tag: String?) = Unit
         override fun openQuestionEditor(cardId: String, deckId: String?) = Unit
         override fun openBackupRestore() = Unit
         override fun openWebConsole() = Unit
@@ -175,20 +176,26 @@ class FeatureContentTest {
                             prompt = "什么是忆刻？",
                             answerText = "一个离线复习应用",
                             stageIndex = 0,
+                            plannedIntervalDays = 1,
                             overdueBadgeText = null,
                             overdueHintText = null,
-                            needsReinforcement = false
+                            needsReinforcement = false,
+                            ratingHints = emptyList()
                         ),
                         answerVisible = true,
                         isSubmitting = false,
                         isCompleted = false,
+                        sessionStartedAtEpochMillis = null,
+                        ratingCounts = emptyMap<ReviewRating, Int>(),
                         errorMessage = null,
                         exitConfirmationVisible = false
                     ),
                     onRevealAnswer = {},
+                    onHideAnswer = {},
                     onRate = {},
                     onRetryLoad = {},
                     onContinueNextCard = {},
+                    onOpenAnalytics = {},
                     onBackHome = {}
                 )
             }
@@ -218,13 +225,17 @@ class FeatureContentTest {
                         answerVisible = false,
                         isSubmitting = false,
                         isCompleted = true,
+                        sessionStartedAtEpochMillis = null,
+                        ratingCounts = emptyMap<ReviewRating, Int>(),
                         errorMessage = null,
                         exitConfirmationVisible = false
                     ),
                     onRevealAnswer = {},
+                    onHideAnswer = {},
                     onRate = {},
                     onRetryLoad = {},
                     onContinueNextCard = {},
+                    onOpenAnalytics = {},
                     onBackHome = {}
                 )
             }
@@ -253,6 +264,7 @@ class FeatureContentTest {
                         pendingRestoreUri = null
                     ),
                     onExport = {},
+                    onExportIncremental = {},
                     onImport = {}
                 )
             }

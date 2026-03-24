@@ -168,8 +168,8 @@ fun YikePrimaryNavigationChrome(
 ) {
     val adaptiveLayout = YikeAdaptiveTokens.layout
     val navigationBarPadding = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
-    val navigationBottomOffset = navigationBarPadding + 2.dp
     val spacing = YikeThemeTokens.spacing
+    val navigationBottomOffset = navigationBarPadding + spacing.xxs
 
     Box(modifier = modifier.fillMaxSize()) {
         YikeBottomNavigation(
@@ -237,7 +237,7 @@ private fun YikeBottomNavigation(
                     ) {
                         Icon(
                             imageVector = destination.icon,
-                            contentDescription = destination.label,
+                            contentDescription = null,
                             modifier = Modifier.size(adaptiveLayout.bottomNavigationIconSize)
                         )
                         Text(

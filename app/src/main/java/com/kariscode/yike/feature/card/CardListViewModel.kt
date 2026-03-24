@@ -3,7 +3,6 @@ package com.kariscode.yike.feature.card
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
-import com.kariscode.yike.core.id.EntityIds
 import com.kariscode.yike.core.message.ErrorMessages
 import com.kariscode.yike.core.message.SuccessMessages
 import com.kariscode.yike.core.message.userMessageOr
@@ -11,14 +10,18 @@ import com.kariscode.yike.core.time.TimeProvider
 import com.kariscode.yike.core.viewmodel.launchStateMutation
 import com.kariscode.yike.core.viewmodel.launchStateResult
 import com.kariscode.yike.core.viewmodel.typedViewModelFactory
-import com.kariscode.yike.feature.common.TextMetadataDraft
-import com.kariscode.yike.domain.model.Card
 import com.kariscode.yike.domain.model.CardSummary
-import com.kariscode.yike.domain.model.QuestionQueryFilters
-import com.kariscode.yike.domain.model.QuestionStatus
 import com.kariscode.yike.domain.repository.CardRepository
 import com.kariscode.yike.domain.repository.DeckRepository
 import com.kariscode.yike.domain.repository.StudyInsightsRepository
+import com.kariscode.yike.domain.usecase.CardSaveRequest
+import com.kariscode.yike.domain.usecase.DeleteCardUseCase
+import com.kariscode.yike.domain.usecase.GetDeckCardMasterySummaryUseCase
+import com.kariscode.yike.domain.usecase.LoadDeckCardContextUseCase
+import com.kariscode.yike.domain.usecase.ObserveCardSummariesUseCase
+import com.kariscode.yike.domain.usecase.SaveCardUseCase
+import com.kariscode.yike.domain.usecase.ToggleCardArchiveUseCase
+import com.kariscode.yike.feature.common.TextMetadataDraft
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -64,7 +67,19 @@ class CardListViewModel(
     private val deckRepository: DeckRepository,
     private val cardRepository: CardRepository,
     private val studyInsightsRepository: StudyInsightsRepository,
-    private val timeProvider: TimeProvider
+    timeProvider: TimeProvider,
+    private val loadDeckCardContextUseCase: LoadDeckCardContextUseCase =
+        LoadDeckCardContextUseCase(deckRepository = deckRepository),
+    private val observeCardSummariesUseCase: ObserveCardSummariesUseCase =
+        ObserveCardSummariesUseCase(cardRepository = cardRepository, timeProvider = timeProvider),
+    private val saveCardUseCase: SaveCardUseCase =
+        SaveCardUseCase(cardRepository = cardRepository, timeProvider = timeProvider),
+    private val toggleCardArchiveUseCase: ToggleCardArchiveUseCase =
+        ToggleCardArchiveUseCase(cardRepository = cardRepository, timeProvider = timeProvider),
+    private val deleteCardUseCase: DeleteCardUseCase =
+        DeleteCardUseCase(cardRepository = cardRepository),
+    private val getDeckCardMasterySummaryUseCase: GetDeckCardMasterySummaryUseCase =
+        GetDeckCardMasterySummaryUseCase(studyInsightsRepository = studyInsightsRepository)
 ) : ViewModel() {
     /**
      * 卡组元信息与卡片列表都需要支持手动重试，因此各自保留任务句柄，便于失败后显式重启。
@@ -119,7 +134,7 @@ class CardListViewModel(
      * deck 名称单独读取后，列表订阅就不需要为了首屏并行而额外做一次一次性读取。
      */
     private suspend fun loadDeckMetadata() {
-        runCatching { deckRepository.findById(deckId) }
+        runCatching { loadDeckCardContextUseCase(deckId) }
             .onSuccess { deck ->
                 loadingTracker = loadingTracker.markDeckLoaded()
                 _uiState.update { state ->
@@ -146,8 +161,7 @@ class CardListViewModel(
      * 卡片列表始终只保留一个订阅入口，是为了让首屏和后续增删改都走同一条状态更新路径。
      */
     private suspend fun observeCardSummaries() {
-        val now = timeProvider.nowEpochMillis()
-        cardRepository.observeActiveCardSummaries(deckId, now)
+        observeCardSummariesUseCase(deckId)
             .distinctUntilChanged()
             .catch { throwable ->
                 loadingTracker = loadingTracker.markCardsLoaded()
@@ -231,18 +245,14 @@ class CardListViewModel(
         launchStateMutation(
             state = _uiState,
             action = {
-                val now = timeProvider.nowEpochMillis()
-                val card = Card(
-                    id = editor.entityId ?: EntityIds.newCardId(),
-                    deckId = deckId,
-                    title = trimmedTitle,
-                    description = editor.secondaryValue,
-                    archived = false,
-                    sortOrder = 0,
-                    createdAt = now,
-                    updatedAt = now
+                saveCardUseCase(
+                    CardSaveRequest(
+                        cardId = editor.entityId,
+                        deckId = deckId,
+                        title = trimmedTitle,
+                        description = editor.secondaryValue
+                    )
                 )
-                cardRepository.upsert(card)
             },
             onSuccess = CardListStateReducer::saveSucceeded,
             onFailure = { state, _ -> CardListStateReducer.mutationFailed(state, ErrorMessages.SAVE_FAILED) }
@@ -254,8 +264,10 @@ class CardListViewModel(
      */
     fun onArchiveCardClick(item: CardSummary) {
         executeMutation(errorMessage = ErrorMessages.UPDATE_FAILED) {
-            val now = timeProvider.nowEpochMillis()
-            cardRepository.setArchived(cardId = item.card.id, archived = !item.card.archived, updatedAt = now)
+            toggleCardArchiveUseCase(
+                cardId = item.card.id,
+                archived = !item.card.archived
+            )
         }
     }
 
@@ -279,7 +291,7 @@ class CardListViewModel(
     fun onConfirmDelete() {
         val pending = _uiState.value.pendingDelete ?: return
         executeMutation(errorMessage = ErrorMessages.DELETE_FAILED) {
-            cardRepository.delete(pending.card.id)
+            deleteCardUseCase(pending.card.id)
             _uiState.update(CardListStateReducer::deleteSucceeded)
         }
     }
@@ -320,15 +332,7 @@ class CardListViewModel(
         masterySummaryJob?.cancel()
         masterySummaryJob = launchStateResult(
             state = _uiState,
-            action = {
-                val questions = studyInsightsRepository.searchQuestionContexts(
-                    filters = QuestionQueryFilters(
-                        deckId = deckId,
-                        status = QuestionStatus.ACTIVE
-                    )
-                )
-                DeckMasterySummaryCalculator.calculate(questions)
-            },
+            action = { getDeckCardMasterySummaryUseCase(deckId).toUiModel() },
             onSuccess = CardListStateReducer::masteryLoaded,
             onFailure = { state, _ -> CardListStateReducer.masteryLoadFailed(state) }
         )
@@ -359,6 +363,18 @@ class CardListViewModel(
         .joinToString(separator = "|") { summary ->
             "${summary.card.id}:${summary.questionCount}:${summary.dueQuestionCount}"
         }
+
+    /**
+     * 领域摘要转换成页面模型收口在本地，是为了让展示层仍能自由演进命名而不反向污染用例层。
+     */
+    private fun com.kariscode.yike.domain.usecase.DeckMasterySummarySnapshot.toUiModel(): DeckMasterySummary =
+        DeckMasterySummary(
+            totalQuestions = totalQuestions,
+            newCount = newCount,
+            learningCount = learningCount,
+            familiarCount = familiarCount,
+            masteredCount = masteredCount
+        )
 
     companion object {
         /**

@@ -2,6 +2,8 @@ package com.kariscode.yike.data.backup
 
 import com.kariscode.yike.domain.model.ThemeMode
 import com.kariscode.yike.domain.scheduler.ReviewSchedulerV1
+import com.kariscode.yike.data.sync.SyncChangePayload
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 /**
@@ -11,11 +13,8 @@ import kotlinx.serialization.Serializable
 @Serializable
 data class BackupDocument(
     val app: BackupAppInfo,
-    val settings: BackupSettings,
-    val decks: List<BackupDeck>,
-    val cards: List<BackupCard>,
-    val questions: List<BackupQuestion>,
-    val reviewRecords: List<BackupReviewRecord>
+    val full: BackupFullPayload? = null,
+    val incremental: BackupIncrementalPayload? = null
 )
 
 /**
@@ -25,11 +24,46 @@ data class BackupDocument(
 data class BackupAppInfo(
     val name: String,
     val backupVersion: Int,
-    val exportedAt: String
+    val exportedAt: String,
+    val kind: BackupDocumentKind = BackupDocumentKind.FULL
 )
 
 /**
- * 设置数据必须跟业务数据一并备份，才能在恢复后把提醒能力与版本状态一起还原。
+ * 备份类型显式入模后，恢复阶段就能先判断“这是完整覆盖还是增量应用”，
+ * 避免只靠字段是否为空去猜测文件语义。
+ */
+@Serializable
+enum class BackupDocumentKind {
+    @SerialName("full")
+    FULL,
+
+    @SerialName("incremental")
+    INCREMENTAL
+}
+
+/**
+ * 完整备份负载保持原有层级结构，是为了继续支持“导出一份即可完整恢复”的离线兜底能力。
+ */
+@Serializable
+data class BackupFullPayload(
+    val settings: BackupSettings,
+    val decks: List<BackupDeck>,
+    val cards: List<BackupCard>,
+    val questions: List<BackupQuestion>,
+    val reviewRecords: List<BackupReviewRecord>
+)
+
+/**
+ * 增量备份单独承载基线时间和变更列表，是为了让恢复流程可以直接复用同步流水而不再发明第二套差异协议。
+ */
+@Serializable
+data class BackupIncrementalPayload(
+    val baseBackupAt: String,
+    val changes: List<SyncChangePayload>
+)
+
+/**
+ * 设置数据必须跟业务数据一并进入完整备份，才能在恢复后把提醒能力与版本状态一起还原。
  */
 @Serializable
 data class BackupSettings(

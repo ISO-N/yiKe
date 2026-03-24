@@ -33,6 +33,12 @@ interface SyncChangeDao {
     suspend fun listAfterLimited(afterSeq: Long, limit: Int): List<SyncChangeEntity>
 
     /**
+     * 备份按时间窗口导出增量流水，是为了复用同一份 journal 而不额外引入第二套“变更快照”存储。
+     */
+    @Query("SELECT * FROM sync_change WHERE modifiedAt > :afterModifiedAt ORDER BY seq ASC")
+    suspend fun listModifiedAfter(afterModifiedAt: Long): List<SyncChangeEntity>
+
+    /**
      * 最新 seq 单独查询可以让 cursor 推进和心跳状态更新少带一批无关记录。
      */
     @Query("SELECT COALESCE(MAX(seq), 0) FROM sync_change")

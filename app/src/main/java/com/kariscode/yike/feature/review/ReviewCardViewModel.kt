@@ -2,18 +2,18 @@ package com.kariscode.yike.feature.review
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
-import com.kariscode.yike.core.coroutine.parallel
 import com.kariscode.yike.core.message.ErrorMessages
 import com.kariscode.yike.core.message.userMessageOr
 import com.kariscode.yike.core.time.TimeProvider
 import com.kariscode.yike.core.viewmodel.launchResult
 import com.kariscode.yike.core.viewmodel.typedViewModelFactory
-import com.kariscode.yike.domain.error.CardNotFoundException
 import com.kariscode.yike.domain.model.Question
 import com.kariscode.yike.domain.model.ReviewRating
 import com.kariscode.yike.domain.repository.CardRepository
 import com.kariscode.yike.domain.repository.ReviewRepository
 import com.kariscode.yike.domain.scheduler.ReviewSchedulerV1
+import com.kariscode.yike.domain.usecase.LoadReviewCardSessionUseCase
+import com.kariscode.yike.domain.usecase.SubmitReviewRatingUseCase
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -82,8 +82,8 @@ sealed interface ReviewCardEffect {
  */
 class ReviewCardViewModel(
     private val cardId: String,
-    private val cardRepository: CardRepository,
-    private val reviewRepository: ReviewRepository,
+    private val loadReviewCardSessionUseCase: LoadReviewCardSessionUseCase,
+    private val submitReviewRatingUseCase: SubmitReviewRatingUseCase,
     private val timeProvider: TimeProvider
 ) : ViewModel() {
     /**
@@ -137,19 +137,17 @@ class ReviewCardViewModel(
         }
         launchResult(
             action = {
-                val now = timeProvider.nowEpochMillis()
-                parallel(
-                    first = { cardRepository.findById(cardId) ?: throw CardNotFoundException(cardId) },
-                    second = { reviewRepository.listDueQuestionsByCard(cardId = cardId, nowEpochMillis = now) }
+                loadReviewCardSessionUseCase(
+                    cardId = cardId,
+                    nowEpochMillis = timeProvider.nowEpochMillis()
                 )
             },
-            onSuccess = { (card, dueQuestions) ->
-                val cardTitle = card.title
-                if (dueQuestions.isEmpty()) {
+            onSuccess = { session ->
+                if (session.dueQuestions.isEmpty()) {
                     _effects.tryEmit(ReviewCardEffect.NavigateToQueue)
                 } else {
                     val presentedAt = timeProvider.nowEpochMillis()
-                    pendingQuestions = dueQuestions.map { question ->
+                    pendingQuestions = session.dueQuestions.map { question ->
                         question.toReviewQuestionUiModel(
                             scheduler = overduePreviewScheduler,
                             nowEpochMillis = presentedAt,
@@ -159,7 +157,7 @@ class ReviewCardViewModel(
                     questionPresentedAtEpochMillis = presentedAt
                     _uiState.update {
                         it.copy(
-                            cardTitle = cardTitle,
+                            cardTitle = session.cardTitle,
                             isLoading = false,
                             totalCount = pendingQuestions.size,
                             completedCount = 0,
@@ -218,7 +216,7 @@ class ReviewCardViewModel(
         launchResult(
             action = {
                 val reviewedAt = timeProvider.nowEpochMillis()
-                reviewRepository.submitRating(
+                submitReviewRatingUseCase(
                     questionId = currentQuestion.questionId,
                     rating = rating,
                     reviewedAtEpochMillis = reviewedAt,
@@ -322,8 +320,13 @@ class ReviewCardViewModel(
         ): ViewModelProvider.Factory = typedViewModelFactory {
             ReviewCardViewModel(
                 cardId = cardId,
-                cardRepository = cardRepository,
-                reviewRepository = reviewRepository,
+                loadReviewCardSessionUseCase = LoadReviewCardSessionUseCase(
+                    cardRepository = cardRepository,
+                    reviewRepository = reviewRepository
+                ),
+                submitReviewRatingUseCase = SubmitReviewRatingUseCase(
+                    reviewRepository = reviewRepository
+                ),
                 timeProvider = timeProvider
             )
         }

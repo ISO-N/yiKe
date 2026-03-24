@@ -1,6 +1,7 @@
 package com.kariscode.yike.data.backup
 
 import org.junit.Assert.assertTrue
+import org.junit.Assert.assertEquals
 import org.junit.Test
 
 /**
@@ -34,6 +35,10 @@ class BackupValidatorTest {
         )
 
         assertTrue(result.isFailure)
+        assertEquals(
+            "备份版本不兼容，当前仅支持版本 ${BackupConstants.BACKUP_VERSION}",
+            result.exceptionOrNull()?.message
+        )
     }
 
     /**
@@ -44,8 +49,10 @@ class BackupValidatorTest {
     fun validate_missingCardReference_returnsFailure() {
         val result = validator.validate(
             createValidDocument().copy(
-                questions = listOf(
-                    createValidDocument().questions.first().copy(cardId = "missing_card")
+                full = createValidDocument().full?.copy(
+                    questions = listOf(
+                        createValidDocument().full!!.questions.first().copy(cardId = "missing_card")
+                    )
                 )
             )
         )
@@ -61,7 +68,9 @@ class BackupValidatorTest {
     fun validate_invalidReminderTime_returnsFailure() {
         val result = validator.validate(
             createValidDocument().copy(
-                settings = createValidDocument().settings.copy(dailyReminderTime = "25:99")
+                full = createValidDocument().full?.copy(
+                    settings = createValidDocument().full!!.settings.copy(dailyReminderTime = "25:99")
+                )
             )
         )
 
@@ -76,7 +85,9 @@ class BackupValidatorTest {
     fun validate_invalidThemeMode_returnsFailure() {
         val result = validator.validate(
             createValidDocument().copy(
-                settings = createValidDocument().settings.copy(themeMode = "amoled")
+                full = createValidDocument().full?.copy(
+                    settings = createValidDocument().full!!.settings.copy(themeMode = "amoled")
+                )
             )
         )
 
@@ -91,18 +102,20 @@ class BackupValidatorTest {
     fun validate_invalidRating_returnsFailure() {
         val result = validator.validate(
             createValidDocument().copy(
-                reviewRecords = listOf(
-                    BackupReviewRecord(
-                        id = "record_1",
-                        questionId = "question_1",
-                        rating = "PASS",
-                        oldStageIndex = 0,
-                        newStageIndex = 1,
-                        oldDueAt = "2026-03-15T20:30:00+08:00",
-                        newDueAt = "2026-03-16T20:30:00+08:00",
-                        reviewedAt = "2026-03-15T20:30:00+08:00",
-                        responseTimeMs = 800L,
-                        note = ""
+                full = createValidDocument().full?.copy(
+                    reviewRecords = listOf(
+                        BackupReviewRecord(
+                            id = "record_1",
+                            questionId = "question_1",
+                            rating = "PASS",
+                            oldStageIndex = 0,
+                            newStageIndex = 1,
+                            oldDueAt = "2026-03-15T20:30:00+08:00",
+                            newDueAt = "2026-03-16T20:30:00+08:00",
+                            reviewedAt = "2026-03-15T20:30:00+08:00",
+                            responseTimeMs = 800L,
+                            note = ""
+                        )
                     )
                 )
             )
@@ -119,8 +132,10 @@ class BackupValidatorTest {
     fun validate_invalidStageIndex_returnsFailure() {
         val result = validator.validate(
             createValidDocument().copy(
-                questions = listOf(
-                    createValidDocument().questions.first().copy(stageIndex = 99)
+                full = createValidDocument().full?.copy(
+                    questions = listOf(
+                        createValidDocument().full!!.questions.first().copy(stageIndex = 99)
+                    )
                 )
             )
         )
@@ -137,55 +152,57 @@ class BackupValidatorTest {
             backupVersion = BackupConstants.BACKUP_VERSION,
             exportedAt = "2026-03-15T20:00:00+08:00"
         ),
-        settings = BackupSettings(
-            dailyReminderEnabled = true,
-            dailyReminderTime = "20:30",
-            schemaVersion = 1,
-            backupLastAt = null,
-            themeMode = "system"
-        ),
-        decks = listOf(
-            BackupDeck(
-                id = "deck_1",
-                name = "测试卡组",
-                description = "",
-                tags = listOf("数学", "微积分"),
-                intervalStepCount = 4,
-                archived = false,
-                sortOrder = 0,
-                createdAt = "2026-03-15T10:00:00+08:00",
-                updatedAt = "2026-03-15T10:00:00+08:00"
-            )
-        ),
-        cards = listOf(
-            BackupCard(
-                id = "card_1",
-                deckId = "deck_1",
-                title = "测试卡片",
-                description = "",
-                archived = false,
-                sortOrder = 0,
-                createdAt = "2026-03-15T10:10:00+08:00",
-                updatedAt = "2026-03-15T10:10:00+08:00"
-            )
-        ),
-        questions = listOf(
-            BackupQuestion(
-                id = "question_1",
-                cardId = "card_1",
-                prompt = "什么是忆刻？",
-                answer = "一个离线复习应用",
-                tags = listOf("定义"),
-                status = "active",
-                stageIndex = 0,
-                dueAt = "2026-03-16T20:30:00+08:00",
-                lastReviewedAt = null,
-                reviewCount = 0,
-                lapseCount = 0,
-                createdAt = "2026-03-15T10:20:00+08:00",
-                updatedAt = "2026-03-15T10:20:00+08:00"
-            )
-        ),
-        reviewRecords = emptyList()
+        full = BackupFullPayload(
+            settings = BackupSettings(
+                dailyReminderEnabled = true,
+                dailyReminderTime = "20:30",
+                schemaVersion = 1,
+                backupLastAt = null,
+                themeMode = "system"
+            ),
+            decks = listOf(
+                BackupDeck(
+                    id = "deck_1",
+                    name = "测试卡组",
+                    description = "",
+                    tags = listOf("数学", "微积分"),
+                    intervalStepCount = 4,
+                    archived = false,
+                    sortOrder = 0,
+                    createdAt = "2026-03-15T10:00:00+08:00",
+                    updatedAt = "2026-03-15T10:00:00+08:00"
+                )
+            ),
+            cards = listOf(
+                BackupCard(
+                    id = "card_1",
+                    deckId = "deck_1",
+                    title = "测试卡片",
+                    description = "",
+                    archived = false,
+                    sortOrder = 0,
+                    createdAt = "2026-03-15T10:10:00+08:00",
+                    updatedAt = "2026-03-15T10:10:00+08:00"
+                )
+            ),
+            questions = listOf(
+                BackupQuestion(
+                    id = "question_1",
+                    cardId = "card_1",
+                    prompt = "什么是忆刻？",
+                    answer = "一个离线复习应用",
+                    tags = listOf("定义"),
+                    status = "active",
+                    stageIndex = 0,
+                    dueAt = "2026-03-16T20:30:00+08:00",
+                    lastReviewedAt = null,
+                    reviewCount = 0,
+                    lapseCount = 0,
+                    createdAt = "2026-03-15T10:20:00+08:00",
+                    updatedAt = "2026-03-15T10:20:00+08:00"
+                )
+            ),
+            reviewRecords = emptyList()
+        )
     )
 }

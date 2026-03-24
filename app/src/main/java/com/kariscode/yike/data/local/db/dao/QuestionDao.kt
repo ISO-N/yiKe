@@ -111,10 +111,13 @@ interface QuestionDao {
           AND (:deckId IS NULL OR c.deckId = :deckId)
           AND (:cardId IS NULL OR q.cardId = :cardId)
           AND (:maxDueAt IS NULL OR q.dueAt <= :maxDueAt)
+          AND (:includeAllQuestionIds = 1 OR q.id IN (:questionIds))
           AND (
             :keyword IS NULL OR :keyword = ''
-            OR q.prompt LIKE '%' || :keyword || '%'
-            OR q.answer LIKE '%' || :keyword || '%'
+            OR (
+                q.prompt LIKE '%' || :keyword || '%'
+                OR q.answer LIKE '%' || :keyword || '%'
+            )
           )
           AND (
             :tagKeyword IS NULL OR :tagKeyword = ''
@@ -129,7 +132,9 @@ interface QuestionDao {
         status: String?,
         deckId: String?,
         cardId: String?,
-        maxDueAt: Long?
+        maxDueAt: Long?,
+        includeAllQuestionIds: Boolean,
+        questionIds: List<String>
     ): List<QuestionContextRow>
 
     /**

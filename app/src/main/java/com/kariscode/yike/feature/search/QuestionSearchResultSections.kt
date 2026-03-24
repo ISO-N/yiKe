@@ -126,7 +126,10 @@ private fun QuestionSearchResultCard(
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
-        YikeProgressBar(progress = item.mastery.progress)
+        YikeProgressBar(
+            progress = item.mastery.progress,
+            description = "${item.context.question.prompt} 的掌握进度 ${(item.mastery.progress * 100).toInt()}%，当前等级 ${item.mastery.level.label}"
+        )
         Row(horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
             YikeSecondaryButton(
                 text = "练习这题",

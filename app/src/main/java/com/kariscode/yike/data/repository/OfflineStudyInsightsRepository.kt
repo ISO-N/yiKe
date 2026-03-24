@@ -2,9 +2,12 @@ package com.kariscode.yike.data.repository
 
 import com.kariscode.yike.core.dispatchers.AppDispatchers
 import com.kariscode.yike.data.local.db.dao.QuestionDao
+import com.kariscode.yike.data.local.db.dao.QuestionContextRow
+import com.kariscode.yike.data.local.db.dao.QuestionSearchTokenDao
 import com.kariscode.yike.data.local.db.dao.ReviewRecordDao
 import com.kariscode.yike.data.mapper.decodeTags
 import com.kariscode.yike.data.mapper.toDomain
+import com.kariscode.yike.data.search.QuestionSearchTokenizer
 import com.kariscode.yike.domain.model.DeckReviewAnalyticsSnapshot
 import com.kariscode.yike.domain.model.QuestionContext
 import com.kariscode.yike.domain.model.QuestionMasteryCalculator
@@ -19,6 +22,7 @@ import com.kariscode.yike.domain.repository.StudyInsightsRepository
  */
 class OfflineStudyInsightsRepository(
     private val questionDao: QuestionDao,
+    private val questionSearchTokenDao: QuestionSearchTokenDao,
     private val reviewRecordDao: ReviewRecordDao,
     private val dispatchers: AppDispatchers
 ) : StudyInsightsRepository {
@@ -28,13 +32,24 @@ class OfflineStudyInsightsRepository(
      */
     override suspend fun searchQuestionContexts(filters: QuestionQueryFilters): List<QuestionContext> =
         dispatchers.onIo {
-            questionDao.listQuestionContexts(
-                keyword = filters.keyword.trim().ifBlank { null },
+            val keyword = filters.keyword.trim().ifBlank { null }
+            val keywordTokens = QuestionSearchTokenizer.tokenize(keyword.orEmpty())
+            val candidateQuestionIds = resolveCandidateQuestionIds(
+                keyword = keyword,
+                keywordTokens = keywordTokens
+            )
+            if (keyword != null && keywordTokens.isNotEmpty() && candidateQuestionIds.isEmpty()) {
+                return@onIo emptyList()
+            }
+            loadQuestionContextRows(
+                keyword = keyword,
                 tagKeyword = filters.tag?.trim()?.ifBlank { null },
                 status = filters.status?.storageValue,
                 deckId = filters.deckId,
                 cardId = filters.cardId,
-                maxDueAt = null
+                maxDueAt = null,
+                questionIds = candidateQuestionIds,
+                includeAllQuestionIds = keyword == null || keywordTokens.isEmpty()
             ).map { row -> row.toDomain() }
                 .filterByMastery(filters)
         }
@@ -44,13 +59,15 @@ class OfflineStudyInsightsRepository(
      */
     override suspend fun listDueQuestionContexts(nowEpochMillis: Long): List<QuestionContext> =
         dispatchers.onIo {
-            questionDao.listQuestionContexts(
+            loadQuestionContextRows(
                 keyword = null,
                 tagKeyword = null,
                 status = QuestionStatus.ACTIVE.storageValue,
                 deckId = null,
                 cardId = null,
-                maxDueAt = nowEpochMillis
+                maxDueAt = nowEpochMillis,
+                questionIds = listOf(NO_MATCH_QUESTION_ID),
+                includeAllQuestionIds = true
             ).map { row -> row.toDomain() }
         }
 
@@ -122,5 +139,76 @@ class OfflineStudyInsightsRepository(
     private fun Int.safeRatio(numerator: Int): Float {
         if (this <= 0) return 0f
         return numerator.toFloat() / this.toFloat()
+    }
+
+    /**
+     * 关键词候选集只在可分词时走索引表，是为了兼顾单字符搜索兼容性和多字符搜索性能收益。
+     */
+    private suspend fun resolveCandidateQuestionIds(
+        keyword: String?,
+        keywordTokens: List<String>
+    ): List<String> {
+        if (keyword == null || keywordTokens.isEmpty()) {
+            return emptyList()
+        }
+        return questionSearchTokenDao.listByTokens(tokens = keywordTokens)
+            .groupBy { token -> token.questionId }
+            .filterValues { matches -> matches.map { token -> token.token }.distinct().size >= keywordTokens.size }
+            .keys
+            .toList()
+    }
+
+    /**
+     * 题目候选过多时按块查询并在仓储层统一排序，是为了既避开 SQLite 变量上限，也保持页面结果顺序稳定。
+     */
+    private suspend fun loadQuestionContextRows(
+        keyword: String?,
+        tagKeyword: String?,
+        status: String?,
+        deckId: String?,
+        cardId: String?,
+        maxDueAt: Long?,
+        questionIds: List<String>,
+        includeAllQuestionIds: Boolean
+    ): List<QuestionContextRow> {
+        if (includeAllQuestionIds) {
+            return questionDao.listQuestionContexts(
+                keyword = keyword,
+                tagKeyword = tagKeyword,
+                status = status,
+                deckId = deckId,
+                cardId = cardId,
+                maxDueAt = maxDueAt,
+                includeAllQuestionIds = true,
+                questionIds = listOf(NO_MATCH_QUESTION_ID)
+            )
+        }
+        return questionIds.chunked(MAX_QUESTION_IDS_PER_QUERY)
+            .flatMap { chunk ->
+                questionDao.listQuestionContexts(
+                    keyword = keyword,
+                    tagKeyword = tagKeyword,
+                    status = status,
+                    deckId = deckId,
+                    cardId = cardId,
+                    maxDueAt = maxDueAt,
+                    includeAllQuestionIds = false,
+                    questionIds = chunk
+                )
+            }
+            .sortedWith(questionContextRowOrder())
+    }
+
+    /**
+     * 分块查询后的合并结果需要重放数据库的排序规则，才能保证搜索页和今日预览的展示顺序不漂移。
+     */
+    private fun questionContextRowOrder(): Comparator<QuestionContextRow> =
+        compareBy<QuestionContextRow> { row -> row.dueAt }
+            .thenByDescending { row -> row.updatedAt }
+            .thenBy { row -> row.createdAt }
+
+    private companion object {
+        const val MAX_QUESTION_IDS_PER_QUERY: Int = 900
+        const val NO_MATCH_QUESTION_ID: String = "__unused__"
     }
 }

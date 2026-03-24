@@ -1,6 +1,7 @@
 package com.kariscode.yike.feature.backup
 
 import android.net.Uri
+import com.kariscode.yike.data.backup.BackupExportMode
 import com.kariscode.yike.data.backup.BackupOperations
 import com.kariscode.yike.data.reminder.ReminderSyncScheduler
 import com.kariscode.yike.domain.model.AppSettings
@@ -123,9 +124,35 @@ class BackupRestoreViewModelTest {
             viewModel.onExportUriSelected(uri)
             advanceUntilIdle()
 
-            assertEquals(listOf(uri), backupOperations.exportedUris)
+            assertEquals(listOf(BackupExportRecord(uri, BackupExportMode.FULL)), backupOperations.exportedUris)
             assertEquals(SuccessMessages.BACKUP_EXPORTED, viewModel.uiState.value.message)
             assertEquals(false, viewModel.uiState.value.isExporting)
+        } finally {
+            Dispatchers.resetMain()
+        }
+    }
+
+    /**
+     * 增量导出必须把模式传给底层服务，
+     * 这样同一个文件选择流程才能真正区分完整备份和增量备份。
+     */
+    @Test
+    fun onExportIncrementalClick_thenUriSelected_exportsIncrementalBackup() = runTest {
+        Dispatchers.setMain(UnconfinedTestDispatcher(testScheduler))
+        try {
+            val backupOperations = FakeBackupOperations()
+            val viewModel = createViewModel(backupOperations = backupOperations)
+            val uri = Uri.parse("content://backup/export-incremental.json")
+
+            viewModel.onExportIncrementalClick()
+            viewModel.onExportUriSelected(uri)
+            advanceUntilIdle()
+
+            assertEquals(
+                listOf(BackupExportRecord(uri, BackupExportMode.INCREMENTAL)),
+                backupOperations.exportedUris
+            )
+            assertEquals("增量备份导出成功", viewModel.uiState.value.message)
         } finally {
             Dispatchers.resetMain()
         }
@@ -147,13 +174,13 @@ class BackupRestoreViewModelTest {
     private class FakeBackupOperations(
         private val restoreError: Throwable? = null
     ) : BackupOperations {
-        val exportedUris = mutableListOf<Uri>()
+        val exportedUris = mutableListOf<BackupExportRecord>()
         val restoredUris = mutableListOf<Uri>()
 
-        override fun createSuggestedFileName(): String = "yike-backup-test.json"
+        override fun createSuggestedFileName(mode: BackupExportMode): String = "yike-backup-test.json"
 
-        override suspend fun exportToUri(uri: Uri) {
-            exportedUris += uri
+        override suspend fun exportToUri(uri: Uri, mode: BackupExportMode) {
+            exportedUris += BackupExportRecord(uri = uri, mode = mode)
         }
 
         override suspend fun restoreFromUri(uri: Uri) {
@@ -161,6 +188,14 @@ class BackupRestoreViewModelTest {
             restoredUris += uri
         }
     }
+
+    /**
+     * 导出记录显式带出模式后，测试可以直接断言 ViewModel 是否把完整/增量语义正确传到服务层。
+     */
+    private data class BackupExportRecord(
+        val uri: Uri,
+        val mode: BackupExportMode
+    )
 
     /**
      * 设置仓储在本组测试中只需要提供最近备份时间流，因此保留最小实现即可。

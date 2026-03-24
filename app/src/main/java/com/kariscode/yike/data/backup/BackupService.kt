@@ -13,10 +13,15 @@ import com.kariscode.yike.data.local.db.dao.CardDao
 import com.kariscode.yike.data.local.db.dao.DeckDao
 import com.kariscode.yike.data.local.db.dao.QuestionDao
 import com.kariscode.yike.data.local.db.dao.ReviewRecordDao
+import com.kariscode.yike.data.local.db.dao.SyncChangeDao
 import com.kariscode.yike.data.local.db.entity.CardEntity
 import com.kariscode.yike.data.local.db.entity.DeckEntity
 import com.kariscode.yike.data.local.db.entity.QuestionEntity
 import com.kariscode.yike.data.local.db.entity.ReviewRecordEntity
+import com.kariscode.yike.data.search.NoOpQuestionSearchIndexWriter
+import com.kariscode.yike.data.search.QuestionSearchIndexWriter
+import com.kariscode.yike.data.sync.LanSyncChangeApplier
+import com.kariscode.yike.data.sync.toPayload
 import com.kariscode.yike.domain.model.AppSettings
 import com.kariscode.yike.domain.model.ThemeMode
 import com.kariscode.yike.domain.repository.AppSettingsRepository
@@ -47,8 +52,11 @@ class BackupService(
     private val cardDao: CardDao,
     private val questionDao: QuestionDao,
     private val reviewRecordDao: ReviewRecordDao,
+    private val syncChangeDao: SyncChangeDao,
     private val appSettingsRepository: AppSettingsRepository,
     private val backupValidator: BackupValidator,
+    private val changeApplier: LanSyncChangeApplier,
+    private val questionSearchIndexWriter: QuestionSearchIndexWriter = NoOpQuestionSearchIndexWriter,
     private val timeProvider: TimeProvider,
     private val dispatchers: AppDispatchers
 ) : BackupOperations {
@@ -56,9 +64,15 @@ class BackupService(
      * 导出时即便数据为空也要写出合法备份文件，
      * 这样用户才能在“先备份配置、后逐步录入内容”的场景下获得稳定结果。
      */
-    override suspend fun exportToUri(uri: Uri) = withContext(dispatchers.io) {
+    override suspend fun exportToUri(
+        uri: Uri,
+        mode: BackupExportMode
+    ) = withContext(dispatchers.io) {
         val exportedAt = timeProvider.nowEpochMillis()
-        val jsonString = exportToJsonString(exportedAtEpochMillis = exportedAt)
+        val jsonString = exportToJsonString(
+            exportedAtEpochMillis = exportedAt,
+            mode = mode
+        )
         application.contentResolver.openOutputStream(uri)?.use { outputStream ->
             outputStream.write(jsonString.toByteArray())
             outputStream.flush()
@@ -79,23 +93,31 @@ class BackupService(
     /**
      * 导出文件名单独提供生成方法，是为了把命名规范固定下来并便于页面直接复用。
      */
-    override fun createSuggestedFileName(): String {
+    override fun createSuggestedFileName(mode: BackupExportMode): String {
         val nowEpochMillis = timeProvider.nowEpochMillis()
         val stamp = BackupJson.formatEpochMillis(nowEpochMillis)
             .replace("-", "")
             .replace(":", "")
             .replace("T", "-")
             .substringBefore("+")
-        return "yike-backup-$stamp.json"
+        val prefix = when (mode) {
+            BackupExportMode.FULL -> "yike-backup"
+            BackupExportMode.INCREMENTAL -> "yike-backup-incremental"
+        }
+        return "$prefix-$stamp.json"
     }
 
     /**
      * 局域网同步与导出文件都需要同一份 JSON 快照，因此单独暴露字符串导出入口可以避免重复序列化骨架。
      */
     suspend fun exportToJsonString(
-        exportedAtEpochMillis: Long = timeProvider.nowEpochMillis()
+        exportedAtEpochMillis: Long = timeProvider.nowEpochMillis(),
+        mode: BackupExportMode = BackupExportMode.FULL
     ): String = withContext(dispatchers.io) {
-        val document = exportDocument(exportedAtEpochMillis = exportedAtEpochMillis)
+        val document = exportDocument(
+            exportedAtEpochMillis = exportedAtEpochMillis,
+            mode = mode
+        )
         BackupJson.json.encodeToString(document)
     }
 
@@ -113,34 +135,65 @@ class BackupService(
      * 同步预览只需要结构化文档而不一定马上写文件，因此公开文档导出入口能减少二次反序列化成本。
      */
     suspend fun exportDocument(
-        exportedAtEpochMillis: Long = timeProvider.nowEpochMillis()
+        exportedAtEpochMillis: Long = timeProvider.nowEpochMillis(),
+        mode: BackupExportMode = BackupExportMode.FULL
     ): BackupDocument = withContext(dispatchers.io) {
-        buildBackupDocument(exportedAtEpochMillis = exportedAtEpochMillis)
+        when (mode) {
+            BackupExportMode.FULL -> buildFullBackupDocument(exportedAtEpochMillis = exportedAtEpochMillis)
+            BackupExportMode.INCREMENTAL -> buildIncrementalBackupDocument(exportedAtEpochMillis = exportedAtEpochMillis)
+        }
     }
 
     /**
      * 构建备份文档时读取完整数据快照，可确保序列化结果与当下本地状态严格一致。
      */
-    private suspend fun buildBackupDocument(exportedAtEpochMillis: Long): BackupDocument {
+    private suspend fun buildFullBackupDocument(exportedAtEpochMillis: Long): BackupDocument {
         val snapshot = readCurrentSnapshot()
 
         return BackupDocument(
             app = BackupAppInfo(
                 name = "忆刻",
                 backupVersion = BackupConstants.BACKUP_VERSION,
-                exportedAt = BackupJson.formatEpochMillis(exportedAtEpochMillis)
+                exportedAt = BackupJson.formatEpochMillis(exportedAtEpochMillis),
+                kind = BackupDocumentKind.FULL
             ),
-            settings = BackupSettings(
-                dailyReminderEnabled = snapshot.settings.dailyReminderEnabled,
-                dailyReminderTime = snapshot.settings.toBackupReminderTime(),
-                schemaVersion = snapshot.settings.schemaVersion,
-                backupLastAt = snapshot.settings.backupLastAt?.let(BackupJson::formatEpochMillis),
-                themeMode = snapshot.settings.themeMode.storageValue
+            full = BackupFullPayload(
+                settings = BackupSettings(
+                    dailyReminderEnabled = snapshot.settings.dailyReminderEnabled,
+                    dailyReminderTime = snapshot.settings.toBackupReminderTime(),
+                    schemaVersion = snapshot.settings.schemaVersion,
+                    backupLastAt = snapshot.settings.backupLastAt?.let(BackupJson::formatEpochMillis),
+                    themeMode = snapshot.settings.themeMode.storageValue
+                ),
+                decks = snapshot.decks.map { deck -> deck.toBackup() },
+                cards = snapshot.cards.map { card -> card.toBackup() },
+                questions = snapshot.questions.map { question -> question.toBackup() },
+                reviewRecords = snapshot.reviewRecords.map { reviewRecord -> reviewRecord.toBackup() }
+            )
+        )
+    }
+
+    /**
+     * 增量备份直接复用同步 journal，是为了在不额外维护第二套差异快照的前提下提供更轻量的导出能力。
+     */
+    private suspend fun buildIncrementalBackupDocument(exportedAtEpochMillis: Long): BackupDocument {
+        val settings = appSettingsRepository.getSettings()
+        val baseBackupAt = requireNotNull(settings.backupLastAt) {
+            "暂无可增量导出的基线备份，请先导出一次完整备份"
+        }
+        val changes = syncChangeDao.listModifiedAfter(baseBackupAt)
+            .map { change -> change.toPayload() }
+        return BackupDocument(
+            app = BackupAppInfo(
+                name = "忆刻",
+                backupVersion = BackupConstants.BACKUP_VERSION,
+                exportedAt = BackupJson.formatEpochMillis(exportedAtEpochMillis),
+                kind = BackupDocumentKind.INCREMENTAL
             ),
-            decks = snapshot.decks.map { deck -> deck.toBackup() },
-            cards = snapshot.cards.map { card -> card.toBackup() },
-            questions = snapshot.questions.map { question -> question.toBackup() },
-            reviewRecords = snapshot.reviewRecords.map { reviewRecord -> reviewRecord.toBackup() }
+            incremental = BackupIncrementalPayload(
+                baseBackupAt = BackupJson.formatEpochMillis(baseBackupAt),
+                changes = changes
+            )
         )
     }
 
@@ -148,12 +201,37 @@ class BackupService(
      * 为了做到“恢复失败时当前数据不被修改”，这里先保留旧快照并在设置写入失败时执行补偿恢复。
      */
     private suspend fun restoreDocument(document: BackupDocument) {
+        when (document.app.kind) {
+            BackupDocumentKind.FULL -> restoreFullDocument(requireNotNull(document.full))
+            BackupDocumentKind.INCREMENTAL -> restoreIncrementalDocument(requireNotNull(document.incremental))
+        }
+    }
+
+    /**
+     * 完整恢复继续沿用“先替换数据库、再写设置、失败则回滚”的高安全策略，
+     * 是为了保持原有整包恢复的可靠性不回退。
+     */
+    private suspend fun restoreFullDocument(payload: BackupFullPayload) {
         val previousSnapshot = readCurrentSnapshot()
-        val restoredEntities = document.toRestorePayload()
+        val restoredEntities = payload.toRestorePayload()
 
         try {
             replaceDatabaseContent(restoredEntities)
-            writeSettingsFromBackup(document.settings)
+            writeSettingsFromBackup(payload.settings)
+        } catch (throwable: Throwable) {
+            replaceDatabaseContent(previousSnapshot.toRestorePayload())
+            restorePreviousSettings(previousSnapshot.settings)
+            throw IllegalStateException("恢复失败，当前数据未被修改", throwable)
+        }
+    }
+
+    /**
+     * 增量恢复同样保留失败回滚，是为了避免部分变更落库成功、部分失败时把当前数据留在中间态。
+     */
+    private suspend fun restoreIncrementalDocument(payload: BackupIncrementalPayload) {
+        val previousSnapshot = readCurrentSnapshot()
+        try {
+            changeApplier.applyIncomingChanges(payload.changes)
         } catch (throwable: Throwable) {
             replaceDatabaseContent(previousSnapshot.toRestorePayload())
             restorePreviousSettings(previousSnapshot.settings)
@@ -234,6 +312,7 @@ class BackupService(
             deckDao.upsertAll(payload.decks)
             cardDao.upsertAll(payload.cards)
             questionDao.upsertAll(payload.questions)
+            questionSearchIndexWriter.refreshQuestions(payload.questions)
             reviewRecordDao.insertAll(payload.reviewRecords)
         }
     }
@@ -251,7 +330,7 @@ class BackupService(
     /**
      * 备份文档先一次性转成实体载荷，是为了让校验通过后的恢复事务只专注处理数据库替换。
      */
-    private fun BackupDocument.toRestorePayload(): RestorePayload = RestorePayload(
+    private fun BackupFullPayload.toRestorePayload(): RestorePayload = RestorePayload(
         decks = decks.map { deck -> deck.toEntity() },
         cards = cards.map { card -> card.toEntity() },
         questions = questions.map { question -> question.toEntity() },

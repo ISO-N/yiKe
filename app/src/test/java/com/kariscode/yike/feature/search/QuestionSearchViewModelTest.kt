@@ -6,6 +6,8 @@ import com.kariscode.yike.domain.model.Question
 import com.kariscode.yike.domain.model.QuestionContext
 import com.kariscode.yike.domain.model.QuestionMasteryLevel
 import com.kariscode.yike.domain.model.QuestionStatus
+import com.kariscode.yike.domain.usecase.GetQuestionSearchMetadataUseCase
+import com.kariscode.yike.domain.usecase.SearchQuestionsUseCase
 import com.kariscode.yike.testsupport.FakeCardRepository
 import com.kariscode.yike.testsupport.FakeDeckRepository
 import com.kariscode.yike.testsupport.FakeStudyInsightsRepository
@@ -198,9 +200,14 @@ class QuestionSearchViewModelTest {
         initialDeckId = initialDeckId,
         initialCardId = initialCardId,
         initialTag = initialTag,
-        studyInsightsRepository = studyInsightsRepository,
-        deckRepository = deckRepository,
-        cardRepository = cardRepository,
+        getQuestionSearchMetadataUseCase = GetQuestionSearchMetadataUseCase(
+            studyInsightsRepository = studyInsightsRepository,
+            deckRepository = deckRepository,
+            cardRepository = cardRepository
+        ),
+        searchQuestionsUseCase = SearchQuestionsUseCase(
+            studyInsightsRepository = studyInsightsRepository
+        ),
         timeProvider = FixedTimeProvider(nowEpochMillis = 10_000L)
     )
 

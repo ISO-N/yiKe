@@ -143,7 +143,7 @@ fun YikeMetricCard(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = spacing.lg, vertical = spacing.md),
-            verticalArrangement = Arrangement.spacedBy(4.dp)
+            verticalArrangement = Arrangement.spacedBy(spacing.xs)
         ) {
             Text(
                 text = value,

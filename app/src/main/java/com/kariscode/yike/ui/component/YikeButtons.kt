@@ -24,6 +24,10 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.semantics.ProgressBarRangeInfo
+import androidx.compose.ui.semantics.progressBarRangeInfo
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -185,10 +189,20 @@ fun YikeFab(
 @Composable
 fun YikeProgressBar(
     progress: Float,
+    description: String? = null,
     modifier: Modifier = Modifier
 ) {
+    val normalizedProgress = progress.coerceIn(0f, 1f)
+    val progressDescription = description ?: "当前进度 ${(normalizedProgress * 100).toInt()}%"
     Box(
         modifier = modifier
+            .semantics {
+                progressBarRangeInfo = ProgressBarRangeInfo(
+                    current = normalizedProgress,
+                    range = 0f..1f
+                )
+                stateDescription = progressDescription
+            }
             .fillMaxWidth()
             .height(6.dp)
             .clip(CircleShape)
@@ -196,7 +210,7 @@ fun YikeProgressBar(
     ) {
         Box(
             modifier = Modifier
-                .fillMaxWidth(progress.coerceIn(0f, 1f))
+                .fillMaxWidth(normalizedProgress)
                 .height(6.dp)
                 .clip(CircleShape)
                 .background(

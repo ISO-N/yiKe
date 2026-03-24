@@ -7,6 +7,7 @@ import com.kariscode.yike.core.dispatchers.DefaultAppDispatchers
 import com.kariscode.yike.data.local.db.entity.CardEntity
 import com.kariscode.yike.data.local.db.entity.DeckEntity
 import com.kariscode.yike.data.local.db.entity.QuestionEntity
+import com.kariscode.yike.data.local.db.entity.QuestionSearchTokenEntity
 import com.kariscode.yike.data.local.db.entity.ReviewRecordEntity
 import com.kariscode.yike.data.repository.OfflineReviewRepository
 import com.kariscode.yike.data.sync.LanSyncChangeRecorder
@@ -93,6 +94,16 @@ class YikeDatabaseIntegrationTest {
                 createQuestion(id = "q_other", cardId = "card_process", dueAt = 1_000L).copy(prompt = "进程状态有哪些")
             )
         )
+        val candidateQuestionIds = listOf(
+            QuestionSearchTokenEntity(questionId = "q_due", token = "极限"),
+            QuestionSearchTokenEntity(questionId = "q_future", token = "极限")
+        ).also { tokens ->
+            database.questionSearchTokenDao().insertAll(tokens)
+        }.let {
+            database.questionSearchTokenDao().listByTokens(tokens = listOf("极限"))
+                .map { token -> token.questionId }
+                .distinct()
+        }
 
         val rows = database.questionDao().listQuestionContexts(
             keyword = "极限",
@@ -100,7 +111,9 @@ class YikeDatabaseIntegrationTest {
             status = QuestionEntity.STATUS_ACTIVE,
             deckId = "deck_math",
             cardId = null,
-            maxDueAt = 2_000L
+            maxDueAt = 2_000L,
+            includeAllQuestionIds = false,
+            questionIds = candidateQuestionIds
         )
 
         assertEquals(1, rows.size)

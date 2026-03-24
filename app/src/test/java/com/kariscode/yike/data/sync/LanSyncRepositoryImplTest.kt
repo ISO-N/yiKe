@@ -18,6 +18,7 @@ import com.kariscode.yike.data.local.db.entity.SyncPeerEntity
 import com.kariscode.yike.data.reminder.ReminderScheduler
 import com.kariscode.yike.domain.model.LanSyncConflictResolution
 import com.kariscode.yike.domain.model.LanSyncPeerHealth
+import com.kariscode.yike.domain.model.LanSyncPeer
 import com.kariscode.yike.domain.model.LanSyncSessionState
 import com.kariscode.yike.domain.model.LanSyncStage
 import com.kariscode.yike.domain.model.LanSyncTrustState
@@ -198,6 +199,34 @@ class LanSyncRepositoryImplTest {
         assertNotNull(cursor)
 
         repository.stopSession()
+    }
+
+    /**
+     * 协议版本不兼容必须在任何网络拉取前立刻失败，
+     * 否则用户会在注定无法同步的设备上看到一段误导性的加载过程。
+     */
+    @Test
+    fun prepareSync_protocolMismatchFailsBeforeNetworkCalls() = runTest {
+        val incompatiblePeer = LanSyncPeer(
+            deviceId = "peer_old",
+            displayName = "Old Peer",
+            shortDeviceId = "peerld",
+            hostAddress = "192.168.0.11",
+            port = 9530,
+            protocolVersion = LanSyncConfig.PROTOCOL_VERSION - 1,
+            trustState = LanSyncTrustState.TRUSTED,
+            health = LanSyncPeerHealth.AVAILABLE,
+            lastSeenAt = timeProvider.nowEpochMillis()
+        )
+
+        val failure = runCatching {
+            repository.prepareSync(peer = incompatiblePeer, pairingCode = null)
+        }.exceptionOrNull()
+
+        assertNotNull(failure)
+        assertEquals("设备版本不兼容，请先升级两端应用", failure?.message)
+        assertTrue(transportClient.pullCalls.isEmpty())
+        assertTrue(transportClient.pairCalls.isEmpty())
     }
 
     /**

@@ -7,6 +7,8 @@ import com.kariscode.yike.data.local.db.dao.TodayReviewSummaryRow
 import com.kariscode.yike.data.local.db.entity.QuestionEntity
 import com.kariscode.yike.data.mapper.toDomain
 import com.kariscode.yike.data.mapper.toEntity
+import com.kariscode.yike.data.search.NoOpQuestionSearchIndexWriter
+import com.kariscode.yike.data.search.QuestionSearchIndexWriter
 import com.kariscode.yike.data.sync.LanSyncChangeRecorder
 import com.kariscode.yike.domain.model.Question
 import com.kariscode.yike.domain.model.SyncEntityType
@@ -22,7 +24,8 @@ class OfflineQuestionRepository(
     private val questionDao: QuestionDao,
     private val dispatchers: AppDispatchers,
     private val timeProvider: TimeProvider,
-    private val syncChangeRecorder: LanSyncChangeRecorder
+    private val syncChangeRecorder: LanSyncChangeRecorder,
+    private val questionSearchIndexWriter: QuestionSearchIndexWriter = NoOpQuestionSearchIndexWriter
 ) : QuestionRepository {
     /**
      * 观察式查询让编辑页在新增/删除后自然更新，避免草稿状态与数据库脱节。
@@ -53,7 +56,9 @@ class OfflineQuestionRepository(
      * 批量写入可避免逐条保存导致中途失败的半完成状态，符合编辑页“一次保存”的期望。
      */
     override suspend fun upsertAll(questions: List<Question>) = dispatchers.onIo {
-        questionDao.upsertAll(questions.map { question -> question.toEntity() })
+        val entities = questions.map { question -> question.toEntity() }
+        questionDao.upsertAll(entities)
+        questionSearchIndexWriter.refreshQuestions(entities)
         questions.forEach { question ->
             syncChangeRecorder.recordQuestionUpsert(question)
         }

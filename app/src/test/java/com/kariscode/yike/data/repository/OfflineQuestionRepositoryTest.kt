@@ -518,7 +518,9 @@ class OfflineQuestionRepositoryTest {
             status: String?,
             deckId: String?,
             cardId: String?,
-            maxDueAt: Long?
+            maxDueAt: Long?,
+            includeAllQuestionIds: Boolean,
+            questionIds: List<String>
         ): List<QuestionContextRow> = emptyList()
 
         override suspend fun listTagsJson(activeStatus: String): List<String> = emptyList()

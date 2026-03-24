@@ -267,7 +267,10 @@ private fun ReviewProgressSection(
             YikeBadge(text = "${(progress * 100).toInt()}%")
         }
     ) {
-        YikeProgressBar(progress = progress)
+        YikeProgressBar(
+            progress = progress,
+            description = "本卡完成度 ${(progress * 100).toInt()}%，已完成 ${uiState.completedCount} / ${uiState.totalCount} 题"
+        )
     }
 }
 

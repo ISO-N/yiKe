@@ -2,7 +2,6 @@ package com.kariscode.yike.feature.home
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
-import com.kariscode.yike.core.coroutine.parallel
 import com.kariscode.yike.core.message.ErrorMessages
 import com.kariscode.yike.core.message.userMessageOr
 import com.kariscode.yike.core.time.TimeProvider
@@ -12,6 +11,7 @@ import com.kariscode.yike.domain.model.DeckSummary
 import com.kariscode.yike.domain.model.TodayReviewSummary
 import com.kariscode.yike.domain.repository.DeckRepository
 import com.kariscode.yike.domain.repository.QuestionRepository
+import com.kariscode.yike.domain.usecase.GetHomeOverviewUseCase
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -44,8 +44,7 @@ data class HomeUiState(
  * 是为了避免页面自己发起多路查询后再拼装状态，导致错误反馈分叉。
  */
 class HomeViewModel(
-    private val questionRepository: QuestionRepository,
-    private val deckRepository: DeckRepository,
+    private val getHomeOverviewUseCase: GetHomeOverviewUseCase,
     private val timeProvider: TimeProvider
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(
@@ -76,23 +75,17 @@ class HomeViewModel(
         _uiState.update { it.copy(isLoading = true, errorMessage = null) }
         launchResult(
             action = {
-                val now = timeProvider.nowEpochMillis()
-                parallel(
-                    first = { questionRepository.getTodayReviewSummary(now) },
-                    second = {
-                        deckRepository.listRecentActiveDeckSummaries(
-                            nowEpochMillis = now,
-                            limit = 3
-                        )
-                    }
+                getHomeOverviewUseCase(
+                    nowEpochMillis = timeProvider.nowEpochMillis(),
+                    recentDeckLimit = 3
                 )
             },
-            onSuccess = { (summary, recentDecks) ->
+            onSuccess = { overview ->
                 _uiState.update {
                     HomeStateFactory.success(
                         state = it,
-                        summary = summary,
-                        recentDecks = recentDecks
+                        summary = overview.summary,
+                        recentDecks = overview.recentDecks
                     )
                 }
             },
@@ -116,7 +109,13 @@ class HomeViewModel(
             deckRepository: DeckRepository,
             timeProvider: TimeProvider
         ): ViewModelProvider.Factory = typedViewModelFactory {
-            HomeViewModel(questionRepository, deckRepository, timeProvider)
+            HomeViewModel(
+                getHomeOverviewUseCase = GetHomeOverviewUseCase(
+                    questionRepository = questionRepository,
+                    deckRepository = deckRepository
+                ),
+                timeProvider = timeProvider
+            )
         }
     }
 }

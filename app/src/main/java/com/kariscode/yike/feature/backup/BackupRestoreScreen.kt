@@ -64,12 +64,13 @@ fun BackupRestoreScreen(
 
     YikeFlowScaffold(
         title = "备份与恢复",
-        subtitle = "导出完整 JSON，或在确认风险后从本地备份恢复全部数据。",
+        subtitle = "支持完整备份、增量备份，以及在确认风险后的本地恢复。",
         navigationAction = backNavigationAction(navigator::back)
     ) { padding ->
         BackupRestoreContent(
             uiState = uiState,
             onExport = viewModel::onExportClick,
+            onExportIncremental = viewModel::onExportIncrementalClick,
             onImport = viewModel::onImportClick,
             modifier = modifier,
             contentPadding = padding
@@ -94,6 +95,7 @@ fun BackupRestoreScreen(
 fun BackupRestoreContent(
     uiState: BackupRestoreUiState,
     onExport: () -> Unit,
+    onExportIncremental: () -> Unit,
     onImport: () -> Unit,
     contentPadding: PaddingValues = PaddingValues(),
     modifier: Modifier = Modifier
@@ -127,8 +129,19 @@ fun BackupRestoreContent(
         }
 
         YikeSurfaceCard {
+            Text(text = "导出增量备份")
+            Text(text = "仅导出最近一次备份后的变更，适合同一基线继续累积恢复。首次使用前请先导出完整备份。")
+            YikeSecondaryButton(
+                text = if (uiState.isExporting) "导出中…" else "导出增量 JSON",
+                onClick = onExportIncremental,
+                modifier = Modifier.fillMaxWidth(),
+                enabled = !uiState.isExporting && !uiState.isImporting
+            )
+        }
+
+        YikeSurfaceCard {
             Text(text = "从备份恢复")
-            Text(text = "恢复前建议先导出当前数据，避免误操作后无法回滚。")
+            Text(text = "恢复前建议先导出当前数据。增量备份应当恢复到匹配的完整备份基线之上。")
             YikeSecondaryButton(
                 text = if (uiState.isImporting) "恢复中…" else "选择备份文件",
                 onClick = onImport,

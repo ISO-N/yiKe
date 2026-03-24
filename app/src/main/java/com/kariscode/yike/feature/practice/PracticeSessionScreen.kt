@@ -195,7 +195,10 @@ private fun PracticeSessionProgressSection(
         title = "本次练习不会影响正式复习计划",
         description = "第 ${uiState.currentIndex + 1} 题，共 ${uiState.totalCount} 题。随时可以结束，也可以返回查看上一题。"
     ) {
-        YikeProgressBar(progress = progress)
+        YikeProgressBar(
+            progress = progress,
+            description = "练习进度 ${(progress * 100).toInt()}%，当前第 ${uiState.currentIndex + 1} 题，共 ${uiState.totalCount} 题"
+        )
         Row(horizontalArrangement = Arrangement.spacedBy(LocalYikeSpacing.current.sm)) {
             YikeBadge(text = sessionTag)
             uiState.sessionSeed?.let { seed ->

@@ -9,8 +9,16 @@ import com.kariscode.yike.data.local.db.entity.CardEntity
 import com.kariscode.yike.data.local.db.entity.DeckEntity
 import com.kariscode.yike.data.local.db.entity.QuestionEntity
 import com.kariscode.yike.data.local.db.entity.ReviewRecordEntity
+import com.kariscode.yike.data.reminder.ReminderSyncScheduler
+import com.kariscode.yike.data.sync.LanSyncChangeApplier
+import com.kariscode.yike.data.sync.LanSyncConflictResolver
+import com.kariscode.yike.data.sync.LanSyncJson
+import com.kariscode.yike.data.sync.SyncDeckPayload
+import com.kariscode.yike.data.sync.SyncChangePayload
 import com.kariscode.yike.domain.model.AppSettings
 import com.kariscode.yike.domain.model.ReviewRating
+import com.kariscode.yike.domain.model.SyncChangeOperation
+import com.kariscode.yike.domain.model.SyncEntityType
 import com.kariscode.yike.domain.model.ThemeMode
 import com.kariscode.yike.domain.repository.AppSettingsRepository
 import com.kariscode.yike.domain.scheduler.ReviewSchedulerV1
@@ -21,6 +29,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.decodeFromString
+import kotlinx.serialization.encodeToString
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -44,6 +53,10 @@ class BackupServiceTest {
     fun setUp() {
         val application = ApplicationProvider.getApplicationContext<Application>()
         val testDispatcher = UnconfinedTestDispatcher()
+        val reminderScheduler = object : ReminderSyncScheduler {
+            override suspend fun syncReminderFromRepository() = Unit
+            override fun syncReminder(settings: AppSettings) = Unit
+        }
         database = Room.inMemoryDatabaseBuilder(application, YikeDatabase::class.java)
             .allowMainThreadQueries()
             .build()
@@ -55,8 +68,19 @@ class BackupServiceTest {
             cardDao = database.cardDao(),
             questionDao = database.questionDao(),
             reviewRecordDao = database.reviewRecordDao(),
+            syncChangeDao = database.syncChangeDao(),
             appSettingsRepository = appSettingsRepository,
             backupValidator = BackupValidator(),
+            changeApplier = LanSyncChangeApplier(
+                database = database,
+                appSettingsRepository = appSettingsRepository,
+                reminderScheduler = reminderScheduler,
+                deckDao = database.deckDao(),
+                cardDao = database.cardDao(),
+                questionDao = database.questionDao(),
+                reviewRecordDao = database.reviewRecordDao(),
+                conflictResolver = LanSyncConflictResolver()
+            ),
             timeProvider = object : com.kariscode.yike.core.time.TimeProvider {
                 override fun nowEpochMillis(): Long = 123_456L
             },
@@ -94,12 +118,13 @@ class BackupServiceTest {
         val json = backupService.exportToJsonString(exportedAtEpochMillis = 222_000L)
         val document = BackupJson.json.decodeFromString<BackupDocument>(json)
 
-        assertEquals("21:15", document.settings.dailyReminderTime)
-        assertEquals("dark", document.settings.themeMode)
-        assertEquals(listOf("数学"), document.decks.map { it.name })
-        assertEquals(listOf("极限"), document.cards.map { it.title })
-        assertEquals(listOf("什么是极限"), document.questions.map { it.prompt })
-        assertEquals(listOf("GOOD"), document.reviewRecords.map { it.rating })
+        assertEquals(BackupDocumentKind.FULL, document.app.kind)
+        assertEquals("21:15", document.full?.settings?.dailyReminderTime)
+        assertEquals("dark", document.full?.settings?.themeMode)
+        assertEquals(listOf("数学"), document.full?.decks?.map { it.name })
+        assertEquals(listOf("极限"), document.full?.cards?.map { it.title })
+        assertEquals(listOf("什么是极限"), document.full?.questions?.map { it.prompt })
+        assertEquals(listOf("GOOD"), document.full?.reviewRecords?.map { it.rating })
     }
 
     /**
@@ -112,11 +137,54 @@ class BackupServiceTest {
             backupService.exportToJsonString(exportedAtEpochMillis = 222_000L)
         )
 
-        assertTrue(document.decks.isEmpty())
-        assertTrue(document.cards.isEmpty())
-        assertTrue(document.questions.isEmpty())
-        assertTrue(document.reviewRecords.isEmpty())
+        assertTrue(document.full?.decks?.isEmpty() == true)
+        assertTrue(document.full?.cards?.isEmpty() == true)
+        assertTrue(document.full?.questions?.isEmpty() == true)
+        assertTrue(document.full?.reviewRecords?.isEmpty() == true)
         assertEquals(BackupConstants.BACKUP_VERSION, document.app.backupVersion)
+    }
+
+    /**
+     * 增量导出必须只携带最近一次备份后的变更，
+     * 否则它就会退化成另一份体积更大的完整备份。
+     */
+    @Test
+    fun exportToJsonString_incrementalIncludesOnlyChangesAfterLastBackup() = runTest {
+        appSettingsRepository.setBackupLastAt(5L)
+        database.syncChangeDao().insert(
+            com.kariscode.yike.data.local.db.entity.SyncChangeEntity(
+                entityType = SyncEntityType.DECK.name,
+                entityId = "deck_1",
+                operation = SyncChangeOperation.UPSERT.name,
+                summary = "数学",
+                payloadJson = LanSyncJson.json.encodeToString(
+                    SyncDeckPayload.serializer(),
+                    SyncDeckPayload(
+                        id = "deck_1",
+                        name = "数学",
+                        description = "",
+                        tags = emptyList(),
+                        intervalStepCount = 8,
+                        archived = false,
+                        sortOrder = 0,
+                        createdAt = 1L,
+                        updatedAt = 6L
+                    )
+                ),
+                payloadHash = "hash_1",
+                modifiedAt = 6L
+            )
+        )
+
+        val json = backupService.exportToJsonString(
+            exportedAtEpochMillis = 10L,
+            mode = BackupExportMode.INCREMENTAL
+        )
+        val document = BackupJson.json.decodeFromString<BackupDocument>(json)
+
+        assertEquals(BackupDocumentKind.INCREMENTAL, document.app.kind)
+        assertEquals("1970-01-01T08:00:00.005+08:00", document.incremental?.baseBackupAt)
+        assertEquals(listOf("deck_1"), document.incremental?.changes?.map { it.entityId })
     }
 
     /**
@@ -211,6 +279,56 @@ class BackupServiceTest {
             ),
             appSettingsRepository.getSettings()
         )
+    }
+
+    /**
+     * 增量恢复必须复用同步变更应用器，把变更直接叠加到当前数据库，
+     * 这样用户才能在完整备份之后继续按小文件滚动恢复最新改动。
+     */
+    @Test
+    fun restoreFromJsonString_incrementalAppliesSyncedChanges() = runTest {
+        val incrementalJson = BackupJson.json.encodeToString(
+            BackupDocument(
+                app = BackupAppInfo(
+                    name = "忆刻",
+                    backupVersion = BackupConstants.BACKUP_VERSION,
+                    exportedAt = "2026-03-15T20:00:00+08:00",
+                    kind = BackupDocumentKind.INCREMENTAL
+                ),
+                incremental = BackupIncrementalPayload(
+                    baseBackupAt = "2026-03-15T19:00:00+08:00",
+                    changes = listOf(
+                        SyncChangePayload(
+                            seq = 1L,
+                            entityType = SyncEntityType.DECK.name,
+                            entityId = "deck_new",
+                            operation = SyncChangeOperation.UPSERT.name,
+                            summary = "新卡组",
+                            payloadJson = LanSyncJson.json.encodeToString(
+                                SyncDeckPayload.serializer(),
+                                SyncDeckPayload(
+                                    id = "deck_new",
+                                    name = "新卡组",
+                                    description = "",
+                                    tags = emptyList(),
+                                    intervalStepCount = 8,
+                                    archived = false,
+                                    sortOrder = 0,
+                                    createdAt = 1L,
+                                    updatedAt = 2L
+                                )
+                            ),
+                            payloadHash = "hash_deck_new",
+                            modifiedAt = 2L
+                        )
+                    )
+                )
+            )
+        )
+
+        backupService.restoreFromJsonString(incrementalJson)
+
+        assertEquals(listOf("deck_new"), database.deckDao().listAll().map { it.id })
     }
 
     private suspend fun seedDeckHierarchy() {

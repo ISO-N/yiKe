@@ -44,6 +44,12 @@ class InMemorySyncChangeDao : SyncChangeDao {
         listAfter(afterSeq).take(limit)
 
     /**
+     * 备份增量导出按修改时间读取流水，是为了让单测里的 journal 假实现继续覆盖同一接口契约。
+     */
+    override suspend fun listModifiedAfter(afterModifiedAt: Long): List<SyncChangeEntity> =
+        changes.filter { change -> change.modifiedAt > afterModifiedAt }
+
+    /**
      * 最新游标直接从内存流水推导，是为了让测试不必维护第二份冗余状态。
      */
     override suspend fun findLatestSeq(): Long = changes.maxOfOrNull(SyncChangeEntity::seq) ?: 0L

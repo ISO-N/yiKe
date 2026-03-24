@@ -8,6 +8,8 @@ import com.kariscode.yike.data.local.db.dao.QuestionDao
 import com.kariscode.yike.data.local.db.dao.ReviewRecordDao
 import com.kariscode.yike.data.mapper.toEntity
 import com.kariscode.yike.data.reminder.ReminderSyncScheduler
+import com.kariscode.yike.data.search.NoOpQuestionSearchIndexWriter
+import com.kariscode.yike.data.search.QuestionSearchIndexWriter
 import com.kariscode.yike.data.settings.DataStoreAppSettingsRepository
 import com.kariscode.yike.domain.model.AppSettings
 import com.kariscode.yike.domain.model.SyncChangeOperation
@@ -27,7 +29,8 @@ class LanSyncChangeApplier(
     private val cardDao: CardDao,
     private val questionDao: QuestionDao,
     private val reviewRecordDao: ReviewRecordDao,
-    private val conflictResolver: LanSyncConflictResolver
+    private val conflictResolver: LanSyncConflictResolver,
+    private val questionSearchIndexWriter: QuestionSearchIndexWriter = NoOpQuestionSearchIndexWriter
 ) {
     /**
      * 变更进入本地前先按实体类型与操作压缩和排序，确保外键与 settings 语义都能稳定落地。
@@ -68,7 +71,10 @@ class LanSyncChangeApplier(
         database.withTransaction {
             if (deckUpserts.isNotEmpty()) deckDao.upsertAll(deckUpserts)
             if (cardUpserts.isNotEmpty()) cardDao.upsertAll(cardUpserts)
-            if (questionUpserts.isNotEmpty()) questionDao.upsertAll(questionUpserts)
+            if (questionUpserts.isNotEmpty()) {
+                questionDao.upsertAll(questionUpserts)
+                questionSearchIndexWriter.refreshQuestions(questionUpserts)
+            }
             if (reviewRecordUpserts.isNotEmpty()) reviewRecordDao.insertAll(reviewRecordUpserts)
             questionDeletes.forEach { questionId -> questionDao.deleteById(questionId) }
             cardDeletes.forEach { cardId -> cardDao.deleteById(cardId) }

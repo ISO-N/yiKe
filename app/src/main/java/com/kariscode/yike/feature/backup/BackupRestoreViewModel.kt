@@ -7,6 +7,7 @@ import androidx.lifecycle.viewModelScope
 import com.kariscode.yike.core.message.ErrorMessages
 import com.kariscode.yike.core.message.SuccessMessages
 import com.kariscode.yike.core.message.userMessageOr
+import com.kariscode.yike.data.backup.BackupExportMode
 import com.kariscode.yike.core.viewmodel.launchResult
 import com.kariscode.yike.core.viewmodel.typedViewModelFactory
 import com.kariscode.yike.data.backup.BackupOperations
@@ -39,7 +40,11 @@ data class BackupRestoreUiState(
  * 文件选择器属于一次性系统交互，因此通过 effect 发出可避免把 Uri 启动逻辑塞进持续状态。
  */
 sealed interface BackupRestoreEffect {
-    data class LaunchExport(val suggestedFileName: String) : BackupRestoreEffect
+    data class LaunchExport(
+        val suggestedFileName: String,
+        val mode: BackupExportMode
+    ) : BackupRestoreEffect
+
     data object LaunchImport : BackupRestoreEffect
 }
 
@@ -52,6 +57,8 @@ class BackupRestoreViewModel(
     private val appSettingsRepository: AppSettingsRepository,
     private val reminderScheduler: ReminderSyncScheduler
 ) : ViewModel() {
+    private var pendingExportMode: BackupExportMode = BackupExportMode.FULL
+
     private val _uiState = MutableStateFlow(
         BackupRestoreUiState(
             isExporting = false,
@@ -84,9 +91,25 @@ class BackupRestoreViewModel(
      * 真正写文件要等用户明确选择保存位置后再执行。
      */
     fun onExportClick() {
+        launchExport(mode = BackupExportMode.FULL)
+    }
+
+    /**
+     * 增量导出和完整导出共用文件选择流程，是为了让页面只维护一套系统文件交互入口。
+     */
+    fun onExportIncrementalClick() {
+        launchExport(mode = BackupExportMode.INCREMENTAL)
+    }
+
+    /**
+     * 导出模式进入 effect 前先记住当前选择，是为了让系统文件选择返回后仍能执行正确的导出分支。
+     */
+    private fun launchExport(mode: BackupExportMode) {
+        pendingExportMode = mode
         _effects.tryEmit(
             BackupRestoreEffect.LaunchExport(
-                suggestedFileName = backupService.createSuggestedFileName()
+                suggestedFileName = backupService.createSuggestedFileName(mode = mode),
+                mode = mode
             )
         )
     }
@@ -96,26 +119,27 @@ class BackupRestoreViewModel(
      */
     fun onExportUriSelected(uri: Uri?) {
         if (uri == null) return
+        val exportMode = pendingExportMode
         _uiState.update { it.copy(isExporting = true, message = null, errorMessage = null) }
         launchResult(
             action = {
-                backupService.exportToUri(uri)
+                backupService.exportToUri(uri = uri, mode = exportMode)
             },
             onSuccess = {
                 _uiState.update {
                     it.copy(
                         isExporting = false,
-                        message = SuccessMessages.BACKUP_EXPORTED,
+                        message = exportMode.successMessage(),
                         errorMessage = null
                     )
                 }
             },
-            onFailure = {
+            onFailure = { throwable ->
                 _uiState.update {
                     it.copy(
                         isExporting = false,
                         message = null,
-                        errorMessage = ErrorMessages.BACKUP_EXPORT_FAILED
+                        errorMessage = throwable.userMessageOr(ErrorMessages.BACKUP_EXPORT_FAILED)
                     )
                 }
             }
@@ -189,6 +213,14 @@ class BackupRestoreViewModel(
                 }
             }
         )
+    }
+
+    /**
+     * 导出反馈按模式区分后，用户能明确知道刚刚落地的是完整备份还是增量备份。
+     */
+    private fun BackupExportMode.successMessage(): String = when (this) {
+        BackupExportMode.FULL -> SuccessMessages.BACKUP_EXPORTED
+        BackupExportMode.INCREMENTAL -> "增量备份导出成功"
     }
 
     companion object {
