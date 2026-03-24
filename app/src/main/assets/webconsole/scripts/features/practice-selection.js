@@ -2,6 +2,7 @@ import {
     escapeHtml,
     fetchJson,
     renderEmptyState,
+    requestShellRefresh,
     state,
 } from "../shared/core.js";
 
@@ -37,10 +38,27 @@ export function prunePracticeDeckSelection() {
 }
 
 /**
+ * 练习页单独读取卡组范围，是为了让多页面壳层下的学习页不再依赖内容页先行载入。
+ */
+export async function loadPracticeDecks() {
+    const payload = await fetchJson("/api/web-console/v1/decks");
+    if (!payload) {
+        return;
+    }
+    state.decks = payload;
+    prunePracticeDeckSelection();
+    renderPracticeSelection();
+    requestShellRefresh();
+}
+
+/**
  * 练习范围摘要集中渲染，是为了让用户在进入会话前始终清楚本次作用范围。
  */
 export function renderPracticeSelectionSummary() {
     const summary = document.querySelector("#practice-selection-summary");
+    if (!summary) {
+        return;
+    }
     const deckCount = state.practiceSelection.selectedDeckIds.size;
     const cardCount = state.practiceSelection.selectedCardIds.size;
     const questionCount = state.practiceSelection.selectedQuestionIds.size;
@@ -54,7 +72,11 @@ export function renderPracticeSelectionSummary() {
 
 function renderPracticeDeckOptions() {
     const container = document.querySelector("#practice-deck-options");
-    document.querySelector("#practice-deck-count").textContent = `${state.practiceSelection.selectedDeckIds.size} 已选`;
+    const count = document.querySelector("#practice-deck-count");
+    if (!container || !count) {
+        return;
+    }
+    count.textContent = `${state.practiceSelection.selectedDeckIds.size} 已选`;
     if (!state.decks.length) {
         container.innerHTML = renderEmptyState("暂无卡组", "先在内容管理中创建卡组，才可以从浏览器端发起自由练习。");
         return;
@@ -78,7 +100,11 @@ function renderPracticeDeckOptions() {
 function renderPracticeCardOptions() {
     const container = document.querySelector("#practice-card-options");
     const availableCards = collectPracticeCards();
-    document.querySelector("#practice-card-count").textContent = `${state.practiceSelection.selectedCardIds.size} 已选`;
+    const count = document.querySelector("#practice-card-count");
+    if (!container || !count) {
+        return;
+    }
+    count.textContent = `${state.practiceSelection.selectedCardIds.size} 已选`;
     if (!state.practiceSelection.selectedDeckIds.size) {
         container.innerHTML = renderEmptyState("先选择卡组", "至少选中一个卡组后，浏览器才会加载该范围内的卡片。");
         return;
@@ -110,7 +136,11 @@ function renderPracticeCardOptions() {
 function renderPracticeQuestionOptions() {
     const container = document.querySelector("#practice-question-options");
     const availableQuestions = collectPracticeQuestions();
-    document.querySelector("#practice-question-count").textContent = `${state.practiceSelection.selectedQuestionIds.size} 已选`;
+    const count = document.querySelector("#practice-question-count");
+    if (!container || !count) {
+        return;
+    }
+    count.textContent = `${state.practiceSelection.selectedQuestionIds.size} 已选`;
     if (!state.practiceSelection.selectedCardIds.size) {
         container.innerHTML = renderEmptyState("先选择卡片", "题目级范围建立在已选卡片之上，这样刷新恢复后仍能清楚知道当前题来自哪张卡。");
         return;

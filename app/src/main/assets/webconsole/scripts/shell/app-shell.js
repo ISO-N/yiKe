@@ -1,12 +1,18 @@
 import {
     elements,
     escapeHtml,
+    setCurrentSection,
     setShellRefreshHandler,
     setUnauthorizedHandler,
     showLoginError,
     state,
+    syncElements,
 } from "../shared/core.js";
-import { bindContentFormEvents, loadDecks, updateCommandAvailability } from "../features/content.js";
+import {
+    bindContentFormEvents,
+    loadDecks,
+    updateCommandAvailability,
+} from "../features/content.js";
 import {
     bindMaintenanceEvents,
     bindSearchEvents,
@@ -15,20 +21,32 @@ import {
     loadDashboard,
     loadSettings,
     setMaintenanceCallbacks,
+    submitSearchForm,
     updateRestoreControls,
 } from "../features/operations.js";
 import {
     bindStudySessionEvents,
+    loadPracticeDecks,
     loadStudySession,
     loadStudyWorkspace,
     renderPracticeSelection,
     renderStudySession,
-    startPracticeSession,
 } from "../features/study.js";
+import {
+    appPagePaths,
+    consumeReturnContext,
+    getQueryParam,
+    normalizeInternalPath,
+    readReturnContext,
+    redirectToLogin,
+    resolveCurrentAppPage,
+    resolveNextPagePath,
+} from "../shared/navigation.js";
+import { renderPageTemplate } from "./page-templates.js";
 
 const SECTION_TITLES = {
-    study: "学习工作区",
     overview: "概览",
+    study: "学习工作区",
     content: "内容管理",
     search: "搜索",
     analytics: "统计",
@@ -37,50 +55,204 @@ const SECTION_TITLES = {
 };
 
 /**
- * 壳层初始化集中在单点，是为了让登录、导航、工作区刷新和全局反馈围绕同一入口启动。
+ * 多页面壳层初始化集中在这里，是为了让登录、登出、入口分发和应用页都围绕同一入口收口。
  */
 export function initializeAppShell() {
-    setUnauthorizedHandler(logout);
+    void bootstrapByPage();
+}
+
+async function bootstrapByPage() {
+    syncElements();
+    const pageType = document.body.dataset.page;
+    if (pageType === "index") {
+        await bootstrapEntryPage();
+        return;
+    }
+    if (pageType === "login") {
+        await bootstrapLoginPage();
+        return;
+    }
+    if (pageType === "logout") {
+        await bootstrapLogoutPage();
+        return;
+    }
+    await bootstrapAppPage();
+}
+
+/**
+ * 根入口单独分发，是为了让用户只输入 IP:端口 时也能自动落到正确的正式页面。
+ */
+async function bootstrapEntryPage() {
+    const session = await getSession();
+    if (session) {
+        window.location.replace(appPagePaths.study);
+        return;
+    }
+    window.location.replace("/login");
+}
+
+/**
+ * 登录页在进入时优先判断已有会话，是为了避免用户明明已经登录却被迫再次输入访问码。
+ */
+async function bootstrapLoginPage() {
+    const session = await getSession();
+    if (session) {
+        window.location.replace(resolveNextPagePath());
+        return;
+    }
+    bindLoginPageEvents();
+    renderLoginStateFromQuery();
+}
+
+/**
+ * 退出页单独处理会话清理，是为了让壳层退出动作拥有稳定的地址和回跳目标。
+ */
+async function bootstrapLogoutPage() {
+    elements.logoutMessage.textContent = "系统正在清理当前浏览器会话…";
+    await fetch("/api/web-console/v1/auth/logout", {
+        method: "POST",
+        credentials: "include",
+    });
+    window.sessionStorage.removeItem("yike:web:return-context");
+    window.location.replace("/login?logged_out=1");
+}
+
+/**
+ * 应用页入口统一校验会话并渲染模板，是为了让所有工作区在同一玻璃壳层下共享行为基线。
+ */
+async function bootstrapAppPage() {
+    const currentPage = resolveCurrentAppPage() ?? "study";
+    setCurrentSection(currentPage);
+    setUnauthorizedHandler(() => redirectToLogin({ expired: true }));
     setShellRefreshHandler(renderShellChrome);
     setMaintenanceCallbacks({
         onRestoreCompleted: async () => {
-            await refreshAll();
-            switchSection("overview");
+            await loadCurrentPage();
+            renderShellChrome();
         },
     });
+    renderCurrentPage(currentPage);
     bindGlobalEvents();
-    bindContentFormEvents();
-    bindSearchEvents();
-    bindStudySessionEvents();
-    bindMaintenanceEvents();
-    bootstrap();
-    updateCommandAvailability();
-    renderPracticeSelection();
-    renderStudySession();
-    clearRestoreSelection();
-    updateRestoreControls();
-    renderShellChrome();
-}
-
-/**
- * 登录成功后的壳层装配统一处理，是为了让页面刷新和首次进入后台走同一条会话恢复路径。
- */
-async function bootstrap() {
+    bindCurrentPageEvents(currentPage);
     const session = await getSession();
     if (!session) {
-        elements.loginView.hidden = false;
-        elements.appView.hidden = true;
+        redirectToLogin();
         return;
     }
-    elements.loginView.hidden = true;
-    elements.appView.hidden = false;
+    state.session = session;
     elements.sessionSummary.textContent = `${session.displayName} · 端口 ${session.port} · 在线会话 ${session.activeSessionCount}`;
-    await refreshAll();
+    await loadCurrentPage();
     renderShellChrome();
 }
 
 /**
- * 当前登录态读取单独封装，是为了让壳层只通过一处判断浏览器是否仍在有效会话内。
+ * 当前工作区模板切换集中在这里，是为了让页面 URL 和实际 DOM 结构始终保持一致。
+ */
+function renderCurrentPage(page) {
+    elements.pageRoot.innerHTML = renderPageTemplate(page);
+    syncElements();
+    markActiveNav(page);
+    setMobileNavOpen(false);
+    updateCommandAvailability();
+}
+
+/**
+ * 应用页通用事件统一绑定，是为了让导航、刷新和移动端折叠菜单不散落到各工作区实现里。
+ */
+function bindGlobalEvents() {
+    elements.refreshButton?.addEventListener("click", () => {
+        void loadCurrentPage();
+    });
+    elements.navMenuToggle?.addEventListener("click", () => {
+        const nextOpen = !elements.primaryNav.classList.contains("is-open");
+        setMobileNavOpen(nextOpen);
+    });
+    elements.navButtons.forEach((button) => {
+        button.addEventListener("click", () => setMobileNavOpen(false));
+    });
+}
+
+/**
+ * 页面级事件绑定按工作区分发，是为了让各模块只在自己真正存在的 DOM 上注册行为。
+ */
+function bindCurrentPageEvents(page) {
+    if (page === "study") {
+        bindStudySessionEvents();
+        renderPracticeSelection();
+        renderStudySession();
+        return;
+    }
+    if (page === "content") {
+        bindContentFormEvents();
+        return;
+    }
+    if (page === "search") {
+        bindSearchEvents();
+        return;
+    }
+    if (page === "settings" || page === "backup") {
+        bindMaintenanceEvents();
+        if (page === "backup") {
+            clearRestoreSelection();
+            updateRestoreControls();
+        }
+    }
+}
+
+/**
+ * 当前工作区数据读取集中在这里，是为了让刷新按钮和首次进入页面走同一条载入路径。
+ */
+async function loadCurrentPage() {
+    const currentPage = state.currentSection;
+    if (currentPage === "overview") {
+        await loadDashboard();
+        renderShellChrome();
+        return;
+    }
+    if (currentPage === "study") {
+        await Promise.all([
+            loadPracticeDecks(),
+            loadStudyWorkspace(),
+            loadStudySession(),
+        ]);
+        renderShellChrome();
+        return;
+    }
+    if (currentPage === "content") {
+        restoreContentContextFromQuery();
+        await loadDecks();
+        renderShellChrome();
+        return;
+    }
+    if (currentPage === "search") {
+        restoreSearchFormFromQuery();
+        renderShellChrome();
+        if (getQueryParam("keyword") || getQueryParam("tag")) {
+            await submitSearchForm({
+                preventDefault() {},
+                currentTarget: elements.pageRoot.querySelector("#search-form"),
+            });
+            return;
+        }
+        return;
+    }
+    if (currentPage === "analytics") {
+        await loadAnalytics();
+        renderShellChrome();
+        return;
+    }
+    if (currentPage === "settings") {
+        await loadSettings();
+        renderShellChrome();
+        return;
+    }
+    if (currentPage === "backup") {
+        renderShellChrome();
+    }
+}
+
+/**
+ * 当前登录态读取单独封装，是为了让登录页、入口页和应用页都通过同一处判断会话是否仍有效。
  */
 async function getSession() {
     const response = await fetch("/api/web-console/v1/session", { credentials: "include" });
@@ -91,66 +263,14 @@ async function getSession() {
 }
 
 /**
- * 全量刷新集中处理，是为了让壳层在任何工作区变动后都能快速回到一致状态。
+ * 登录页事件集中绑定，是为了让访问码提交和错误反馈始终走同一入口。
  */
-export async function refreshAll() {
-    await Promise.all([
-        loadStudyWorkspace(),
-        loadStudySession(),
-        loadDashboard(),
-        loadDecks(),
-        loadAnalytics(),
-        loadSettings(),
-    ]);
-}
-
-/**
- * 退出登录集中处理，是为了让未授权回调和显式退出都能走同一条壳层清理路径。
- */
-export async function logout(reason) {
-    await fetch("/api/web-console/v1/auth/logout", { method: "POST", credentials: "include" });
-    elements.loginView.hidden = false;
-    elements.appView.hidden = true;
-    state.studyWorkspace = null;
-    state.studySession = null;
-    state.studyReturnContext = null;
-    if (reason) {
-        showLoginError(reason);
-    }
-    renderShellChrome();
-}
-
-/**
- * 工作区切换集中处理，是为了让侧栏导航和当前工作区标题始终围绕同一状态变化。
- */
-export function switchSection(section) {
-    state.currentSection = section;
-    elements.navButtons.forEach((button) => {
-        button.classList.toggle("is-active", button.dataset.section === section);
-    });
-    elements.sectionNodes.forEach((node) => {
-        node.classList.toggle("is-active", node.id === `section-${section}`);
-    });
-    elements.sectionTitle.textContent = SECTION_TITLES[section];
-    renderShellChrome();
-}
-
-/**
- * 全局事件绑定集中处理，是为了让模块拆分后仍保留同一套导航与登录入口行为。
- */
-function bindGlobalEvents() {
-    elements.navButtons.forEach((button) => {
-        button.addEventListener("click", () => switchSection(button.dataset.section));
-    });
-    document.querySelector("#logout-button").addEventListener("click", () => logout());
-    document.querySelector("#refresh-button").addEventListener("click", refreshAll);
+function bindLoginPageEvents() {
     elements.loginForm.addEventListener("submit", submitLoginForm);
-    window.addEventListener("yike:launch-practice", handlePracticeLaunch);
-    window.addEventListener("yike:study-ended", handleStudyEnded);
 }
 
 /**
- * 登录表单提交集中处理，是为了让访问码校验和首次进入后台的反馈始终走同一入口。
+ * 登录表单提交集中处理，是为了让访问码校验和登录后回跳始终遵循同一条规则。
  */
 async function submitLoginForm(event) {
     event.preventDefault();
@@ -171,11 +291,33 @@ async function submitLoginForm(event) {
         return;
     }
     document.querySelector("#access-code").value = "";
-    await bootstrap();
+    window.location.replace(resolveNextPagePath());
 }
 
 /**
- * 壳层上下文和全局状态集中渲染，是为了让不同工作区在同一后台骨架下保持一致的导航与反馈语义。
+ * 登录页提示信息从查询参数恢复，是为了让退出登录和会话过期都能给出明确反馈。
+ */
+function renderLoginStateFromQuery() {
+    if (getQueryParam("expired") === "1") {
+        showLoginError("登录已失效，请重新输入手机上最新的访问码。");
+        return;
+    }
+    if (getQueryParam("logged_out") === "1") {
+        showLoginError("当前浏览器会话已退出，请重新输入访问码。");
+    }
+}
+
+/**
+ * 导航活跃态集中处理，是为了让正式多页面在视觉上仍保留清晰的当前工作区反馈。
+ */
+function markActiveNav(page) {
+    elements.navButtons.forEach((button) => {
+        button.classList.toggle("is-active", button.dataset.pageLink === page);
+    });
+}
+
+/**
+ * 顶部玻璃壳层统一渲染，是为了让状态芯片和上下文条在多页面中仍保持稳定表达。
  */
 function renderShellChrome() {
     renderShellStatus();
@@ -183,27 +325,34 @@ function renderShellChrome() {
 }
 
 /**
- * 顶部状态芯片统一承载登录、学习和恢复信息，是为了让全局级状态不会被局部工作区淹没。
+ * 顶部状态芯片统一承载当前页面和来源信息，是为了让切换页面后仍能保留全局状态提示。
  */
 function renderShellStatus() {
+    if (!elements.shellStatus) {
+        return;
+    }
     const chips = [
-        `<span class="status-chip">当前工作区：${escapeHtml(SECTION_TITLES[state.currentSection])}</span>`,
+        `<span class="status-chip">当前页面：${escapeHtml(SECTION_TITLES[state.currentSection])}</span>`,
     ];
     if (state.studySession) {
         chips.push(`<span class="status-chip">学习会话：${escapeHtml(state.studySession.title)}</span>`);
     } else {
-        chips.push(`<span class="status-chip">学习会话：空闲</span>`);
+        chips.push("<span class=\"status-chip\">学习会话：空闲</span>");
     }
-    if (state.selectedBackupFile) {
-        chips.push(`<span class="status-chip is-warn">待恢复文件：${escapeHtml(state.selectedBackupFile.name)}</span>`);
+    const returnContext = readReturnContext();
+    if (returnContext?.label && state.currentSection === "study") {
+        chips.push(`<span class="status-chip">来源：${escapeHtml(returnContext.label)}</span>`);
     }
     elements.shellStatus.innerHTML = chips.join("");
 }
 
 /**
- * 上下文栏集中表达当前工作区的最近有效上下文，是为了让内容、学习和维护工作流都不再只靠标题提示。
+ * 上下文栏集中表达当前工作区上下文，是为了让 URL 恢复和跨页返回拥有可见的二级说明区。
  */
 function renderContextStrip() {
+    if (!elements.contextTitle) {
+        return;
+    }
     const context = resolveContextPayload();
     elements.contextTitle.textContent = context.title;
     elements.contextDescription.textContent = context.description;
@@ -221,12 +370,13 @@ function renderContextStrip() {
 }
 
 /**
- * 上下文模型集中推导，是为了让每个工作区都能在同一壳层下拥有明确的标题、元信息和下一步动作。
+ * 上下文模型集中推导，是为了让每个页面都能围绕 URL 与共享状态给出明确的当前工作语义。
  */
 function resolveContextPayload() {
     const deck = state.decks.find((item) => item.id === state.selectedDeckId);
     const card = state.cards.find((item) => item.id === state.selectedCardId);
     const question = state.questions.find((item) => item.id === state.selectedQuestionId);
+    const returnContext = readReturnContext();
     const base = {
         title: SECTION_TITLES[state.currentSection],
         description: "浏览器端会持续保留最近一次有效工作区上下文。",
@@ -236,44 +386,43 @@ function resolveContextPayload() {
 
     if (state.currentSection === "content") {
         base.title = "内容 drill-down 工作台";
-        base.description = "围绕当前卡组和卡片上下文整理内容，并为后续学习入口保留返回路径。";
+        base.description = "卡组、卡片和问题选择会写入地址栏，刷新后仍能恢复到同一路径。";
         if (deck) base.meta.push({ label: `卡组：${deck.name}` });
         if (card) base.meta.push({ label: `卡片：${card.title}` });
         if (question) base.meta.push({ label: `问题：${question.prompt}` });
         if (!deck) base.meta.push({ label: "尚未选择卡组", warn: true });
-        if (deck) {
-            base.actions.push({ id: "jump-study", label: "去学习工作区", primary: true });
-        }
         return base;
     }
 
     if (state.currentSection === "study") {
         base.title = state.studySession ? "桌面学习工作区" : "学习工作区入口";
         base.description = state.studySession
-            ? "当前学习会话会在同一有效登录内保持恢复，并在离开后提供明确返回路径。"
-            : "从这里可以恢复当前学习会话，或基于内容上下文继续发起复习与练习。";
+            ? "当前学习会话保存在服务端内存中，刷新当前页仍会恢复到最近一次有效题位。"
+            : "从这里可以恢复当前学习会话，或按卡组、卡片、题目范围发起自由练习。";
+        if (returnContext?.label) {
+            base.meta.push({ label: `返回：${returnContext.label}` });
+            base.actions.push({ id: "return-origin", label: "返回来源页" });
+        }
         if (state.studySession) {
             base.meta.push({ label: state.studySession.title });
-            if (state.studyReturnContext?.label) {
-                base.meta.push({ label: `返回：${state.studyReturnContext.label}` });
-                base.actions.push({ id: "return-origin", label: "返回来源工作区" });
-            }
-        } else {
-            base.meta.push({ label: "当前无活动学习会话" });
         }
         return base;
     }
 
     if (state.currentSection === "search") {
+        const keyword = getQueryParam("keyword");
+        const tag = getQueryParam("tag");
         base.title = "搜索与上下文入口";
-        base.description = "搜索结果可以直接回到原对象上下文，并衔接后续学习动作。";
+        base.description = "搜索条件会保留在地址栏，方便刷新、回退和再次进入相同结果页。";
+        if (keyword) base.meta.push({ label: `关键词：${keyword}` });
+        if (tag) base.meta.push({ label: `标签：${tag}` });
         base.meta.push({ label: `结果数：${state.lastSearchResults.length}` });
         return base;
     }
 
     if (state.currentSection === "backup") {
         base.title = "备份与恢复工作区";
-        base.description = "高风险操作会在壳层和当前工作区同时给出分层反馈。";
+        base.description = "导出与恢复属于高风险维护动作，会在顶部反馈条与当前卡片内双重提示。";
         if (state.selectedBackupFile) {
             base.meta.push({ label: `待恢复：${state.selectedBackupFile.name}`, warn: true });
         }
@@ -284,46 +433,43 @@ function resolveContextPayload() {
 }
 
 /**
- * 上下文动作统一在壳层处理，是为了让跨工作区跳转和返回路径保持一致。
+ * 上下文动作统一在壳层处理，是为了让返回来源页这类跨工作区动作保持稳定入口。
  */
 function handleContextAction(actionId) {
-    if (actionId === "jump-study") {
-        state.studyReturnContext = {
-            section: "content",
-            label: "内容工作台",
-        };
-        switchSection("study");
-        return;
-    }
-    if (actionId === "return-origin" && state.studyReturnContext?.section) {
-        const targetSection = state.studyReturnContext.section;
-        state.studyReturnContext = null;
-        switchSection(targetSection);
+    if (actionId === "return-origin") {
+        const returnContext = consumeReturnContext();
+        window.location.assign(normalizeInternalPath(returnContext?.path));
     }
 }
 
 /**
- * 跨工作区发起练习统一在壳层承接，是为了把返回路径和工作区切换保持在同一层协调。
+ * 内容工作区从地址栏恢复上下文，是为了让刷新、前进后退后仍能回到之前的下钻位置。
  */
-async function handlePracticeLaunch(event) {
-    state.studyReturnContext = {
-        section: event.detail?.returnSection || "study",
-        label: event.detail?.label || "学习工作区",
-    };
-    switchSection("study");
-    renderPracticeSelection();
-    await startPracticeSession();
-    renderShellChrome();
+function restoreContentContextFromQuery() {
+    state.selectedDeckId = getQueryParam("deckId");
+    state.selectedCardId = getQueryParam("cardId");
+    state.selectedQuestionId = getQueryParam("questionId");
 }
 
 /**
- * 学习结束后的返回统一在壳层处理，是为了让来源工作区恢复逻辑不散落进具体学习模块。
+ * 搜索页表单从地址栏恢复查询条件，是为了让同一搜索视图具备真正页面级可恢复性。
  */
-function handleStudyEnded() {
-    if (!state.studyReturnContext?.section) {
+function restoreSearchFormFromQuery() {
+    const form = elements.pageRoot.querySelector("#search-form");
+    if (!form) {
         return;
     }
-    const targetSection = state.studyReturnContext.section;
-    state.studyReturnContext = null;
-    switchSection(targetSection);
+    form.elements.namedItem("keyword").value = getQueryParam("keyword") ?? "";
+    form.elements.namedItem("tag").value = getQueryParam("tag") ?? "";
+}
+
+/**
+ * 移动端导航折叠开关集中处理，是为了让顶部玻璃导航在小屏下仍可操作且不遮挡主内容。
+ */
+function setMobileNavOpen(open) {
+    if (!elements.primaryNav || !elements.navMenuToggle) {
+        return;
+    }
+    elements.primaryNav.classList.toggle("is-open", open);
+    elements.navMenuToggle.setAttribute("aria-expanded", String(open));
 }

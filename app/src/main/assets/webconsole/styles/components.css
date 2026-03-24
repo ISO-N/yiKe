@@ -15,10 +15,13 @@
 .nav-button,
 .ghost-button,
 .primary-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     min-height: 44px;
     padding: 0 16px;
     border-radius: 16px;
-    transition: transform 180ms ease, background 180ms ease;
+    transition: transform 180ms ease, background 180ms ease, border-color 180ms ease, color 180ms ease;
 }
 
 .nav-button,
@@ -43,11 +46,27 @@
     border: 1px solid var(--border);
 }
 
+.button-link {
+    text-decoration: none;
+}
+
 .nav-button:hover,
 .ghost-button:hover,
 .primary-button:hover,
 .study-rating-button:hover {
     transform: translateY(-1px);
+}
+
+.nav-button:focus-visible,
+.ghost-button:focus-visible,
+.primary-button:focus-visible,
+.study-rating-button:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(11, 111, 105, 0.16);
+    border-color: rgba(11, 111, 105, 0.36);
 }
 
 .card {
@@ -122,7 +141,7 @@
 }
 
 .toast {
-    max-width: 320px;
+    width: min(100%, 360px);
     padding: 12px 14px;
     border-radius: 16px;
     background: rgba(11, 111, 105, 0.12);

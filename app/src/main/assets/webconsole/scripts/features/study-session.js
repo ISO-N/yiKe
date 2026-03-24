@@ -9,6 +9,7 @@ import {
     showMessage,
     state,
 } from "../shared/core.js";
+import { consumeReturnContext, normalizeInternalPath, readReturnContext } from "../shared/navigation.js";
 import {
     renderPracticeSelectionSummary,
 } from "./practice-selection.js";
@@ -110,13 +111,19 @@ export async function endStudySession() {
     await loadStudyWorkspace();
     showMessage(response.message);
     requestShellRefresh();
-    window.dispatchEvent(new CustomEvent("yike:study-ended"));
+    if (readReturnContext()) {
+        const returnContext = consumeReturnContext();
+        window.location.assign(normalizeInternalPath(returnContext?.path));
+    }
 }
 
 /**
  * 学习会话主卡片渲染集中在这里，是为了让复习和练习共享同一工作区主视图容器。
  */
 export function renderStudySession() {
+    if (!elements.studySessionCard || !elements.studySessionContent || !elements.studySessionTitle || !elements.studySessionSubtitle) {
+        return;
+    }
     if (!state.studySession) {
         elements.studySessionCard.hidden = true;
         elements.studySessionContent.innerHTML = "";

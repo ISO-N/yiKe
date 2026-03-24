@@ -15,6 +15,8 @@ import {
     state,
     updateWorkspaceFeedback,
 } from "../shared/core.js";
+import { buildInternalPath, replaceCurrentQuery } from "../shared/navigation.js";
+import { launchPracticeSession } from "./practice-session-actions.js";
 
 let restoreCompletedHandler = null;
 
@@ -51,7 +53,7 @@ export async function loadDashboard() {
  * 搜索事件集中绑定，是为了让搜索工作区在壳层升级后继续使用独立的查询入口。
  */
 export function bindSearchEvents() {
-    document.querySelector("#search-form").addEventListener("submit", submitSearchForm);
+    document.querySelector("#search-form")?.addEventListener("submit", submitSearchForm);
     updateSearchFeedback("等待搜索条件", "输入关键词或标签后，结果会在同一工作区内展开，并保留继续练习的入口。");
 }
 
@@ -59,12 +61,12 @@ export function bindSearchEvents() {
  * 设置和备份事件集中绑定，是为了让维护工作区的危险动作共用同一反馈层级。
  */
 export function bindMaintenanceEvents() {
-    elements.settingsForm.addEventListener("submit", submitSettingsForm);
-    elements.exportBackupButton.addEventListener("click", exportBackup);
-    elements.restoreBackupFileInput.addEventListener("change", handleRestoreBackupFileChange);
-    elements.restoreBackupConfirmInput.addEventListener("change", updateRestoreControls);
-    elements.restoreBackupButton.addEventListener("click", restoreBackup);
-    elements.clearRestoreFileButton.addEventListener("click", clearRestoreSelection);
+    elements.settingsForm?.addEventListener("submit", submitSettingsForm);
+    elements.exportBackupButton?.addEventListener("click", exportBackup);
+    elements.restoreBackupFileInput?.addEventListener("change", handleRestoreBackupFileChange);
+    elements.restoreBackupConfirmInput?.addEventListener("change", updateRestoreControls);
+    elements.restoreBackupButton?.addEventListener("click", restoreBackup);
+    elements.clearRestoreFileButton?.addEventListener("click", clearRestoreSelection);
     syncBackupFeedback();
 }
 
@@ -81,6 +83,10 @@ export async function submitSearchForm(event) {
         updateSearchFeedback("搜索条件不完整", "至少输入关键词或标签中的一项，系统才能保留这次搜索上下文。", "warning");
         return;
     }
+    replaceCurrentQuery({
+        keyword: keyword || null,
+        tag: tag || null,
+    });
     const payload = await postJson("/api/web-console/v1/search", {
         keyword,
         tag: tag || null,
@@ -297,9 +303,15 @@ export function handleRestoreBackupFileChange(event) {
  */
 export function clearRestoreSelection() {
     state.selectedBackupFile = null;
-    elements.restoreBackupFileInput.value = "";
-    elements.restoreBackupConfirmInput.checked = false;
-    elements.restoreBackupFileMeta.textContent = "尚未选择备份文件。";
+    if (elements.restoreBackupFileInput) {
+        elements.restoreBackupFileInput.value = "";
+    }
+    if (elements.restoreBackupConfirmInput) {
+        elements.restoreBackupConfirmInput.checked = false;
+    }
+    if (elements.restoreBackupFileMeta) {
+        elements.restoreBackupFileMeta.textContent = "尚未选择备份文件。";
+    }
     updateRestoreControls();
     syncBackupFeedback();
     requestShellRefresh();
@@ -309,6 +321,9 @@ export function clearRestoreSelection() {
  * 备份按钮状态集中计算，是为了让导出和恢复这两个互斥动作始终保持清晰反馈。
  */
 export function updateRestoreControls() {
+    if (!elements.exportBackupButton || !elements.restoreBackupButton || !elements.clearRestoreFileButton || !elements.restoreBackupConfirmInput) {
+        return;
+    }
     elements.exportBackupButton.disabled = state.isExporting || state.isRestoring;
     elements.restoreBackupButton.disabled = !state.selectedBackupFile || !elements.restoreBackupConfirmInput.checked || state.isExporting || state.isRestoring;
     elements.clearRestoreFileButton.disabled = !state.selectedBackupFile || state.isRestoring;
@@ -322,23 +337,23 @@ export function updateRestoreControls() {
 /**
  * 搜索结果可直接进入题级练习，是为了让搜索上下文真正成为学习入口而不是只读结果页。
  */
-function launchPracticeFromSearch(questionId) {
+async function launchPracticeFromSearch(questionId) {
     const result = state.lastSearchResults.find((item) => item.questionId === questionId);
     if (!result) {
         return;
     }
-    state.practiceSelection.selectedDeckIds = new Set([result.deckId]);
-    state.practiceSelection.selectedCardIds = new Set([result.cardId]);
-    state.practiceSelection.selectedQuestionIds = new Set([result.questionId]);
-    state.practiceSelection.cardsByDeckId = new Map();
-    state.practiceSelection.questionsByCardId = new Map();
-    requestShellRefresh();
-    window.dispatchEvent(new CustomEvent("yike:launch-practice", {
-        detail: {
-            returnSection: "search",
-            label: `搜索结果 / ${result.cardTitle}`,
-        },
-    }));
+    await launchPracticeSession({
+        deckIds: [result.deckId],
+        cardIds: [result.cardId],
+        questionIds: [result.questionId],
+        orderMode: state.practiceSelection.orderMode,
+    }, {
+        path: buildInternalPath("search", {
+            keyword: getFieldValue(document.querySelector("#search-form"), "keyword").trim() || null,
+            tag: getFieldValue(document.querySelector("#search-form"), "tag").trim() || null,
+        }),
+        label: `搜索结果 / ${result.cardTitle}`,
+    });
 }
 
 /**
@@ -366,6 +381,9 @@ function updateSettingsFeedback(title, description, variant = "empty") {
  * 备份反馈集中推导，是为了让导出、待确认恢复和恢复中的高风险状态始终留在同一可见区域。
  */
 function syncBackupFeedback() {
+    if (!elements.restoreBackupConfirmInput || !elements.backupFeedback) {
+        return;
+    }
     if (state.selectedBackupFile && !elements.restoreBackupConfirmInput.checked) {
         updateBackupFeedback("等待高风险确认", `已选择 ${state.selectedBackupFile.name}，恢复前还需要确认会覆盖当前本地全部数据。`, "warning");
         return;

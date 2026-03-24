@@ -12,6 +12,9 @@ import {
 import { prunePracticeDeckSelection, renderPracticeSelection } from "./practice-selection.js";
 import { loadStudyWorkspace } from "./study-workspace.js";
 import { closeContentForm, openCardForm, openDeckForm, openQuestionForm } from "./content-forms.js";
+import { buildInternalPath } from "../shared/navigation.js";
+import { launchPracticeSession } from "./practice-session-actions.js";
+import { resolvePracticeLaunchLabel, syncContentQuery } from "./content-navigation.js";
 
 /**
  * 内容树读取集中在工作区模块，是为了让卡组、卡片和问题 drill-down 按同一节奏刷新。
@@ -122,6 +125,7 @@ export function updateContentSelection() {
         button.addEventListener("click", () => launchPracticeFromContent(button.dataset.contentAction));
     });
     renderContentWorkbench(deck, card, question);
+    syncContentQuery();
     requestShellRefresh();
 }
 
@@ -129,6 +133,9 @@ export function updateContentSelection() {
  * 内容命令可用性集中计算，是为了让新建按钮随 drill-down 上下文变化即时反馈。
  */
 export function updateCommandAvailability() {
+    if (!elements.newCardButton || !elements.newQuestionButton) {
+        return;
+    }
     elements.newCardButton.disabled = !state.selectedDeckId;
     elements.newQuestionButton.disabled = !state.selectedCardId;
 }
@@ -295,32 +302,27 @@ function bindQuestionActions(container, questions) {
 /**
  * 内容工作区可直接把当前上下文送入练习，是为了让 drill-down 管理路径和学习路径真正连起来。
  */
-function launchPracticeFromContent(action) {
+async function launchPracticeFromContent(action) {
     const deck = state.decks.find((item) => item.id === state.selectedDeckId);
     const card = state.cards.find((item) => item.id === state.selectedCardId);
     const question = state.questions.find((item) => item.id === state.selectedQuestionId);
     if (!deck) {
         return;
     }
-    state.practiceSelection.selectedDeckIds = new Set([deck.id]);
-    state.practiceSelection.cardsByDeckId = new Map([[deck.id, state.cards]]);
-    if ((action === "practice-card" || action === "practice-question") && card) {
-        state.practiceSelection.selectedCardIds = new Set([card.id]);
-        state.practiceSelection.questionsByCardId = new Map([[card.id, state.questions]]);
-    } else {
-        state.practiceSelection.selectedCardIds = new Set();
-        state.practiceSelection.questionsByCardId = new Map();
-    }
-    state.practiceSelection.selectedQuestionIds = action === "practice-question" && question
-        ? new Set([question.id])
-        : new Set();
-    requestShellRefresh();
-    window.dispatchEvent(new CustomEvent("yike:launch-practice", {
-        detail: {
-            returnSection: "content",
-            label: resolvePracticeLaunchLabel(action, deck, card, question),
-        },
-    }));
+    const selection = {
+        deckIds: [deck.id],
+        cardIds: (action === "practice-card" || action === "practice-question") && card ? [card.id] : [],
+        questionIds: action === "practice-question" && question ? [question.id] : [],
+        orderMode: state.practiceSelection.orderMode,
+    };
+    await launchPracticeSession(selection, {
+        path: buildInternalPath("content", {
+            deckId: state.selectedDeckId,
+            cardId: state.selectedCardId,
+            questionId: state.selectedQuestionId,
+        }),
+        label: resolvePracticeLaunchLabel(action, deck, card, question),
+    });
 }
 
 /**
@@ -471,15 +473,3 @@ function bindWorkbenchActions(deck, card, question) {
     });
 }
 
-/**
- * 练习入口文案统一集中，是为了让卡组、卡片和问题三级来源都能给出清楚的返回标签。
- */
-function resolvePracticeLaunchLabel(action, deck, card, question) {
-    if (action === "practice-question" && question) {
-        return `内容工作台 / ${question.prompt}`;
-    }
-    if (action === "practice-card" && card) {
-        return `内容工作台 / ${card.title}`;
-    }
-    return `内容工作台 / ${deck.name}`;
-}

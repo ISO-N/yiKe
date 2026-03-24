@@ -3,6 +3,7 @@
  */
 export const state = {
     currentSection: "study",
+    session: null,
     selectedDeckId: null,
     selectedCardId: null,
     selectedQuestionId: null,
@@ -15,7 +16,6 @@ export const state = {
     isRestoring: false,
     studyWorkspace: null,
     studySession: null,
-    studyReturnContext: null,
     practiceSelection: {
         selectedDeckIds: new Set(),
         selectedCardIds: new Set(),
@@ -29,55 +29,72 @@ export const state = {
 };
 
 /**
- * 共享 DOM 引用集中缓存，是为了让模块拆分后仍只在一处声明页面结构契约。
+ * 共享 DOM 引用通过同步入口集中刷新，是为了让多页面壳层在切换模板后仍只维护一处结构契约。
  */
-export const elements = {
-    loginView: document.querySelector("#login-view"),
-    appView: document.querySelector("#app-view"),
-    loginForm: document.querySelector("#login-form"),
-    loginError: document.querySelector("#login-error"),
-    sectionTitle: document.querySelector("#section-title"),
-    sessionSummary: document.querySelector("#session-summary"),
-    globalMessage: document.querySelector("#global-message"),
-    shellStatus: document.querySelector("#shell-status"),
-    contextTitle: document.querySelector("#context-title"),
-    contextDescription: document.querySelector("#context-description"),
-    contextMeta: document.querySelector("#context-meta"),
-    contextActions: document.querySelector("#context-actions"),
-    deckForm: document.querySelector("#deck-form"),
-    cardForm: document.querySelector("#card-form"),
-    questionForm: document.querySelector("#question-form"),
-    settingsForm: document.querySelector("#settings-form"),
-    restoreBackupFileInput: document.querySelector("#restore-backup-file"),
-    restoreBackupConfirmInput: document.querySelector("#restore-backup-confirm"),
-    restoreBackupFileMeta: document.querySelector("#restore-backup-file-meta"),
-    restoreBackupButton: document.querySelector("#restore-backup-button"),
-    clearRestoreFileButton: document.querySelector("#clear-restore-file-button"),
-    exportBackupButton: document.querySelector("#export-backup-button"),
-    searchFeedback: document.querySelector("#search-feedback"),
-    analyticsFeedback: document.querySelector("#analytics-feedback"),
-    settingsFeedback: document.querySelector("#settings-feedback"),
-    backupFeedback: document.querySelector("#backup-feedback"),
-    contentSelectionSummary: document.querySelector("#content-selection-summary"),
-    contentDeckDetails: document.querySelector("#content-deck-details"),
-    contentCardDetails: document.querySelector("#content-card-details"),
-    contentQuestionDetails: document.querySelector("#content-question-details"),
-    newCardButton: document.querySelector("#new-card-button"),
-    newQuestionButton: document.querySelector("#new-question-button"),
-    studySessionCard: document.querySelector("#study-session-card"),
-    studySessionTitle: document.querySelector("#study-session-title"),
-    studySessionSubtitle: document.querySelector("#study-session-subtitle"),
-    studySessionContent: document.querySelector("#study-session-content"),
-    startReviewButton: document.querySelector("#start-review-button"),
-    startPracticeButton: document.querySelector("#start-practice-button"),
-    endStudySessionButton: document.querySelector("#end-study-session-button"),
-    practiceOrderModeSelect: document.querySelector("#practice-order-mode"),
-    navButtons: [...document.querySelectorAll(".nav-button")],
-    sectionNodes: [...document.querySelectorAll(".section")],
-};
+export const elements = {};
 
 let unauthorizedHandler = null;
 let shellRefreshHandler = null;
+
+/**
+ * 壳层或页面模板完成渲染后统一刷新引用，是为了让各模块继续通过稳定对象访问当前页面节点。
+ */
+export function syncElements() {
+    Object.assign(elements, {
+        body: document.body,
+        pageRoot: document.querySelector("#page-root"),
+        loginForm: document.querySelector("#login-form"),
+        loginError: document.querySelector("#login-error"),
+        sectionTitle: document.querySelector("#section-title"),
+        sessionSummary: document.querySelector("#session-summary"),
+        globalMessage: document.querySelector("#global-message"),
+        shellStatus: document.querySelector("#shell-status"),
+        contextTitle: document.querySelector("#context-title"),
+        contextDescription: document.querySelector("#context-description"),
+        contextMeta: document.querySelector("#context-meta"),
+        contextActions: document.querySelector("#context-actions"),
+        deckForm: document.querySelector("#deck-form"),
+        cardForm: document.querySelector("#card-form"),
+        questionForm: document.querySelector("#question-form"),
+        settingsForm: document.querySelector("#settings-form"),
+        restoreBackupFileInput: document.querySelector("#restore-backup-file"),
+        restoreBackupConfirmInput: document.querySelector("#restore-backup-confirm"),
+        restoreBackupFileMeta: document.querySelector("#restore-backup-file-meta"),
+        restoreBackupButton: document.querySelector("#restore-backup-button"),
+        clearRestoreFileButton: document.querySelector("#clear-restore-file-button"),
+        exportBackupButton: document.querySelector("#export-backup-button"),
+        searchFeedback: document.querySelector("#search-feedback"),
+        analyticsFeedback: document.querySelector("#analytics-feedback"),
+        settingsFeedback: document.querySelector("#settings-feedback"),
+        backupFeedback: document.querySelector("#backup-feedback"),
+        contentSelectionSummary: document.querySelector("#content-selection-summary"),
+        contentDeckDetails: document.querySelector("#content-deck-details"),
+        contentCardDetails: document.querySelector("#content-card-details"),
+        contentQuestionDetails: document.querySelector("#content-question-details"),
+        newCardButton: document.querySelector("#new-card-button"),
+        newQuestionButton: document.querySelector("#new-question-button"),
+        studySessionCard: document.querySelector("#study-session-card"),
+        studySessionTitle: document.querySelector("#study-session-title"),
+        studySessionSubtitle: document.querySelector("#study-session-subtitle"),
+        studySessionContent: document.querySelector("#study-session-content"),
+        startReviewButton: document.querySelector("#start-review-button"),
+        startPracticeButton: document.querySelector("#start-practice-button"),
+        endStudySessionButton: document.querySelector("#end-study-session-button"),
+        practiceOrderModeSelect: document.querySelector("#practice-order-mode"),
+        navMenuToggle: document.querySelector("#nav-menu-toggle"),
+        primaryNav: document.querySelector("#primary-nav"),
+        refreshButton: document.querySelector("#refresh-button"),
+        logoutMessage: document.querySelector("#logout-message"),
+        navButtons: [...document.querySelectorAll(".nav-button[data-page-link]")],
+    });
+}
+
+/**
+ * 当前页面 key 集中回写到共享状态，是为了让壳层标题和上下文条都围绕同一份页面信息推导。
+ */
+export function setCurrentSection(section) {
+    state.currentSection = section;
+}
 
 /**
  * 未授权回调可配置，是为了让共享请求工具无需直接依赖具体壳层实现。
@@ -94,7 +111,7 @@ export function setShellRefreshHandler(handler) {
 }
 
 /**
- * 各模块通过统一入口请求壳层刷新，是为了避免 feature 直接依赖 shell 实现。
+ * 各模块通过统一入口请求壳层刷新，是为了避免 feature 直接依赖具体壳层实现。
  */
 export function requestShellRefresh() {
     shellRefreshHandler?.();
@@ -104,14 +121,20 @@ export function requestShellRefresh() {
  * 登录错误单独显示在登录卡片里，是为了让访问码问题和工作区内反馈保持不同层级。
  */
 export function showLoginError(message) {
+    if (!elements.loginError) {
+        return;
+    }
     elements.loginError.hidden = false;
     elements.loginError.textContent = message;
 }
 
 /**
- * 全局消息统一放在壳层顶部，是为了让不同工作区切换后仍能感知最近一次关键反馈。
+ * 全局消息统一放在壳层顶部，是为了让不同工作区切页后仍能感知最近一次关键反馈。
  */
 export function showMessage(message, isError = false) {
+    if (!elements.globalMessage) {
+        return;
+    }
     elements.globalMessage.hidden = false;
     elements.globalMessage.textContent = message;
     elements.globalMessage.style.background = isError ? "rgba(180, 67, 53, 0.12)" : "rgba(11, 111, 105, 0.12)";
@@ -257,7 +280,7 @@ export function setFieldChecked(form, name, checked) {
  * 表单字段解析在单点兜底，是为了让模块拆分后页面结构缺失能尽早暴露为显式错误。
  */
 export function getFormField(form, name) {
-    const field = form.elements.namedItem(name);
+    const field = form?.elements?.namedItem(name);
     if (!field) {
         throw new Error(`表单字段不存在：${name}`);
     }

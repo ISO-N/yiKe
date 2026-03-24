@@ -1,4 +1,5 @@
 export {
+    loadPracticeDecks,
     prunePracticeDeckSelection,
     renderPracticeSelection,
     renderPracticeSelectionSummary,

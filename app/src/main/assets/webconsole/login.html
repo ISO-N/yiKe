@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>登录 · 忆刻网页后台</title>
+    <link rel="stylesheet" href="/app.css">
+</head>
+<body data-page="login">
+<main class="login-shell">
+    <section class="login-card">
+        <p class="eyebrow">YiKe Web Console</p>
+        <h1>输入访问码登录</h1>
+        <p class="muted">请在手机“网页后台”页查看当前 6 位访问码，再从这里进入正式 Web 端。</p>
+        <form id="login-form" class="stack">
+            <label for="access-code">一次性访问码</label>
+            <input id="access-code" name="access-code" type="text" maxlength="6" inputmode="numeric" autocomplete="one-time-code" required>
+            <button type="submit" class="primary-button">进入后台</button>
+        </form>
+        <p id="login-error" class="error-text" hidden></p>
+        <div class="login-notes">
+            <div class="login-note">
+                <strong>桌面浏览器</strong>
+                <span class="muted">推荐使用 Chrome、Edge 等现代浏览器，顶部玻璃导航更适合多页面切换。</span>
+            </div>
+            <div class="login-note">
+                <strong>手机浏览器</strong>
+                <span class="muted">同样支持访问，可临时查阅、搜索和快速编辑内容。</span>
+            </div>
+        </div>
+    </section>
+</main>
+
+<script type="module" src="/app.js"></script>
+</body>
+</html>

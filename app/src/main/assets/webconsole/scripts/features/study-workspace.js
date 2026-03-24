@@ -56,14 +56,20 @@ export function renderStudyWorkspace() {
     const payload = state.studyWorkspace;
     const reviewSummary = document.querySelector("#review-workspace-summary");
     const practiceSummary = document.querySelector("#practice-workspace-summary");
-    document.querySelector("#study-overview-metrics").innerHTML = [
+    const metrics = document.querySelector("#study-overview-metrics");
+    const startReviewButton = document.querySelector("#start-review-button");
+    const startPracticeButton = document.querySelector("#start-practice-button");
+    if (!reviewSummary || !practiceSummary || !metrics || !startReviewButton || !startPracticeButton) {
+        return;
+    }
+    metrics.innerHTML = [
         metricCard("今日待复习卡片", payload?.dueCardCount ?? "—"),
         metricCard("今日待复习问题", payload?.dueQuestionCount ?? "—"),
         metricCard("当前会话", state.studySession ? (state.studySession.type === "review" ? "复习中" : "练习中") : "空闲"),
     ].join("");
 
-    document.querySelector("#start-review-button").textContent = state.studySession?.type === "review" ? "恢复复习" : "开始复习";
-    document.querySelector("#start-practice-button").textContent = state.studySession?.type === "practice" ? "恢复练习" : "开始练习";
+    startReviewButton.textContent = state.studySession?.type === "review" ? "恢复复习" : "开始复习";
+    startPracticeButton.textContent = state.studySession?.type === "practice" ? "恢复练习" : "开始练习";
 
     if (!payload) {
         reviewSummary.innerHTML = renderEmptyState("正在读取复习信息", "稍等片刻，服务端正在汇总今日待复习规模。");
