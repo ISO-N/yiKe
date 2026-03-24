@@ -59,8 +59,21 @@
                 <p class="eyebrow">局域网控制台</p>
                 <h1 id="section-title">学习工作区</h1>
             </div>
-            <div id="global-message" class="toast" hidden></div>
+            <div class="topbar-meta">
+                <div id="shell-status" class="status-chip-row"></div>
+                <div id="global-message" class="toast" hidden></div>
+            </div>
         </header>
+
+        <section class="context-strip card">
+            <div class="context-strip-main">
+                <p class="eyebrow">Workspace Context</p>
+                <h2 id="context-title">学习工作区</h2>
+                <p id="context-description" class="muted">浏览器端会持续保留最近一次有效工作区上下文。</p>
+            </div>
+            <div id="context-meta" class="context-meta"></div>
+            <div id="context-actions" class="context-actions"></div>
+        </section>
 
         <section id="section-study" class="section is-active">
             <div id="study-overview-metrics" class="metric-grid"></div>
@@ -151,69 +164,97 @@
             <div id="content-selection-summary" class="card section-note">
                 先从左侧选择卡组，再逐层浏览卡片和问题。
             </div>
-            <div class="content-grid">
-                <article class="card">
-                    <div class="card-head">
-                        <h3>卡组</h3>
-                        <button id="new-deck-button" class="ghost-button" type="button">新建卡组</button>
-                    </div>
-                    <div id="deck-list" class="list-stack"></div>
-                </article>
+            <div class="content-layout">
+                <div class="content-grid">
+                    <article class="card">
+                        <div class="card-head">
+                            <h3>卡组</h3>
+                            <button id="new-deck-button" class="ghost-button" type="button">新建卡组</button>
+                        </div>
+                        <div id="deck-list" class="list-stack"></div>
+                    </article>
 
-                <article class="card">
-                    <div class="card-head">
-                        <h3>卡片</h3>
-                        <button id="new-card-button" class="ghost-button" type="button">新建卡片</button>
-                    </div>
-                    <div id="card-list" class="list-stack empty-state">先选择一个卡组。</div>
-                </article>
+                    <article class="card">
+                        <div class="card-head">
+                            <h3>卡片</h3>
+                            <button id="new-card-button" class="ghost-button" type="button">新建卡片</button>
+                        </div>
+                        <div id="card-list" class="list-stack empty-state">先选择一个卡组。</div>
+                    </article>
 
-                <article class="card">
-                    <div class="card-head">
-                        <h3>问题</h3>
-                        <button id="new-question-button" class="ghost-button" type="button">新建问题</button>
-                    </div>
-                    <div id="question-list" class="list-stack empty-state">先选择一个卡片。</div>
-                </article>
-            </div>
+                    <article class="card">
+                        <div class="card-head">
+                            <h3>问题</h3>
+                            <button id="new-question-button" class="ghost-button" type="button">新建问题</button>
+                        </div>
+                        <div id="question-list" class="list-stack empty-state">先选择一个卡片。</div>
+                    </article>
+                </div>
 
-            <div class="editor-grid">
-                <form id="deck-form" class="card stack" hidden>
-                    <h3 id="deck-form-title">新建卡组</h3>
-                    <input type="hidden" name="id">
-                    <label>名称<input name="name" required></label>
-                    <label>描述<textarea name="description" rows="3"></textarea></label>
-                    <label>标签（用逗号分隔）<input name="tags"></label>
-                    <label>间隔步数<input name="intervalStepCount" type="number" min="2" max="12" value="4"></label>
-                    <p class="muted">间隔步数建议保持在 2 到 12 之间，便于和手机端复习节奏一致。</p>
-                    <div class="form-actions">
-                        <button type="submit" class="primary-button">保存卡组</button>
-                        <button type="button" class="ghost-button" data-close-form="deck-form">取消</button>
-                    </div>
-                </form>
+                <aside class="content-workbench">
+                    <article class="card stack">
+                        <div class="card-head">
+                            <div>
+                                <h3>当前工作台</h3>
+                                <p class="muted">选中对象后，可在同一上下文中继续编辑、练习或下钻。</p>
+                            </div>
+                            <span class="muted">Drill-down</span>
+                        </div>
+                        <div class="content-context-panels">
+                            <section id="content-deck-details" class="content-detail-panel">
+                                <strong>等待选择卡组</strong>
+                                <p class="muted">先在左侧确定一个卡组，再继续整理卡片与问题。</p>
+                            </section>
+                            <section id="content-card-details" class="content-detail-panel">
+                                <strong>等待选择卡片</strong>
+                                <p class="muted">卡片详情会跟随当前卡组自动同步。</p>
+                            </section>
+                            <section id="content-question-details" class="content-detail-panel">
+                                <strong>等待选择问题</strong>
+                                <p class="muted">选中题目后，这里会保留题面、答案和练习入口。</p>
+                            </section>
+                        </div>
+                    </article>
 
-                <form id="card-form" class="card stack" hidden>
-                    <h3 id="card-form-title">新建卡片</h3>
-                    <input type="hidden" name="id">
-                    <label>标题<input name="title" required></label>
-                    <label>描述<textarea name="description" rows="3"></textarea></label>
-                    <div class="form-actions">
-                        <button type="submit" class="primary-button">保存卡片</button>
-                        <button type="button" class="ghost-button" data-close-form="card-form">取消</button>
-                    </div>
-                </form>
+                    <div class="editor-grid content-editor-stack">
+                        <form id="deck-form" class="card stack" hidden>
+                            <h3 id="deck-form-title">新建卡组</h3>
+                            <input type="hidden" name="id">
+                            <label>名称<input name="name" required></label>
+                            <label>描述<textarea name="description" rows="3"></textarea></label>
+                            <label>标签（用逗号分隔）<input name="tags"></label>
+                            <label>间隔步数<input name="intervalStepCount" type="number" min="2" max="12" value="4"></label>
+                            <p class="muted">间隔步数建议保持在 2 到 12 之间，便于和手机端复习节奏一致。</p>
+                            <div class="form-actions">
+                                <button type="submit" class="primary-button">保存卡组</button>
+                                <button type="button" class="ghost-button" data-close-form="deck-form">取消</button>
+                            </div>
+                        </form>
 
-                <form id="question-form" class="card stack" hidden>
-                    <h3 id="question-form-title">新建问题</h3>
-                    <input type="hidden" name="id">
-                    <label>题面<textarea name="prompt" rows="3" required></textarea></label>
-                    <label>答案<textarea name="answer" rows="5"></textarea></label>
-                    <label>标签（用逗号分隔）<input name="tags"></label>
-                    <div class="form-actions">
-                        <button type="submit" class="primary-button">保存问题</button>
-                        <button type="button" class="ghost-button" data-close-form="question-form">取消</button>
+                        <form id="card-form" class="card stack" hidden>
+                            <h3 id="card-form-title">新建卡片</h3>
+                            <input type="hidden" name="id">
+                            <label>标题<input name="title" required></label>
+                            <label>描述<textarea name="description" rows="3"></textarea></label>
+                            <div class="form-actions">
+                                <button type="submit" class="primary-button">保存卡片</button>
+                                <button type="button" class="ghost-button" data-close-form="card-form">取消</button>
+                            </div>
+                        </form>
+
+                        <form id="question-form" class="card stack" hidden>
+                            <h3 id="question-form-title">新建问题</h3>
+                            <input type="hidden" name="id">
+                            <label>题面<textarea name="prompt" rows="3" required></textarea></label>
+                            <label>答案<textarea name="answer" rows="5"></textarea></label>
+                            <label>标签（用逗号分隔）<input name="tags"></label>
+                            <div class="form-actions">
+                                <button type="submit" class="primary-button">保存问题</button>
+                                <button type="button" class="ghost-button" data-close-form="question-form">取消</button>
+                            </div>
+                        </form>
                     </div>
-                </form>
+                </aside>
             </div>
         </section>
 
@@ -223,11 +264,19 @@
                 <label>标签<input name="tag" placeholder="可选"></label>
                 <button type="submit" class="primary-button">开始搜索</button>
             </form>
+            <div id="search-feedback" class="workspace-feedback is-empty">
+                <strong>等待搜索条件</strong>
+                <span class="muted">输入关键词或标签后，结果会在同一工作区内展开，并保留继续练习的入口。</span>
+            </div>
             <div id="search-results" class="list-stack empty-state">输入关键词后开始搜索。</div>
         </section>
 
         <section id="section-analytics" class="section">
             <div id="analytics-metrics" class="metric-grid"></div>
+            <div id="analytics-feedback" class="workspace-feedback is-empty">
+                <strong>等待统计数据</strong>
+                <span class="muted">复习记录汇总完成后，这里会统一提示当前统计是否足够支撑分析。</span>
+            </div>
             <div class="card">
                 <div class="card-head">
                     <h3>卡组统计拆分</h3>
@@ -238,6 +287,10 @@
         </section>
 
         <section id="section-settings" class="section">
+            <div id="settings-feedback" class="workspace-feedback is-empty">
+                <strong>等待设置载入</strong>
+                <span class="muted">提醒和主题配置读取完成后，这里会给出当前状态与保存反馈。</span>
+            </div>
             <form id="settings-form" class="card stack">
                 <h3>全局设置</h3>
                 <label class="toggle-row">
@@ -261,6 +314,10 @@
         </section>
 
         <section id="section-backup" class="section">
+            <div id="backup-feedback" class="workspace-feedback is-warning">
+                <strong>高风险操作提示</strong>
+                <span class="muted">导出可直接下载当前备份，恢复会覆盖本地全部数据，执行前请先确认文件来源。</span>
+            </div>
             <div class="card stack">
                 <h3>备份导出</h3>
                 <p class="muted">导出的 JSON 与手机端备份页使用同一份格式，可直接下载到当前设备。</p>

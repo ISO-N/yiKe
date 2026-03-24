@@ -1,0 +1,77 @@
+:root {
+    color-scheme: light;
+    --bg: #f3f6f5;
+    --surface: rgba(255, 255, 255, 0.92);
+    --surface-strong: #ffffff;
+    --primary: #0b6f69;
+    --primary-soft: #d9f2ef;
+    --border: rgba(18, 43, 41, 0.12);
+    --text: #183332;
+    --text-muted: #5b7472;
+    --danger: #b44335;
+    --shadow: 0 18px 40px rgba(21, 38, 37, 0.08);
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    min-height: 100vh;
+    background:
+        radial-gradient(circle at top right, rgba(155, 224, 214, 0.3), transparent 28%),
+        linear-gradient(180deg, #edf4f2 0%, #f7faf9 100%);
+    color: var(--text);
+    font: 15px/1.5 "Noto Sans SC", "Microsoft YaHei", sans-serif;
+}
+
+button,
+input,
+textarea,
+select {
+    font: inherit;
+}
+
+button {
+    cursor: pointer;
+    border: 0;
+}
+
+button:disabled {
+    cursor: not-allowed;
+    opacity: 0.52;
+    transform: none !important;
+}
+
+input,
+textarea,
+select {
+    width: 100%;
+    margin-top: 8px;
+    padding: 12px 14px;
+    border-radius: 14px;
+    border: 1px solid var(--border);
+    background: var(--surface-strong);
+    color: var(--text);
+}
+
+textarea {
+    resize: vertical;
+}
+
+.muted {
+    color: var(--text-muted);
+}
+
+.error-text {
+    color: var(--danger);
+}
+
+.eyebrow {
+    margin: 0 0 8px;
+    font-size: 12px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+}

@@ -20,6 +20,7 @@ import io.ktor.server.response.respond
 import io.ktor.server.response.respondBytes
 import io.ktor.server.response.header
 import io.ktor.server.response.respondText
+import io.ktor.server.routing.Route
 import io.ktor.server.routing.get
 import io.ktor.server.routing.post
 import io.ktor.server.routing.routing
@@ -100,217 +101,248 @@ internal fun Application.configureWebConsoleRoutes(
         }
     }
     routing {
-        post("/api/web-console/v1/auth/login") {
-            val remoteHost = call.request.origin.remoteHost
-            if (!remoteHost.isAllowedLocalNetworkHost()) {
-                call.respondText("Forbidden", status = HttpStatusCode.Forbidden)
-                return@post
-            }
-            val request = call.receive<WebConsoleLoginRequest>()
-            val sessionId = handler.login(request.code, remoteHost)
-            if (sessionId == null) {
-                call.respondText("访问码不正确", status = HttpStatusCode.Unauthorized)
-                return@post
-            }
-            call.response.cookies.append(
-                Cookie(
-                    name = SESSION_COOKIE_NAME,
-                    value = sessionId,
-                    path = "/",
-                    httpOnly = true,
-                    maxAge = (WebConsoleRuntime.SESSION_TTL_MILLIS / 1000L).toInt()
-                )
+        registerAuthRoutes(handler)
+        registerStudyRoutes(handler)
+        registerContentRoutes(handler)
+        registerSettingsRoutes(handler)
+        registerAssetRoutes(assetLoader)
+    }
+}
+
+/**
+ * 认证路由单独注册，是为了让登录和会话守卫的边界在后续继续扩展时不被内容工作区路由冲淡。
+ */
+private fun Route.registerAuthRoutes(handler: WebConsoleApiHandler) {
+    post("/api/web-console/v1/auth/login") {
+        val remoteHost = call.request.origin.remoteHost
+        if (!remoteHost.isAllowedLocalNetworkHost()) {
+            call.respondText("Forbidden", status = HttpStatusCode.Forbidden)
+            return@post
+        }
+        val request = call.receive<WebConsoleLoginRequest>()
+        val sessionId = handler.login(request.code, remoteHost)
+        if (sessionId == null) {
+            call.respondText("访问码不正确", status = HttpStatusCode.Unauthorized)
+            return@post
+        }
+        call.response.cookies.append(
+            Cookie(
+                name = SESSION_COOKIE_NAME,
+                value = sessionId,
+                path = "/",
+                httpOnly = true,
+                maxAge = (WebConsoleRuntime.SESSION_TTL_MILLIS / 1000L).toInt()
             )
+        )
+        call.respond(HttpStatusCode.NoContent)
+    }
+
+    post("/api/web-console/v1/auth/logout") {
+        handler.logout(call.request.cookies[SESSION_COOKIE_NAME])
+        call.clearSessionCookie()
+        call.respond(HttpStatusCode.NoContent)
+    }
+
+    get("/api/web-console/v1/session") {
+        val session = call.requireSession(handler) ?: return@get
+        call.respond(session)
+    }
+}
+
+/**
+ * 学习工作区路由集中注册，是为了让正式复习和自由练习的会话边界继续作为一组协作协议维护。
+ */
+private fun Route.registerStudyRoutes(handler: WebConsoleApiHandler) {
+    get("/api/web-console/v1/study/workspace") {
+        if (call.requireSession(handler) == null) return@get
+        call.respond(handler.getStudyWorkspace(call.requireSessionId()))
+    }
+
+    get("/api/web-console/v1/study/session") {
+        if (call.requireSession(handler) == null) return@get
+        val payload = handler.getStudySession(call.requireSessionId())
+        if (payload == null) {
             call.respond(HttpStatusCode.NoContent)
+            return@get
         }
+        call.respond(payload)
+    }
 
-        post("/api/web-console/v1/auth/logout") {
-            handler.logout(call.request.cookies[SESSION_COOKIE_NAME])
-            call.clearSessionCookie()
-            call.respond(HttpStatusCode.NoContent)
-        }
+    post("/api/web-console/v1/study/review/start") {
+        if (call.requireSession(handler) == null) return@post
+        call.respond(handler.startReviewSession(call.requireSessionId()))
+    }
 
-        get("/api/web-console/v1/session") {
-            val session = call.requireSession(handler) ?: return@get
-            call.respond(session)
-        }
+    post("/api/web-console/v1/study/answer/reveal") {
+        if (call.requireSession(handler) == null) return@post
+        call.respond(handler.revealStudyAnswer(call.requireSessionId()))
+    }
 
-        get("/api/web-console/v1/dashboard") {
-            if (call.requireSession(handler) == null) return@get
-            call.respond(handler.getDashboard())
-        }
-
-        get("/api/web-console/v1/study/workspace") {
-            if (call.requireSession(handler) == null) return@get
-            call.respond(handler.getStudyWorkspace(call.requireSessionId()))
-        }
-
-        get("/api/web-console/v1/study/session") {
-            if (call.requireSession(handler) == null) return@get
-            val payload = handler.getStudySession(call.requireSessionId())
-            if (payload == null) {
-                call.respond(HttpStatusCode.NoContent)
-                return@get
-            }
-            call.respond(payload)
-        }
-
-        post("/api/web-console/v1/study/review/start") {
-            if (call.requireSession(handler) == null) return@post
-            call.respond(handler.startReviewSession(call.requireSessionId()))
-        }
-
-        post("/api/web-console/v1/study/answer/reveal") {
-            if (call.requireSession(handler) == null) return@post
-            call.respond(handler.revealStudyAnswer(call.requireSessionId()))
-        }
-
-        post("/api/web-console/v1/study/review/rate") {
-            if (call.requireSession(handler) == null) return@post
-            call.respond(
-                handler.submitReviewRating(
-                    sessionId = call.requireSessionId(),
-                    request = call.receive()
-                )
+    post("/api/web-console/v1/study/review/rate") {
+        if (call.requireSession(handler) == null) return@post
+        call.respond(
+            handler.submitReviewRating(
+                sessionId = call.requireSessionId(),
+                request = call.receive()
             )
-        }
+        )
+    }
 
-        post("/api/web-console/v1/study/review/next-card") {
-            if (call.requireSession(handler) == null) return@post
-            call.respond(handler.continueReviewSession(call.requireSessionId()))
-        }
+    post("/api/web-console/v1/study/review/next-card") {
+        if (call.requireSession(handler) == null) return@post
+        call.respond(handler.continueReviewSession(call.requireSessionId()))
+    }
 
-        post("/api/web-console/v1/study/practice/start") {
-            if (call.requireSession(handler) == null) return@post
-            call.respond(
-                handler.startPracticeSession(
-                    sessionId = call.requireSessionId(),
-                    request = call.receive()
-                )
+    post("/api/web-console/v1/study/practice/start") {
+        if (call.requireSession(handler) == null) return@post
+        call.respond(
+            handler.startPracticeSession(
+                sessionId = call.requireSessionId(),
+                request = call.receive()
             )
-        }
+        )
+    }
 
-        post("/api/web-console/v1/study/practice/navigate") {
-            if (call.requireSession(handler) == null) return@post
-            call.respond(
-                handler.navigatePracticeSession(
-                    sessionId = call.requireSessionId(),
-                    request = call.receive()
-                )
+    post("/api/web-console/v1/study/practice/navigate") {
+        if (call.requireSession(handler) == null) return@post
+        call.respond(
+            handler.navigatePracticeSession(
+                sessionId = call.requireSessionId(),
+                request = call.receive()
             )
-        }
+        )
+    }
 
-        post("/api/web-console/v1/study/session/end") {
-            if (call.requireSession(handler) == null) return@post
-            call.respond(handler.endStudySession(call.requireSessionId()))
-        }
+    post("/api/web-console/v1/study/session/end") {
+        if (call.requireSession(handler) == null) return@post
+        call.respond(handler.endStudySession(call.requireSessionId()))
+    }
+}
 
-        get("/api/web-console/v1/decks") {
-            if (call.requireSession(handler) == null) return@get
-            call.respond(handler.listDecks())
-        }
+/**
+ * 内容与统计路由聚合注册，是为了让富后台工作区扩展时可以按对象管理边界稳定增减接口。
+ */
+private fun Route.registerContentRoutes(handler: WebConsoleApiHandler) {
+    get("/api/web-console/v1/dashboard") {
+        if (call.requireSession(handler) == null) return@get
+        call.respond(handler.getDashboard())
+    }
 
-        post("/api/web-console/v1/decks/upsert") {
-            if (call.requireSession(handler) == null) return@post
-            call.respond(handler.upsertDeck(call.receive()))
-        }
+    get("/api/web-console/v1/decks") {
+        if (call.requireSession(handler) == null) return@get
+        call.respond(handler.listDecks())
+    }
 
-        post("/api/web-console/v1/decks/archive") {
-            if (call.requireSession(handler) == null) return@post
-            val request = call.receive<WebConsoleArchiveRequest>()
-            call.respond(handler.archiveDeck(request.id, request.archived))
-        }
+    post("/api/web-console/v1/decks/upsert") {
+        if (call.requireSession(handler) == null) return@post
+        call.respond(handler.upsertDeck(call.receive()))
+    }
 
-        get("/api/web-console/v1/cards") {
-            if (call.requireSession(handler) == null) return@get
-            val deckId = call.parameters["deckId"]
-            if (deckId.isNullOrBlank()) {
-                call.respondText("缺少 deckId", status = HttpStatusCode.BadRequest)
-                return@get
-            }
-            call.respond(handler.listCards(deckId))
-        }
+    post("/api/web-console/v1/decks/archive") {
+        if (call.requireSession(handler) == null) return@post
+        val request = call.receive<WebConsoleArchiveRequest>()
+        call.respond(handler.archiveDeck(request.id, request.archived))
+    }
 
-        post("/api/web-console/v1/cards/upsert") {
-            if (call.requireSession(handler) == null) return@post
-            call.respond(handler.upsertCard(call.receive()))
+    get("/api/web-console/v1/cards") {
+        if (call.requireSession(handler) == null) return@get
+        val deckId = call.parameters["deckId"]
+        if (deckId.isNullOrBlank()) {
+            call.respondText("缺少 deckId", status = HttpStatusCode.BadRequest)
+            return@get
         }
+        call.respond(handler.listCards(deckId))
+    }
 
-        post("/api/web-console/v1/cards/archive") {
-            if (call.requireSession(handler) == null) return@post
-            val request = call.receive<WebConsoleArchiveRequest>()
-            call.respond(handler.archiveCard(request.id, request.archived))
-        }
+    post("/api/web-console/v1/cards/upsert") {
+        if (call.requireSession(handler) == null) return@post
+        call.respond(handler.upsertCard(call.receive()))
+    }
 
-        get("/api/web-console/v1/questions") {
-            if (call.requireSession(handler) == null) return@get
-            val cardId = call.parameters["cardId"]
-            if (cardId.isNullOrBlank()) {
-                call.respondText("缺少 cardId", status = HttpStatusCode.BadRequest)
-                return@get
-            }
-            call.respond(handler.listQuestions(cardId))
-        }
+    post("/api/web-console/v1/cards/archive") {
+        if (call.requireSession(handler) == null) return@post
+        val request = call.receive<WebConsoleArchiveRequest>()
+        call.respond(handler.archiveCard(request.id, request.archived))
+    }
 
-        post("/api/web-console/v1/questions/upsert") {
-            if (call.requireSession(handler) == null) return@post
-            call.respond(handler.upsertQuestion(call.receive()))
+    get("/api/web-console/v1/questions") {
+        if (call.requireSession(handler) == null) return@get
+        val cardId = call.parameters["cardId"]
+        if (cardId.isNullOrBlank()) {
+            call.respondText("缺少 cardId", status = HttpStatusCode.BadRequest)
+            return@get
         }
+        call.respond(handler.listQuestions(cardId))
+    }
 
-        post("/api/web-console/v1/questions/delete") {
-            if (call.requireSession(handler) == null) return@post
-            val request = call.receive<WebConsoleDeleteRequest>()
-            call.respond(handler.deleteQuestion(request.id))
-        }
+    post("/api/web-console/v1/questions/upsert") {
+        if (call.requireSession(handler) == null) return@post
+        call.respond(handler.upsertQuestion(call.receive()))
+    }
 
-        post("/api/web-console/v1/search") {
-            if (call.requireSession(handler) == null) return@post
-            call.respond(handler.search(call.receive()))
-        }
+    post("/api/web-console/v1/questions/delete") {
+        if (call.requireSession(handler) == null) return@post
+        val request = call.receive<WebConsoleDeleteRequest>()
+        call.respond(handler.deleteQuestion(request.id))
+    }
 
-        get("/api/web-console/v1/analytics") {
-            if (call.requireSession(handler) == null) return@get
-            call.respond(handler.getAnalytics())
-        }
+    post("/api/web-console/v1/search") {
+        if (call.requireSession(handler) == null) return@post
+        call.respond(handler.search(call.receive()))
+    }
 
-        get("/api/web-console/v1/settings") {
-            if (call.requireSession(handler) == null) return@get
-            call.respond(handler.getSettings())
-        }
+    get("/api/web-console/v1/analytics") {
+        if (call.requireSession(handler) == null) return@get
+        call.respond(handler.getAnalytics())
+    }
+}
 
-        post("/api/web-console/v1/settings/update") {
-            if (call.requireSession(handler) == null) return@post
-            call.respond(handler.updateSettings(call.receive()))
-        }
+/**
+ * 设置和备份路由集中放在单点，是为了把高风险配置操作维持在统一反馈和回滚边界里。
+ */
+private fun Route.registerSettingsRoutes(handler: WebConsoleApiHandler) {
+    get("/api/web-console/v1/settings") {
+        if (call.requireSession(handler) == null) return@get
+        call.respond(handler.getSettings())
+    }
 
-        get("/api/web-console/v1/backup/export") {
-            if (call.requireSession(handler) == null) return@get
-            val payload = handler.exportBackup()
-            call.response.header(
-                HttpHeaders.ContentDisposition,
-                """attachment; filename="${payload.fileName}""""
-            )
-            call.respondText(
-                text = payload.content,
-                contentType = ContentType.Application.Json,
-                status = HttpStatusCode.OK
-            )
-        }
+    post("/api/web-console/v1/settings/update") {
+        if (call.requireSession(handler) == null) return@post
+        call.respond(handler.updateSettings(call.receive()))
+    }
 
-        post("/api/web-console/v1/backup/restore") {
-            if (call.requireSession(handler) == null) return@post
-            call.respond(handler.restoreBackup(call.receive()))
-        }
+    get("/api/web-console/v1/backup/export") {
+        if (call.requireSession(handler) == null) return@get
+        val payload = handler.exportBackup()
+        call.response.header(
+            HttpHeaders.ContentDisposition,
+            """attachment; filename="${payload.fileName}""""
+        )
+        call.respondText(
+            text = payload.content,
+            contentType = ContentType.Application.Json,
+            status = HttpStatusCode.OK
+        )
+    }
 
-        get("/{...}") {
-            val requestedPath = call.request.path().removePrefix("/")
-            val asset = assetLoader.load(requestedPath) ?: assetLoader.load("/")
-            if (asset == null) {
-                call.respondText("Not Found", status = HttpStatusCode.NotFound)
-                return@get
-            }
-            call.respondBytes(asset.bytes, contentType = asset.contentType)
+    post("/api/web-console/v1/backup/restore") {
+        if (call.requireSession(handler) == null) return@post
+        call.respond(handler.restoreBackup(call.receive()))
+    }
+}
+
+/**
+ * 静态资源路由单独挂载，是为了让前端目录结构升级后仍保持与 API 路由完全分离。
+ */
+private fun Route.registerAssetRoutes(assetLoader: WebConsoleAssetLoader) {
+    get("/{...}") {
+        val requestedPath = call.request.path().removePrefix("/")
+        val asset = assetLoader.load(requestedPath) ?: assetLoader.load("/")
+        if (asset == null) {
+            call.respondText("Not Found", status = HttpStatusCode.NotFound)
+            return@get
         }
+        call.respondBytes(asset.bytes, contentType = asset.contentType)
     }
 }
 

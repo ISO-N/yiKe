@@ -39,6 +39,23 @@ com.kariscode.yike
 - `domain` 存放业务模型、仓储接口、用例、调度规则
 - `data` 存放 Room、DataStore、备份、提醒等实现
 
+### 3.1 网页后台前端约定
+
+网页后台富后台额外遵循以下目录与生成约束：
+
+- `app/src/main/assets/webconsole/entries/` 只放入口模板
+- `app/src/main/assets/webconsole/app.js` 与 `app/src/main/assets/webconsole/app.css` 视为生成产物，必须通过 `.\scripts\build-webconsole.mjs` 更新
+- `scripts/shell/` 只负责壳层、导航、上下文栏和跨工作区协调
+- `scripts/features/` 只负责工作区内部渲染、事件和局部状态
+- `scripts/shared/` 只放 API、格式化、反馈和壳层刷新桥接，不得反向依赖具体 feature
+- `styles/` 必须继续保持 `tokens / layout / components / workspaces` 分层
+
+如果网页后台改动涉及入口模板、壳层刷新桥接或体量门禁，提交前必须运行：
+
+```powershell
+.\scripts\verify-webconsole.ps1
+```
+
 ---
 
 ## 4. 命名约定
@@ -119,6 +136,7 @@ com.kariscode.yike
 - 当 `ViewModel` 同时承担查询触发、分组统计、结果映射时，应优先把纯输入输出逻辑提取为 assembler / calculator
 - 当多个页面重复“启动异步任务 -> 更新状态 -> 处理成功/失败”骨架时，应优先补充共享 helper，而不是复制 `copy(...)` 模板
 - 当某个 `Repository` 同时管理会话、网络、数据应用等多阶段流程时，应优先拆为 coordinator / executor 等包内协作者，而不是继续堆大主类
+- 当网页后台某个工作区同时维护 DOM 查询、壳层反馈和跨工作区跳转时，应优先把壳层能力收回 `shell`，工作区只通过共享桥接请求刷新
 
 这样做的目的不是增加层数，而是把：
 
@@ -223,6 +241,14 @@ com.kariscode.yike
 - 仅在需要排障的关键路径打日志
 - 不记录用户敏感内容
 - 导入导出、提醒调度、恢复失败等高风险路径建议保留日志
+
+## 13.1 网页后台体量门禁
+
+网页后台前端文件必须受脚本体量门禁约束：
+
+- `shell`、`features`、`shared`、`styles` 目录下的单文件体量由 `build-webconsole.mjs --check` 统一校验
+- 若文件体量触发门禁，优先继续拆模块，而不是直接抬高阈值
+- 新增工作区前，优先复用 `updateWorkspaceFeedback`、`requestShellRefresh` 等共享入口，不得复制一套壳层状态逻辑
 
 ---
 

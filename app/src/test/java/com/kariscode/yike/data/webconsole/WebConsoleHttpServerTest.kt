@@ -24,6 +24,9 @@ class WebConsoleHttpServerTest {
     private var restoredBackupRequest: WebConsoleBackupRestoreRequest? = null
     private var practiceNavigateRequest: WebConsolePracticeNavigateRequest? = null
     private var activeStudySession: WebConsoleStudySessionPayload? = null
+    private var dashboardPayload: WebConsoleDashboardPayload? = null
+    private var settingsPayload: WebConsoleSettingsPayload? = null
+    private var endedStudySessionId: String? = null
 
     /**
      * 备份导出必须携带服务端建议文件名，
@@ -179,6 +182,129 @@ class WebConsoleHttpServerTest {
     }
 
     /**
+     * 无效会话必须在 API 层被拒绝并返回失效提示，
+     * 否则浏览器切换工作区时会在“已失效但看起来还在线”的状态里反复撞墙。
+     */
+    @Test
+    fun dashboard_invalidSession_returnsUnauthorized() = testApplication {
+        dashboardPayload = WebConsoleDashboardPayload(
+            dueCardCount = 1,
+            dueQuestionCount = 2,
+            recentDecks = emptyList()
+        )
+        application {
+            configureWebConsoleRoutes(
+                assetLoader = WebConsoleAssetLoader(RuntimeEnvironment.getApplication()),
+                handler = createHandler()
+            )
+        }
+
+        val response = client.get("/api/web-console/v1/dashboard") {
+            header(HttpHeaders.Cookie, "yike_web_session=expired_session")
+        }
+
+        assertEquals(HttpStatusCode.Unauthorized, response.status)
+        assertTrue(response.bodyAsText().contains("登录已失效"))
+    }
+
+    /**
+     * 某个工作区请求失败后，其他工作区接口仍必须可访问，
+     * 否则局部接口错误会直接把整个富后台拖成不可恢复的单点失败。
+     */
+    @Test
+    fun badWorkspaceRequest_doesNotBlockOtherWorkspaceApis() = testApplication {
+        settingsPayload = WebConsoleSettingsPayload(
+            dailyReminderEnabled = false,
+            dailyReminderHour = 21,
+            dailyReminderMinute = 0,
+            themeMode = "LIGHT",
+            themeModeLabel = "浅色",
+            backupLastAt = null
+        )
+        application {
+            configureWebConsoleRoutes(
+                assetLoader = WebConsoleAssetLoader(RuntimeEnvironment.getApplication()),
+                handler = createHandler()
+            )
+        }
+
+        val badResponse = client.get("/api/web-console/v1/cards") {
+            header(HttpHeaders.Cookie, "yike_web_session=session_1")
+        }
+        val settingsResponse = client.get("/api/web-console/v1/settings") {
+            header(HttpHeaders.Cookie, "yike_web_session=session_1")
+        }
+
+        assertEquals(HttpStatusCode.BadRequest, badResponse.status)
+        assertTrue(badResponse.bodyAsText().contains("缺少 deckId"))
+        assertEquals(HttpStatusCode.OK, settingsResponse.status)
+        assertTrue(settingsResponse.bodyAsText().contains("浅色"))
+    }
+
+    /**
+     * 同一登录会话需要能连续读取多个工作区接口，
+     * 否则前端从概览切到设置时就会丢失“统一壳层下切工作区”的基本前提。
+     */
+    @Test
+    fun sameSession_canReadDashboardAndSettingsAcrossWorkspaces() = testApplication {
+        dashboardPayload = WebConsoleDashboardPayload(
+            dueCardCount = 2,
+            dueQuestionCount = 5,
+            recentDecks = emptyList()
+        )
+        settingsPayload = WebConsoleSettingsPayload(
+            dailyReminderEnabled = true,
+            dailyReminderHour = 20,
+            dailyReminderMinute = 30,
+            themeMode = "SYSTEM",
+            themeModeLabel = "跟随系统",
+            backupLastAt = null
+        )
+        application {
+            configureWebConsoleRoutes(
+                assetLoader = WebConsoleAssetLoader(RuntimeEnvironment.getApplication()),
+                handler = createHandler()
+            )
+        }
+
+        val dashboardResponse = client.get("/api/web-console/v1/dashboard") {
+            header(HttpHeaders.Cookie, "yike_web_session=session_1")
+        }
+        val settingsResponse = client.get("/api/web-console/v1/settings") {
+            header(HttpHeaders.Cookie, "yike_web_session=session_1")
+        }
+
+        assertEquals(HttpStatusCode.OK, dashboardResponse.status)
+        assertTrue(dashboardResponse.bodyAsText().contains("dueQuestionCount"))
+        assertEquals(HttpStatusCode.OK, settingsResponse.status)
+        assertTrue(settingsResponse.bodyAsText().contains("跟随系统"))
+    }
+
+    /**
+     * 结束学习会话接口必须回传稳定结果文案，
+     * 否则前端在执行切换确认或主动结束时无法给出明确的中断后果提示。
+     */
+    @Test
+    fun endStudySession_returnsMutationPayload() = testApplication {
+        application {
+            configureWebConsoleRoutes(
+                assetLoader = WebConsoleAssetLoader(RuntimeEnvironment.getApplication()),
+                handler = createHandler()
+            )
+        }
+
+        val response = client.post("/api/web-console/v1/study/session/end") {
+            header(HttpHeaders.Cookie, "yike_web_session=session_1")
+            header(HttpHeaders.ContentType, "application/json")
+            setBody("{}")
+        }
+
+        assertEquals(HttpStatusCode.OK, response.status)
+        assertTrue(response.bodyAsText().contains("当前学习会话已结束"))
+        assertEquals("session_1", endedStudySessionId)
+    }
+
+    /**
      * 测试处理器集中在单点构造，是为了让路由测试只描述当前关心的契约，而不用在每个用例里重复铺开整套桩实现。
      */
     private fun createHandler(): WebConsoleApiHandler = object : WebConsoleApiHandler {
@@ -199,7 +325,7 @@ class WebConsoleHttpServerTest {
             null
         }
 
-        override suspend fun getDashboard(): WebConsoleDashboardPayload = error("unused")
+        override suspend fun getDashboard(): WebConsoleDashboardPayload = dashboardPayload ?: error("unused")
 
         override suspend fun getStudyWorkspace(sessionId: String): WebConsoleStudyWorkspacePayload = error("unused")
 
@@ -230,7 +356,10 @@ class WebConsoleHttpServerTest {
             return activeStudySession ?: error("unused")
         }
 
-        override suspend fun endStudySession(sessionId: String): WebConsoleMutationPayload = error("unused")
+        override suspend fun endStudySession(sessionId: String): WebConsoleMutationPayload {
+            endedStudySessionId = sessionId
+            return WebConsoleMutationPayload(message = "当前学习会话已结束")
+        }
 
         override suspend fun listDecks(): List<WebConsoleDeckPayload> = error("unused")
 
@@ -254,7 +383,7 @@ class WebConsoleHttpServerTest {
 
         override suspend fun getAnalytics(): WebConsoleAnalyticsPayload = error("unused")
 
-        override suspend fun getSettings(): WebConsoleSettingsPayload = error("unused")
+        override suspend fun getSettings(): WebConsoleSettingsPayload = settingsPayload ?: error("unused")
 
         override suspend fun updateSettings(request: WebConsoleUpdateSettingsRequest): WebConsoleMutationPayload = error("unused")
 

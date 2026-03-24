@@ -25,7 +25,7 @@
 - WorkManager（每日提醒检查与重排）
 - 备份恢复（JSON 导出、校验、全量恢复，支持手机页与网页后台复用同一链路）
 - 局域网同步（发现、配对、预览、冲突决议、双向应用）
-- 网页后台（前台服务、本地 Ktor、一次性访问码、桌面/移动网页控制台、二维码、网页端备份恢复与浏览器学习工作区）
+- 网页后台（前台服务、本地 Ktor、一次性访问码、桌面/移动网页控制台、二维码、网页端备份恢复与浏览器学习工作区，且前端已按 `entries / shell / features / shared / styles` 分层）
 
 在此基础上，v0.1 后续架构演进应坚持两个原则：
 
@@ -139,6 +139,13 @@ app/src/main/java/com/kariscode/yike/
     designsystem/
     component/
     theme/
+app/src/main/assets/webconsole/
+  entries/
+  scripts/
+    shell/
+    features/
+    shared/
+  styles/
 ```
 
 说明：
@@ -148,6 +155,7 @@ app/src/main/java/com/kariscode/yike/
 - `data` 放所有本地持久化与系统能力接入。
 - `core` 放跨功能公用能力。
 - `navigation` 独立出来，避免路由散落。
+- `assets/webconsole` 作为网页后台富后台资源根目录，其中 `entries/` 只放入口模板，`app.js` / `app.css` 由脚本生成，不再手工直接编辑。
 
 ---
 
@@ -320,6 +328,16 @@ HomeScreen
 - 自由练习范围选择
 - 自由练习会话恢复与失效提示
 
+### 9.6 网页后台富后台切片
+
+- `shell`：统一侧栏导航、上下文栏、全局状态芯片、跨工作区返回路径
+- `features/content`：内容 drill-down 工作台、卡组/卡片/问题上下文同步、就地编辑入口
+- `features/study`：正式复习、自由练习、切换确认、完成态与会话恢复
+- `features/operations`：搜索、统计、设置、备份恢复，以及统一的空态 / 错误态 / 高风险反馈层级
+- `data/webconsole`：路由壳层、工作区服务、DTO 映射与会话编排协作者
+
+这些切片必须围绕同一条“桌面壳层 -> 工作区 -> 本地 API”链路演进，避免重新回到单页总控脚本和集中式仓储实现。
+
 每个切片都应尽量贯通 `ui -> domain -> data`，而不是只先堆页面。
 
 ---
@@ -426,6 +444,13 @@ HomeScreen
 - 支持更多内容类型
 - 增加统计分析能力
 - 引入同步层
+
+网页后台的工程化方向额外约束如下：
+
+- 入口模板放在 `app/src/main/assets/webconsole/entries/`
+- 运行时入口 `app.js` / `app.css` 通过 `.\scripts\build-webconsole.mjs` 生成
+- 本地校验优先使用 `.\scripts\verify-webconsole.ps1`
+- 体量门禁由 `build-webconsole.mjs --check` 执行，防止 `shell` / `features` / `styles` 再次长回超大文件
 
 这些都不属于 v0.1 的必须条件，不应影响当前架构落地。
 

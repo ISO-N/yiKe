@@ -1,0 +1,206 @@
+.content-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1.7fr) minmax(320px, 1fr);
+    gap: 20px;
+    align-items: start;
+}
+
+.content-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.content-workbench,
+.content-context-panels,
+.content-editor-stack {
+    display: grid;
+    gap: 16px;
+}
+
+.content-context-panels {
+    grid-template-columns: 1fr;
+}
+
+.content-detail-panel {
+    display: grid;
+    gap: 12px;
+    padding: 18px;
+    border-radius: 18px;
+    background: rgba(255, 255, 255, 0.92);
+    border: 1px solid var(--border);
+}
+
+.content-detail-panel.is-active {
+    border-color: rgba(11, 111, 105, 0.2);
+    box-shadow: 0 8px 24px rgba(11, 111, 105, 0.08);
+}
+
+.content-detail-metrics,
+.content-detail-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.content-detail-chip {
+    display: inline-flex;
+    align-items: center;
+    min-height: 34px;
+    padding: 0 12px;
+    border-radius: 999px;
+    background: rgba(11, 111, 105, 0.08);
+    color: var(--primary);
+    border: 1px solid rgba(11, 111, 105, 0.14);
+    font-weight: 600;
+}
+
+.content-detail-answer {
+    padding: 14px 16px;
+    border-radius: 16px;
+    background: rgba(11, 111, 105, 0.05);
+    border: 1px dashed rgba(11, 111, 105, 0.18);
+    white-space: pre-wrap;
+}
+
+.study-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.editor-grid {
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+}
+
+.study-summary-card,
+.study-session-body,
+.practice-config-grid,
+.practice-footer,
+.option-list,
+.practice-scope-panel,
+.study-question-card,
+.study-action-row,
+.study-status-row {
+    display: grid;
+    gap: 12px;
+}
+
+.study-summary-card {
+    padding: 18px;
+    border-radius: 20px;
+    background: rgba(11, 111, 105, 0.06);
+    border: 1px solid rgba(11, 111, 105, 0.14);
+}
+
+.practice-config-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.practice-scope-panel {
+    padding: 16px;
+    border-radius: 18px;
+    background: rgba(255, 255, 255, 0.9);
+    border: 1px solid var(--border);
+    align-content: start;
+}
+
+.option-list {
+    max-height: 280px;
+    overflow: auto;
+    align-content: start;
+}
+
+.practice-footer {
+    grid-template-columns: minmax(180px, 220px) minmax(0, 1fr);
+    align-items: end;
+}
+
+.study-session-body {
+    align-content: start;
+}
+
+.study-status-row,
+.study-action-row {
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.study-badge {
+    display: inline-flex;
+    align-items: center;
+    min-height: 32px;
+    padding: 0 12px;
+    border-radius: 999px;
+    background: rgba(11, 111, 105, 0.1);
+    color: var(--primary);
+    font-weight: 700;
+}
+
+.study-question-card {
+    padding: 18px;
+    border-radius: 20px;
+    background: var(--surface-strong);
+    border: 1px solid var(--border);
+}
+
+.study-answer {
+    padding: 16px;
+    border-radius: 18px;
+    background: rgba(11, 111, 105, 0.06);
+    border: 1px dashed rgba(11, 111, 105, 0.18);
+}
+
+.study-rating-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 10px;
+}
+
+.study-rating-button {
+    min-height: 52px;
+    padding: 10px 12px;
+    border-radius: 16px;
+    background: var(--surface-strong);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-weight: 700;
+}
+
+.study-rating-button.is-danger {
+    color: var(--danger);
+    border-color: rgba(180, 67, 53, 0.18);
+    background: rgba(180, 67, 53, 0.05);
+}
+
+.study-rating-button.is-primary {
+    color: var(--primary);
+}
+
+.study-rating-button.is-strong {
+    background: rgba(11, 111, 105, 0.08);
+}
+
+.study-session-empty {
+    padding: 20px;
+    border-radius: 18px;
+    border: 1px dashed rgba(11, 111, 105, 0.2);
+    background: rgba(11, 111, 105, 0.04);
+}
+
+.study-inline-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.search-form {
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    align-items: end;
+}
+
+.search-form button {
+    height: 48px;
+}
+
+@media (max-width: 1180px) {
+    .content-layout,
+    .content-grid {
+        grid-template-columns: 1fr;
+    }
+}
