@@ -3,7 +3,6 @@ package com.kariscode.yike.feature.editor
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
-import com.kariscode.yike.core.coroutine.parallel3
 import com.kariscode.yike.core.id.EntityIds
 import com.kariscode.yike.core.message.ErrorMessages
 import com.kariscode.yike.core.message.SuccessMessages
@@ -14,11 +13,13 @@ import com.kariscode.yike.domain.model.Card
 import com.kariscode.yike.domain.model.Question
 import com.kariscode.yike.domain.model.QuestionEditorDraftItemSnapshot
 import com.kariscode.yike.domain.model.QuestionEditorDraftSnapshot
-import com.kariscode.yike.domain.model.QuestionStatus
 import com.kariscode.yike.domain.repository.CardRepository
 import com.kariscode.yike.domain.repository.QuestionEditorDraftRepository
 import com.kariscode.yike.domain.repository.QuestionRepository
-import com.kariscode.yike.domain.scheduler.InitialDueAtCalculator
+import com.kariscode.yike.domain.usecase.LoadQuestionEditorContentUseCase
+import com.kariscode.yike.domain.usecase.QuestionEditorQuestionDraftValue
+import com.kariscode.yike.domain.usecase.QuestionEditorSaveRequest
+import com.kariscode.yike.domain.usecase.SaveQuestionEditorChangesUseCase
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancelAndJoin
@@ -46,9 +47,9 @@ sealed interface QuestionEditorEffect {
 class QuestionEditorViewModel(
     private val cardId: String,
     private val deckId: String?,
-    private val cardRepository: CardRepository,
-    private val questionRepository: QuestionRepository,
     private val questionEditorDraftRepository: QuestionEditorDraftRepository,
+    private val loadQuestionEditorContentUseCase: LoadQuestionEditorContentUseCase,
+    private val saveQuestionEditorChangesUseCase: SaveQuestionEditorChangesUseCase,
     private val timeProvider: TimeProvider
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(
@@ -327,11 +328,10 @@ class QuestionEditorViewModel(
                 message = null
             )
         }
-        val (card, questions, draftResult) = parallel3(
-            first = { cardRepository.findById(cardId) },
-            second = { questionRepository.listByCard(cardId) },
-            third = { questionEditorDraftRepository.loadDraft(cardId) }
-        )
+        val content = loadQuestionEditorContentUseCase(cardId)
+        val card = content.card
+        val questions = content.questions
+        val draftResult = content.draftResult
         if (card == null) {
             pendingRestoreDraftSnapshot = null
             _uiState.update { state ->
@@ -376,27 +376,24 @@ class QuestionEditorViewModel(
         card: Card,
         trimmedTitle: String
     ) {
-        val now = timeProvider.nowEpochMillis()
-        val initialDueAt = InitialDueAtCalculator.compute(
-            nowEpochMillis = now
-        )
-        val updatedCard = card.copy(
-            title = trimmedTitle,
-            description = state.description,
-            updatedAt = now
-        )
-        cardRepository.upsert(updatedCard)
-        val questionsToUpsert = state.questions.map { draft ->
-            draft.toQuestion(
+        saveQuestionEditorChangesUseCase(
+            request = QuestionEditorSaveRequest(
                 cardId = cardId,
-                nowEpochMillis = now,
-                initialDueAt = initialDueAt,
-                original = loadedQuestionsById[draft.id]
+                card = card,
+                title = trimmedTitle,
+                description = state.description,
+                questions = state.questions.map { draft ->
+                    QuestionEditorQuestionDraftValue(
+                        id = draft.id,
+                        prompt = draft.prompt,
+                        answer = draft.answer,
+                        isNew = draft.isNew
+                    )
+                },
+                originalQuestionsById = loadedQuestionsById,
+                deletedQuestionIds = deletedQuestionIds.toSet()
             )
-        }
-        questionRepository.upsertAll(questionsToUpsert)
-        questionRepository.deleteAll(deletedQuestionIds)
-        questionEditorDraftRepository.deleteDraft(cardId)
+        )
         deletedQuestionIds.clear()
         pendingRestoreDraftSnapshot = null
     }
@@ -591,40 +588,6 @@ class QuestionEditorViewModel(
         validationMessage = null
     )
 
-    /**
-     * 正式保存时统一由草稿生成领域模型，可把“新增/旧数据缺失/普通编辑”三种分支的默认字段收敛到一处。
-     */
-    private fun QuestionDraft.toQuestion(
-        cardId: String,
-        nowEpochMillis: Long,
-        initialDueAt: Long,
-        original: Question?
-    ): Question {
-        val trimmedPrompt = prompt.trim()
-        if (!isNew && original != null) {
-            return original.copy(
-                prompt = trimmedPrompt,
-                answer = answer,
-                updatedAt = nowEpochMillis
-            )
-        }
-        return Question(
-            id = if (isNew) EntityIds.newQuestionId() else id,
-            cardId = cardId,
-            prompt = trimmedPrompt,
-            answer = answer,
-            tags = emptyList(),
-            status = QuestionStatus.ACTIVE,
-            stageIndex = 0,
-            dueAt = initialDueAt,
-            lastReviewedAt = null,
-            reviewCount = 0,
-            lapseCount = 0,
-            createdAt = original?.createdAt ?: nowEpochMillis,
-            updatedAt = nowEpochMillis
-        )
-    }
-
     companion object {
         private const val AUTO_SAVE_DELAY_MILLIS = 1_500L
 
@@ -643,9 +606,18 @@ class QuestionEditorViewModel(
             QuestionEditorViewModel(
                 cardId = cardId,
                 deckId = deckId,
-                cardRepository = cardRepository,
-                questionRepository = questionRepository,
                 questionEditorDraftRepository = questionEditorDraftRepository,
+                loadQuestionEditorContentUseCase = LoadQuestionEditorContentUseCase(
+                    cardRepository = cardRepository,
+                    questionRepository = questionRepository,
+                    questionEditorDraftRepository = questionEditorDraftRepository
+                ),
+                saveQuestionEditorChangesUseCase = SaveQuestionEditorChangesUseCase(
+                    cardRepository = cardRepository,
+                    questionRepository = questionRepository,
+                    questionEditorDraftRepository = questionEditorDraftRepository,
+                    timeProvider = timeProvider
+                ),
                 timeProvider = timeProvider
             )
         }

@@ -3,6 +3,7 @@ package com.kariscode.yike.feature.home
 import com.kariscode.yike.domain.model.Deck
 import com.kariscode.yike.domain.model.DeckSummary
 import com.kariscode.yike.domain.model.TodayReviewSummary
+import com.kariscode.yike.domain.usecase.GetHomeOverviewUseCase
 import com.kariscode.yike.testsupport.FakeDeckRepository
 import com.kariscode.yike.testsupport.FakeQuestionRepository
 import com.kariscode.yike.testsupport.FixedTimeProvider
@@ -42,8 +43,10 @@ class HomeViewModelTest {
             }
 
             val viewModel = HomeViewModel(
-                questionRepository = questionRepository,
-                deckRepository = deckRepository,
+                getHomeOverviewUseCase = GetHomeOverviewUseCase(
+                    questionRepository = questionRepository,
+                    deckRepository = deckRepository
+                ),
                 timeProvider = FixedTimeProvider(nowEpochMillis = 1_700_000_000_000L)
             )
             advanceUntilIdle()
@@ -75,8 +78,10 @@ class HomeViewModelTest {
             }
 
             val viewModel = HomeViewModel(
-                questionRepository = questionRepository,
-                deckRepository = deckRepository,
+                getHomeOverviewUseCase = GetHomeOverviewUseCase(
+                    questionRepository = questionRepository,
+                    deckRepository = deckRepository
+                ),
                 timeProvider = FixedTimeProvider(nowEpochMillis = 1_700_000_000_000L)
             )
             advanceUntilIdle()
@@ -98,8 +103,10 @@ class HomeViewModelTest {
         Dispatchers.setMain(UnconfinedTestDispatcher(testScheduler))
         try {
             val viewModel = HomeViewModel(
-                questionRepository = FakeQuestionRepository(),
-                deckRepository = FakeDeckRepository(),
+                getHomeOverviewUseCase = GetHomeOverviewUseCase(
+                    questionRepository = FakeQuestionRepository(),
+                    deckRepository = FakeDeckRepository()
+                ),
                 timeProvider = FixedTimeProvider(nowEpochMillis = 1_700_000_000_000L)
             )
             advanceUntilIdle()
@@ -127,8 +134,10 @@ class HomeViewModelTest {
             }
 
             val viewModel = HomeViewModel(
-                questionRepository = questionRepository,
-                deckRepository = FakeDeckRepository(),
+                getHomeOverviewUseCase = GetHomeOverviewUseCase(
+                    questionRepository = questionRepository,
+                    deckRepository = FakeDeckRepository()
+                ),
                 timeProvider = FixedTimeProvider(nowEpochMillis = 1_700_000_000_000L)
             )
             advanceUntilIdle()

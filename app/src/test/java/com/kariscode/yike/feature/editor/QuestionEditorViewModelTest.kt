@@ -8,6 +8,8 @@ import com.kariscode.yike.domain.model.QuestionEditorDraftItemSnapshot
 import com.kariscode.yike.domain.model.QuestionEditorDraftSnapshot
 import com.kariscode.yike.domain.model.QuestionStatus
 import com.kariscode.yike.domain.scheduler.InitialDueAtCalculator
+import com.kariscode.yike.domain.usecase.LoadQuestionEditorContentUseCase
+import com.kariscode.yike.domain.usecase.SaveQuestionEditorChangesUseCase
 import com.kariscode.yike.testsupport.FakeCardRepository
 import com.kariscode.yike.testsupport.FakeQuestionEditorDraftRepository
 import com.kariscode.yike.testsupport.FakeQuestionRepository
@@ -335,9 +337,18 @@ class QuestionEditorViewModelTest {
     ): QuestionEditorViewModel = QuestionEditorViewModel(
         cardId = "card_1",
         deckId = "deck_1",
-        cardRepository = cardRepository,
-        questionRepository = questionRepository,
         questionEditorDraftRepository = draftRepository,
+        loadQuestionEditorContentUseCase = LoadQuestionEditorContentUseCase(
+            cardRepository = cardRepository,
+            questionRepository = questionRepository,
+            questionEditorDraftRepository = draftRepository
+        ),
+        saveQuestionEditorChangesUseCase = SaveQuestionEditorChangesUseCase(
+            cardRepository = cardRepository,
+            questionRepository = questionRepository,
+            questionEditorDraftRepository = draftRepository,
+            timeProvider = timeProvider
+        ),
         timeProvider = timeProvider
     )
 
