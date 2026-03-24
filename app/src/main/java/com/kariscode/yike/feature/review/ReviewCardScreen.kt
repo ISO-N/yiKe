@@ -9,11 +9,17 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.dp
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -29,6 +35,7 @@ import com.kariscode.yike.ui.component.YikeBadge
 import com.kariscode.yike.ui.component.YikeDangerConfirmationDialog
 import com.kariscode.yike.ui.component.YikeFlowScaffold
 import com.kariscode.yike.ui.component.YikeHeaderBlock
+import com.kariscode.yike.ui.component.YikeLoadingBanner
 import com.kariscode.yike.ui.component.YikePrimaryButton
 import com.kariscode.yike.ui.component.YikeProgressBar
 import com.kariscode.yike.ui.component.YikeRatingButton
@@ -81,6 +88,7 @@ fun ReviewCardScreen(
         ReviewCardContent(
             uiState = uiState,
             onRevealAnswer = viewModel::onRevealAnswerClick,
+            onHideAnswer = viewModel::onHideAnswerClick,
             onRate = viewModel::onRateClick,
             onRetryLoad = viewModel::loadSession,
             onContinueNextCard = viewModel::onContinueNextCardClick,
@@ -110,6 +118,7 @@ fun ReviewCardScreen(
 fun ReviewCardContent(
     uiState: ReviewCardUiState,
     onRevealAnswer: () -> Unit,
+    onHideAnswer: () -> Unit,
     onRate: (ReviewRating) -> Unit,
     onRetryLoad: () -> Unit,
     onContinueNextCard: () -> Unit,
@@ -125,7 +134,7 @@ fun ReviewCardContent(
     ) {
         when {
             uiState.isLoading -> {
-                YikeStateBanner(
+                YikeLoadingBanner(
                     title = "正在加载复习内容",
                     description = "稍等一下，我们会按当前卡片的到期问题顺序为你展开。"
                 )
@@ -134,7 +143,7 @@ fun ReviewCardContent(
             uiState.errorMessage != null && uiState.currentQuestion == null && !uiState.isCompleted -> {
                 YikeStateBanner(
                     title = "暂时没能打开这张卡片",
-                    description = uiState.errorMessage
+                    description = uiState.errorMessage.orEmpty()
                 ) {
                     Row(horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
                         YikePrimaryButton(
@@ -163,16 +172,12 @@ fun ReviewCardContent(
             else -> {
                 ReviewProgressSection(uiState = uiState)
                 uiState.currentQuestion?.let { currentQuestion ->
-                    QuestionPromptSection(question = currentQuestion)
-                    AnswerSection(
-                        answerVisible = uiState.answerVisible,
-                        answerText = currentQuestion.answerText,
-                        onRevealAnswer = onRevealAnswer
-                    )
-                    RatingSection(
+                    ReviewQuestionInteractionSection(
                         question = currentQuestion,
                         answerVisible = uiState.answerVisible,
                         isSubmitting = uiState.isSubmitting,
+                        onRevealAnswer = onRevealAnswer,
+                        onHideAnswer = onHideAnswer,
                         onRate = onRate
                     )
                 }
@@ -184,6 +189,61 @@ fun ReviewCardContent(
                 }
             }
         }
+    }
+}
+
+/**
+ * 当前题目的交互集中在同一块中，是为了让滑动评分只作用于明确区域，
+ * 同时把“先看题、再看答案、最后评分”的节奏维持在同一视觉流里。
+ */
+@Composable
+private fun ReviewQuestionInteractionSection(
+    question: ReviewQuestionUiModel,
+    answerVisible: Boolean,
+    isSubmitting: Boolean,
+    onRevealAnswer: () -> Unit,
+    onHideAnswer: () -> Unit,
+    onRate: (ReviewRating) -> Unit
+) {
+    val swipeThresholdPx = with(LocalDensity.current) { 72.dp.toPx() }
+    Column(
+        verticalArrangement = Arrangement.spacedBy(LocalYikeSpacing.current.lg),
+        modifier = Modifier.pointerInput(question.questionId, answerVisible, isSubmitting) {
+            if (!answerVisible || isSubmitting) {
+                return@pointerInput
+            }
+            var totalDrag = Offset.Zero
+            detectDragGestures(
+                onDragStart = { totalDrag = Offset.Zero },
+                onDrag = { change, dragAmount ->
+                    change.consume()
+                    totalDrag += Offset(dragAmount.x, dragAmount.y)
+                },
+                onDragEnd = {
+                    ReviewSwipeGesture.fromOffset(
+                        totalDrag = totalDrag,
+                        thresholdPx = swipeThresholdPx
+                    )?.let { gesture ->
+                        onRate(gesture.rating)
+                    }
+                }
+            )
+        }
+    ) {
+        QuestionPromptSection(question = question)
+        AnswerSection(
+            answerVisible = answerVisible,
+            answerText = question.answerText,
+            isSubmitting = isSubmitting,
+            onRevealAnswer = onRevealAnswer,
+            onHideAnswer = onHideAnswer
+        )
+        RatingSection(
+            question = question,
+            answerVisible = answerVisible,
+            isSubmitting = isSubmitting,
+            onRate = onRate
+        )
     }
 }
 
@@ -250,7 +310,9 @@ private fun QuestionPromptSection(
 private fun AnswerSection(
     answerVisible: Boolean,
     answerText: String,
-    onRevealAnswer: () -> Unit
+    isSubmitting: Boolean,
+    onRevealAnswer: () -> Unit,
+    onHideAnswer: () -> Unit
 ) {
     AnimatedContent(
         targetState = answerVisible,
@@ -280,6 +342,17 @@ private fun AnswerSection(
                     YikeBadge(text = "等待评分")
                 }
                 Text(text = answerText)
+                YikeSecondaryButton(
+                    text = "重新记忆",
+                    onClick = onHideAnswer,
+                    enabled = !isSubmitting,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Text(
+                    text = "如果想先再完整回忆一遍，可以先收起答案，再重新决定评分。",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
         }
     }
@@ -305,20 +378,63 @@ private fun RatingSection(
             YikeHeaderBlock(
                 eyebrow = "评分",
                 title = "这题掌握得怎么样？",
-                subtitle = if (isSubmitting) "正在记录本次评分，请稍等。" else "四档评分都会显示对应的下次复习间隔，帮助你避免只凭感觉判断。"
+                subtitle = if (isSubmitting) {
+                    "正在记录本次评分，请稍等。"
+                } else {
+                    "支持滑动评分：左滑完全不会，右滑很轻松，上滑基本会，下滑有印象。"
+                }
             )
-            question.ratingHints.chunked(2).forEach { rowHints ->
-                Row(horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
-                    rowHints.forEach { hint ->
-                        ReviewRatingHintCard(
-                            hint = hint,
-                            isSubmitting = isSubmitting,
-                            onRate = onRate,
-                            modifier = Modifier.weight(1f)
-                        )
+            ReviewGestureHintSection()
+            BoxWithConstraints {
+                val useSingleColumn = maxWidth < 420.dp || LocalDensity.current.fontScale >= 1.15f
+                if (useSingleColumn) {
+                    Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
+                        question.ratingHints.forEach { hint ->
+                            ReviewRatingHintCard(
+                                hint = hint,
+                                isSubmitting = isSubmitting,
+                                onRate = onRate,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
+                    }
+                } else {
+                    question.ratingHints.chunked(2).forEach { rowHints ->
+                        Row(horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
+                            rowHints.forEach { hint ->
+                                ReviewRatingHintCard(
+                                    hint = hint,
+                                    isSubmitting = isSubmitting,
+                                    onRate = onRate,
+                                    modifier = Modifier.weight(1f)
+                                )
+                            }
+                        }
                     }
                 }
             }
+        }
+    }
+}
+
+/**
+ * 手势提示显式展示方向映射，是为了让首次进入的新交互具备可发现性，
+ * 不要求用户靠试错才知道上下左右各代表什么评分。
+ */
+@Composable
+private fun ReviewGestureHintSection() {
+    val spacing = LocalYikeSpacing.current
+    YikeStateBanner(
+        title = "滑动也能评分",
+        description = "按钮点击仍然可用，手势只是给连续复习补一条更顺手的快捷路径。"
+    ) {
+        Row(horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
+            YikeBadge(text = "左滑 完全不会")
+            YikeBadge(text = "右滑 很轻松")
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
+            YikeBadge(text = "上滑 基本会")
+            YikeBadge(text = "下滑 有印象")
         }
     }
 }
@@ -422,6 +538,39 @@ private fun ReviewRatingHintCard(
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
+    }
+}
+
+/**
+ * 手势方向和评分的映射集中在一处，是为了把阈值判断与评分语义绑定起来，
+ * 后续如果要调灵敏度或补测试，不必再到 UI 结构里翻找分散条件。
+ */
+private enum class ReviewSwipeGesture(val rating: ReviewRating) {
+    LEFT(ReviewRating.AGAIN),
+    RIGHT(ReviewRating.EASY),
+    UP(ReviewRating.GOOD),
+    DOWN(ReviewRating.HARD);
+
+    companion object {
+        /**
+         * 只有拖拽距离足够明确时才判定一次滑动评分，是为了避免普通滚动或轻微抖动被误识别成提交。
+         */
+        fun fromOffset(
+            totalDrag: Offset,
+            thresholdPx: Float
+        ): ReviewSwipeGesture? {
+            val horizontalDistance = kotlin.math.abs(totalDrag.x)
+            val verticalDistance = kotlin.math.abs(totalDrag.y)
+            val dominantDistance = maxOf(horizontalDistance, verticalDistance)
+            if (dominantDistance < thresholdPx) {
+                return null
+            }
+            return if (horizontalDistance >= verticalDistance) {
+                if (totalDrag.x < 0f) LEFT else RIGHT
+            } else {
+                if (totalDrag.y < 0f) UP else DOWN
+            }
+        }
     }
 }
 

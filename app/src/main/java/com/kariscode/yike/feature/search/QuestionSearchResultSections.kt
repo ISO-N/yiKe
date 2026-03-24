@@ -25,6 +25,8 @@ import com.kariscode.yike.ui.theme.LocalYikeSpacing
  */
 internal fun LazyListScope.questionSearchResultItems(
     uiState: QuestionSearchUiState,
+    onClearFilters: () -> Unit,
+    onCreateContent: (() -> Unit)?,
     onOpenEditor: (String) -> Unit,
     onOpenReview: (String) -> Unit,
     onOpenPractice: (PracticeSessionArgs) -> Unit
@@ -38,7 +40,22 @@ internal fun LazyListScope.questionSearchResultItems(
                 } else {
                     "当前筛选没有命中结果，可以继续保留这些条件，或先清空熟练度和卡片筛选再扩大范围。"
                 }
-            )
+            ) {
+                Row(horizontalArrangement = Arrangement.spacedBy(LocalYikeSpacing.current.sm)) {
+                    YikePrimaryButton(
+                        text = "清空筛选",
+                        onClick = onClearFilters,
+                        modifier = Modifier.weight(1f)
+                    )
+                    if (onCreateContent != null) {
+                        YikeSecondaryButton(
+                            text = buildEmptyStateActionLabel(uiState),
+                            onClick = onCreateContent,
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                }
+            }
         }
         return
     }
@@ -54,6 +71,17 @@ internal fun LazyListScope.questionSearchResultItems(
             onOpenPractice = onOpenPractice
         )
     }
+}
+
+/**
+ * 空结果引导文案根据当前筛选上下文切换，是为了让用户知道下一步会进入“当前卡片 / 当前卡组 / 全局内容管理”的哪一层。
+ */
+private fun buildEmptyStateActionLabel(
+    uiState: QuestionSearchUiState
+): String = when {
+    uiState.selectedCardId != null -> "去当前卡片补内容"
+    uiState.selectedDeckId != null -> "去当前卡组补内容"
+    else -> "去内容管理"
 }
 
 /**

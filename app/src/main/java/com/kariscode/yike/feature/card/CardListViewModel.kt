@@ -67,6 +67,12 @@ class CardListViewModel(
     private val timeProvider: TimeProvider
 ) : ViewModel() {
     /**
+     * 卡组元信息与卡片列表都需要支持手动重试，因此各自保留任务句柄，便于失败后显式重启。
+     */
+    private var deckMetadataJob: Job? = null
+    private var cardSummariesJob: Job? = null
+
+    /**
      * 熟练度摘要用独立 Job 收口，是为了在列表连续发射时只保留最后一次统计，避免无意义叠加查询。
      */
     private var masterySummaryJob: Job? = null
@@ -89,12 +95,24 @@ class CardListViewModel(
     val uiState: StateFlow<CardListUiState> = _uiState.asStateFlow()
 
     init {
-        /**
-         * deck 元数据与卡片列表改成各自独立加载，是为了去掉 `first + collect` 的双读模式，
-         * 同时继续保持列表与标题都能各自实时更新。
-         */
-        viewModelScope.launch { loadDeckMetadata() }
-        viewModelScope.launch { observeCardSummaries() }
+        refresh()
+    }
+
+    /**
+     * 重试时要把标题读取和列表流订阅一起重建，是为了保证错误恢复后页面重新回到完整的首屏加载语义。
+     */
+    fun refresh() {
+        loadingTracker = CardListLoadingTracker()
+        _uiState.update { state ->
+            state.copy(
+                isLoading = true,
+                errorMessage = null
+            )
+        }
+        deckMetadataJob?.cancel()
+        cardSummariesJob?.cancel()
+        deckMetadataJob = viewModelScope.launch { loadDeckMetadata() }
+        cardSummariesJob = viewModelScope.launch { observeCardSummaries() }
     }
 
     /**

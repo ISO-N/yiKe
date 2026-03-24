@@ -194,6 +194,20 @@ class ReviewCardViewModel(
     }
 
     /**
+     * 展开答案后允许用户回到“继续先想一遍”的状态，
+     * 是为了给不想立刻评分的场景留出回旋空间，而不是只能硬着头皮继续提交。
+     */
+    fun onHideAnswerClick() {
+        _uiState.update { state ->
+            if (state.isSubmitting) {
+                state
+            } else {
+                state.copy(answerVisible = false, errorMessage = null)
+            }
+        }
+    }
+
+    /**
      * 评分成功后立即推进到下一题或完成态，确保“评分一次即完成一次处理”的规则在 UI 层同步生效。
      */
     fun onRateClick(rating: ReviewRating) {
