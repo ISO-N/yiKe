@@ -17,6 +17,7 @@ import com.kariscode.yike.domain.model.QuestionMasteryLevel
 import com.kariscode.yike.domain.model.QuestionStatus
 import com.kariscode.yike.navigation.YikeNavigator
 import com.kariscode.yike.ui.component.YikeFlowScaffold
+import com.kariscode.yike.ui.component.YikeLoadingBanner
 import com.kariscode.yike.ui.component.YikePrimaryButton
 import com.kariscode.yike.ui.component.YikeSecondaryButton
 import com.kariscode.yike.ui.component.YikeStateBanner
@@ -58,12 +59,23 @@ fun QuestionSearchScreen(
             uiState = uiState,
             onRetry = viewModel::refresh,
             onKeywordChange = viewModel::onKeywordChange,
+            onSearchTriggered = viewModel::refresh,
             onTagSelected = viewModel::onTagSelected,
             onStatusSelected = viewModel::onStatusSelected,
             onDeckSelected = viewModel::onDeckSelected,
             onCardSelected = viewModel::onCardSelected,
             onMasterySelected = viewModel::onMasterySelected,
             onClearFilters = viewModel::onClearFilters,
+            onCreateContent = {
+                uiState.selectedCardId?.let { selectedCardId ->
+                    navigator.openQuestionEditor(
+                        cardId = selectedCardId,
+                        deckId = deckIdForEditor
+                    )
+                } ?: uiState.selectedDeckId?.let { selectedDeckId ->
+                    navigator.openCardList(selectedDeckId)
+                } ?: navigator.openDeckList()
+            },
             onOpenEditor = { cardId -> navigator.openQuestionEditor(cardId = cardId, deckId = deckIdForEditor) },
             onOpenReview = navigator::openReviewCard,
             onOpenPractice = navigator::openPracticeSetup,
@@ -81,12 +93,14 @@ private fun QuestionSearchContent(
     uiState: QuestionSearchUiState,
     onRetry: () -> Unit,
     onKeywordChange: (String) -> Unit,
+    onSearchTriggered: () -> Unit,
     onTagSelected: (String?) -> Unit,
     onStatusSelected: (QuestionStatus?) -> Unit,
     onDeckSelected: (String?) -> Unit,
     onCardSelected: (String?) -> Unit,
     onMasterySelected: (QuestionMasteryLevel?) -> Unit,
     onClearFilters: () -> Unit,
+    onCreateContent: () -> Unit,
     onOpenEditor: (String) -> Unit,
     onOpenReview: (String) -> Unit,
     onOpenPractice: (PracticeSessionArgs) -> Unit,
@@ -101,7 +115,7 @@ private fun QuestionSearchContent(
     ) {
         if (uiState.isLoading && uiState.results.isEmpty() && uiState.errorMessage == null) {
             item {
-                YikeStateBanner(
+                YikeLoadingBanner(
                     title = "正在整理题库结果",
                     description = "稍等一下，我们会把关键字、标签和层级筛选对应的结果一起准备好。"
                 )
@@ -129,7 +143,11 @@ private fun QuestionSearchContent(
             }
         }
         item {
-            QuestionSearchHeroSection(uiState = uiState, onKeywordChange = onKeywordChange)
+            QuestionSearchHeroSection(
+                uiState = uiState,
+                onKeywordChange = onKeywordChange,
+                onSearchTriggered = onSearchTriggered
+            )
         }
         item {
             QuestionSearchFilterSection(
@@ -152,6 +170,8 @@ private fun QuestionSearchContent(
         }
         questionSearchResultItems(
             uiState = uiState,
+            onClearFilters = onClearFilters,
+            onCreateContent = onCreateContent,
             onOpenEditor = onOpenEditor,
             onOpenReview = onOpenReview,
             onOpenPractice = onOpenPractice

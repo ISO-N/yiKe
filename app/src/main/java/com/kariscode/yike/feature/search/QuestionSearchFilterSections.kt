@@ -4,12 +4,17 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.text.input.ImeAction
 import com.kariscode.yike.domain.model.QuestionMasteryLevel
 import com.kariscode.yike.domain.model.QuestionStatus
 import com.kariscode.yike.ui.component.YikeBadge
@@ -24,8 +29,11 @@ import com.kariscode.yike.ui.theme.LocalYikeSpacing
 @Composable
 internal fun QuestionSearchHeroSection(
     uiState: QuestionSearchUiState,
-    onKeywordChange: (String) -> Unit
+    onKeywordChange: (String) -> Unit,
+    onSearchTriggered: () -> Unit
 ) {
+    val focusManager = LocalFocusManager.current
+    val keyboardController = LocalSoftwareKeyboardController.current
     YikeSurfaceCard {
         Text(text = "快速定位需要处理的问题", style = MaterialTheme.typography.titleLarge)
         Text(
@@ -38,7 +46,15 @@ internal fun QuestionSearchHeroSection(
             onValueChange = onKeywordChange,
             label = { Text("搜索问题或答案") },
             modifier = Modifier.fillMaxWidth(),
-            singleLine = true
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+            keyboardActions = KeyboardActions(
+                onSearch = {
+                    focusManager.clearFocus(force = true)
+                    keyboardController?.hide()
+                    onSearchTriggered()
+                }
+            )
         )
     }
 }

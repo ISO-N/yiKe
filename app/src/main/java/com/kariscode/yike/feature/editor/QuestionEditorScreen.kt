@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -28,6 +29,7 @@ import com.kariscode.yike.ui.component.YikeBadge
 import com.kariscode.yike.ui.component.YikeDangerConfirmationDialog
 import com.kariscode.yike.ui.component.YikeFlowScaffold
 import com.kariscode.yike.ui.component.YikeHeaderBlock
+import com.kariscode.yike.ui.component.YikeLoadingBanner
 import com.kariscode.yike.ui.component.YikePrimaryButton
 import com.kariscode.yike.ui.component.YikeScrollableColumn
 import com.kariscode.yike.ui.component.YikeSecondaryButton
@@ -143,12 +145,12 @@ internal fun QuestionEditorContent(
     val spacing = LocalYikeSpacing.current
     var pendingDeleteQuestionId by rememberSaveable { mutableStateOf<String?>(null) }
     YikeScrollableColumn(
-        modifier = modifier,
+        modifier = modifier.imePadding(),
         contentPadding = contentPadding
     ) {
         when {
             uiState.isLoading -> {
-                YikeStateBanner(
+                YikeLoadingBanner(
                     title = "正在加载卡片内容",
                     description = "稍等一下，我们会把当前卡片、问题列表和可恢复草稿一起准备好。"
                 )

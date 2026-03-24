@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -84,6 +85,28 @@ fun YikeStateBanner(
             content()
         }
     }
+}
+
+/**
+ * 加载态补上旋转指示器，是为了让“正在请求中”和“只是页面上有一段说明文案”能被用户一眼区分，
+ * 减少长耗时场景里对是否卡住的误判。
+ */
+@Composable
+fun YikeLoadingBanner(
+    title: String,
+    description: String,
+    modifier: Modifier = Modifier
+) {
+    YikeStateBanner(
+        title = title,
+        description = description,
+        modifier = modifier,
+        trailing = {
+            CircularProgressIndicator(
+                strokeWidth = 2.dp
+            )
+        }
+    )
 }
 
 /**
