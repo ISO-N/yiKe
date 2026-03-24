@@ -30,6 +30,7 @@ import com.kariscode.yike.ui.component.YikeFab
 import com.kariscode.yike.ui.component.YikeFlowScaffold
 import com.kariscode.yike.ui.component.YikeHeroCard
 import com.kariscode.yike.ui.component.YikeListItemCard
+import com.kariscode.yike.ui.component.YikeLoadingBanner
 import com.kariscode.yike.ui.component.YikeMetricCard
 import com.kariscode.yike.ui.component.YikeOperationFeedback
 import com.kariscode.yike.ui.component.YikePrimaryButton
@@ -71,6 +72,7 @@ fun CardListScreen(
             uiState = uiState,
             navigator = navigator,
             onCreateCard = viewModel::onCreateCardClick,
+            onRetry = viewModel::refresh,
             onTitleChange = viewModel::onDraftTitleChange,
             onDescriptionChange = viewModel::onDraftDescriptionChange,
             onDismissEditor = viewModel::onDismissEditor,
@@ -95,6 +97,7 @@ private fun CardListContent(
     uiState: CardListUiState,
     navigator: YikeNavigator,
     onCreateCard: () -> Unit,
+    onRetry: () -> Unit,
     onTitleChange: (String) -> Unit,
     onDescriptionChange: (String) -> Unit,
     onDismissEditor: () -> Unit,
@@ -135,7 +138,7 @@ private fun CardListContent(
 
         when {
             uiState.isLoading -> {
-                YikeStateBanner(
+                YikeLoadingBanner(
                     title = "正在加载卡片",
                     description = "稍等一下，我们会把卡片统计和今日到期数量一起准备好。"
                 )
@@ -144,8 +147,21 @@ private fun CardListContent(
             uiState.errorMessage != null -> {
                 YikeStateBanner(
                     title = ErrorMessages.CARD_LIST_LOAD_FAILED,
-                    description = uiState.errorMessage
-                )
+                    description = uiState.errorMessage.orEmpty()
+                ) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(LocalYikeSpacing.current.sm)) {
+                        YikePrimaryButton(
+                            text = "重试",
+                            onClick = onRetry,
+                            modifier = Modifier.weight(1f)
+                        )
+                        YikeSecondaryButton(
+                            text = "新建卡片",
+                            onClick = onCreateCard,
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                }
             }
 
             uiState.items.isEmpty() -> {

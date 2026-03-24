@@ -29,6 +29,7 @@ import com.kariscode.yike.ui.component.YikeDangerButton
 import com.kariscode.yike.ui.component.YikeFab
 import com.kariscode.yike.ui.component.YikeHeroCard
 import com.kariscode.yike.ui.component.YikeListItemCard
+import com.kariscode.yike.ui.component.YikeLoadingBanner
 import com.kariscode.yike.ui.component.YikeMetricCard
 import com.kariscode.yike.ui.component.YikeOperationFeedback
 import com.kariscode.yike.ui.component.YikePrimaryButton
@@ -74,6 +75,7 @@ fun DeckListScreen(
         DeckListContent(
             uiState = uiState,
             onCreateDeck = viewModel::onCreateDeckClick,
+            onRetry = viewModel::refresh,
             navigator = navigator,
             onKeywordChange = viewModel::onKeywordChange,
             onNameChange = viewModel::onDraftNameChange,
@@ -97,6 +99,7 @@ fun DeckListScreen(
 private fun DeckListContent(
     uiState: DeckListUiState,
     onCreateDeck: () -> Unit,
+    onRetry: () -> Unit,
     navigator: YikeNavigator,
     onKeywordChange: (String) -> Unit,
     onNameChange: (String) -> Unit,
@@ -122,7 +125,7 @@ private fun DeckListContent(
 
         when {
             uiState.isLoading -> {
-                YikeStateBanner(
+                YikeLoadingBanner(
                     title = "正在加载卡组",
                     description = "正在同步卡组和到期统计。"
                 )
@@ -131,8 +134,21 @@ private fun DeckListContent(
             uiState.errorMessage != null -> {
                 YikeStateBanner(
                     title = ErrorMessages.DECK_LIST_LOAD_FAILED,
-                    description = uiState.errorMessage
-                )
+                    description = uiState.errorMessage.orEmpty()
+                ) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(LocalYikeSpacing.current.sm)) {
+                        YikePrimaryButton(
+                            text = "重试",
+                            onClick = onRetry,
+                            modifier = Modifier.weight(1f)
+                        )
+                        YikeSecondaryButton(
+                            text = "创建卡组",
+                            onClick = onCreateDeck,
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                }
             }
 
             uiState.items.isEmpty() -> {
@@ -152,7 +168,13 @@ private fun DeckListContent(
                 YikeStateBanner(
                     title = "没有找到匹配的卡组",
                     description = "换个关键词试试，卡组名称、说明和标签都会参与查找。"
-                )
+                ) {
+                    YikeSecondaryButton(
+                        text = "清空关键词",
+                        onClick = { onKeywordChange("") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
             }
 
             else -> {

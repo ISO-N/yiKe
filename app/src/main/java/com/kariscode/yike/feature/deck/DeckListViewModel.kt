@@ -16,6 +16,7 @@ import com.kariscode.yike.domain.model.DeckSummary
 import com.kariscode.yike.domain.repository.DeckRepository
 import com.kariscode.yike.domain.repository.StudyInsightsRepository
 import com.kariscode.yike.domain.scheduler.ReviewSchedulerV1
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -47,6 +48,11 @@ class DeckListViewModel(
     private val studyInsightsRepository: StudyInsightsRepository,
     private val timeProvider: TimeProvider
 ) : ViewModel() {
+    /**
+     * 卡组聚合流在失败后需要可重启，因此单独保存订阅任务，供“重试”明确取消并重新拉起。
+     */
+    private var deckSummariesJob: Job? = null
+
     private var insightTags: List<String> = emptyList()
 
     private val _uiState = MutableStateFlow(
@@ -64,38 +70,20 @@ class DeckListViewModel(
     val uiState: StateFlow<DeckListUiState> = _uiState.asStateFlow()
 
     init {
-        /**
-         * 订阅列表聚合流是为了让“新增/编辑/归档/删除”后 UI 自动刷新，
-         * 而不是在每个操作完成后手动触发 reload。
-         */
-        viewModelScope.launch {
-            val now = timeProvider.nowEpochMillis()
-            deckRepository.observeActiveDeckSummaries(now)
-                .catch { throwable ->
-                    _uiState.update { state ->
-                        DeckListStateReducer.loadFailed(
-                            state = state,
-                            errorMessage = throwable.userMessageOr(ErrorMessages.LOAD_FAILED)
-                        )
-                    }
-                }
-                .collect { items ->
-                    _uiState.update { state ->
-                        DeckListStateReducer.itemsLoaded(
-                            state = state,
-                            items = items,
-                            visibleItems = filterVisibleItems(
-                                items = items,
-                                keyword = state.keyword
-                            ),
-                            availableTags = DeckTagNormalizer.mergeAvailableTags(
-                                items = items,
-                                insightTags = insightTags
-                            )
-                        )
-                    }
-                }
+        refresh()
+    }
+
+    /**
+     * 主动重试时需要同时重建卡组流订阅和标签候选，是为了把失败后的恢复路径也保持成完整快照。
+     */
+    fun refresh() {
+        _uiState.update { state ->
+            state.copy(
+                isLoading = true,
+                errorMessage = null
+            )
         }
+        observeDeckSummaries()
         refreshAvailableTags()
     }
 
@@ -252,6 +240,41 @@ class DeckListViewModel(
             },
             onFailure = { state, _ -> state }
         )
+    }
+
+    /**
+     * 卡组流订阅单独收口后，“首屏加载”和“用户点击重试”都能走同一条重建订阅路径。
+     */
+    private fun observeDeckSummaries() {
+        deckSummariesJob?.cancel()
+        deckSummariesJob = viewModelScope.launch {
+            val now = timeProvider.nowEpochMillis()
+            deckRepository.observeActiveDeckSummaries(now)
+                .catch { throwable ->
+                    _uiState.update { state ->
+                        DeckListStateReducer.loadFailed(
+                            state = state,
+                            errorMessage = throwable.userMessageOr(ErrorMessages.LOAD_FAILED)
+                        )
+                    }
+                }
+                .collect { items ->
+                    _uiState.update { state ->
+                        DeckListStateReducer.itemsLoaded(
+                            state = state,
+                            items = items,
+                            visibleItems = filterVisibleItems(
+                                items = items,
+                                keyword = state.keyword
+                            ),
+                            availableTags = DeckTagNormalizer.mergeAvailableTags(
+                                items = items,
+                                insightTags = insightTags
+                            )
+                        )
+                    }
+                }
+        }
     }
 
     /**
