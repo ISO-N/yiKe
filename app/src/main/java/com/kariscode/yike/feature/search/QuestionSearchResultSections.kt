@@ -33,7 +33,11 @@ internal fun LazyListScope.questionSearchResultItems(
         item {
             YikeStateBanner(
                 title = "没有找到符合条件的问题",
-                description = "可以尝试清空熟练度或卡片筛选，先扩大范围，再进入专项处理。"
+                description = if (uiState.keyword.isNotBlank()) {
+                    "已保留关键词“${uiState.keyword}”，可以继续微调它，或先清空熟练度和卡片筛选再扩大范围。"
+                } else {
+                    "当前筛选没有命中结果，可以继续保留这些条件，或先清空熟练度和卡片筛选再扩大范围。"
+                }
             )
         }
         return

@@ -19,6 +19,7 @@ import com.kariscode.yike.domain.model.DeckSummary
 import com.kariscode.yike.domain.model.PracticeSessionArgs
 import com.kariscode.yike.navigation.YikeNavigator
 import com.kariscode.yike.ui.component.YikeBadge
+import com.kariscode.yike.ui.component.YikeDangerButton
 import com.kariscode.yike.ui.component.YikeFab
 import com.kariscode.yike.ui.component.YikeHeroCard
 import com.kariscode.yike.ui.component.YikeListItemCard
@@ -278,22 +279,17 @@ private fun DeckSummaryCard(
                 onClick = onPractice,
                 modifier = Modifier.weight(1f)
             )
-        }
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(LocalYikeSpacing.current.sm)
-        ) {
             YikeSecondaryButton(
-                text = "编辑",
+                text = "编辑卡组",
                 onClick = onEdit,
                 modifier = Modifier.weight(1f)
             )
-            YikeSecondaryButton(
-                text = "归档",
-                onClick = onArchive,
-                modifier = Modifier.weight(1f)
-            )
         }
+        YikeDangerButton(
+            text = "归档这组内容",
+            onClick = onArchive,
+            modifier = Modifier.fillMaxWidth()
+        )
     }
 }
 
