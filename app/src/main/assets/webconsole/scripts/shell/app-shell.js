@@ -226,6 +226,7 @@ function renderContextStrip() {
 function resolveContextPayload() {
     const deck = state.decks.find((item) => item.id === state.selectedDeckId);
     const card = state.cards.find((item) => item.id === state.selectedCardId);
+    const question = state.questions.find((item) => item.id === state.selectedQuestionId);
     const base = {
         title: SECTION_TITLES[state.currentSection],
         description: "浏览器端会持续保留最近一次有效工作区上下文。",
@@ -238,6 +239,7 @@ function resolveContextPayload() {
         base.description = "围绕当前卡组和卡片上下文整理内容，并为后续学习入口保留返回路径。";
         if (deck) base.meta.push({ label: `卡组：${deck.name}` });
         if (card) base.meta.push({ label: `卡片：${card.title}` });
+        if (question) base.meta.push({ label: `问题：${question.prompt}` });
         if (!deck) base.meta.push({ label: "尚未选择卡组", warn: true });
         if (deck) {
             base.actions.push({ id: "jump-study", label: "去学习工作区", primary: true });
