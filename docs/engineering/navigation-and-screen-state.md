@@ -67,7 +67,7 @@ debug
   -> 卡组列表
       -> deck_list
           -> card_list/{deckId}
-              -> question_search?deckId={deckId}&cardId={cardId}
+              -> question_search?deckId={deckId}&cardId={cardId}&tag={tag}
               -> question_editor/{cardId}
               -> practice_setup?deckIds={deckIds}&cardIds={cardIds}
   -> 设置
@@ -117,11 +117,12 @@ debug
 - 必填：`cardId`
 - 用途：进入一张卡片的当次到期问题复习流
 
-### 5.4 `question_search?deckId={deckId}&cardId={cardId}`
+### 5.4 `question_search?deckId={deckId}&cardId={cardId}&tag={tag}`
 
 - 可选：`deckId`
 - 可选：`cardId`
-- 用途：支持首页进入全局题库搜索，也支持卡片页直接进入“检索本卡”
+- 可选：`tag`
+- 用途：支持首页进入全局题库搜索，也支持卡片页直接进入“检索本卡”，以及从卡组标签直接跳到预置标签筛选
 
 ### 5.5 `today_preview`
 
@@ -243,6 +244,8 @@ errorMessage: String?
 - 展示全部卡组
 - 支持按名称或说明查找卡组
 - 支持新建、编辑、归档
+- 标签可直接跳转到搜索页并预置同名标签筛选
+- 列表首屏只保留“进入卡组 / 开始练习”主操作，低频维护动作收进“更多操作”
 
 ### 8.2 `DeckListUiState` 建议
 
@@ -269,9 +272,9 @@ error: DeckListError?
 - `OnDeckNameChange`
 - `OnConfirmCreateDeck`
 - `OnDeckClick(deckId)`
+- `OnDeckTagClick(tag)`
 - `OnEditDeckClick(deckId)`
 - `OnArchiveDeckClick(deckId)`
-- `OnDeleteDeckClick(deckId)`
 
 ---
 
@@ -282,6 +285,8 @@ error: DeckListError?
 - 展示某卡组下的卡片
 - 支持新建卡片
 - 进入问题编辑
+- 保留“练习本卡 / 编辑问题”高频动作
+- 将编辑卡片、检索、归档、删除收进长按上下文菜单
 
 ### 9.2 `CardListUiState` 建议
 
@@ -301,6 +306,8 @@ error: CardListError?
 - `OnConfirmCreateCard`
 - `OnCardClick(cardId)`
 - `OnEditCardTitleClick(cardId)`
+- `OnCardLongPress(cardId)`
+- `OnOpenCardActionMenu(cardId)`
 - `OnArchiveCardClick(cardId)`
 - `OnDeleteCardClick(cardId)`
 
@@ -471,7 +478,7 @@ error: ReviewError?
 
 - 提示“本卡完成”
 - 展示评分分布、处理题数与耗时摘要
-- 提供“前往下一张卡片”或“返回首页”
+- 提供“继续复习 / 查看统计 / 返回首页”三向收尾动作
 
 ### 13.5 关键事件
 
@@ -585,6 +592,7 @@ errorMessage: String?
 - 提供已归档内容入口
 - 提供备份恢复入口
 - 展示应用信息
+- 以“复习设置 / 数据管理 / 关于应用”三组整理入口层级
 
 ### 14.2 `SettingsUiState` 建议
 
@@ -771,6 +779,7 @@ errorMessage: String?
 - 提供标签、状态、卡组、卡片筛选
 - 提供熟练度筛选
 - 在结果中暴露“编辑问题 / 立即复习”动作
+- 支持从卡组标签直接落到预置标签筛选
 
 ### 17.2 `QuestionSearchUiState` 建议
 

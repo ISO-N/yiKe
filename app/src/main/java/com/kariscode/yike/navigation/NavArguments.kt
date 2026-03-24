@@ -10,6 +10,7 @@ import com.kariscode.yike.domain.model.PracticeSessionArgs
 object NavArguments {
     const val DECK_ID = "deckId"
     const val CARD_ID = "cardId"
+    const val TAG = "tag"
     const val DECK_IDS = "deckIds"
     const val CARD_IDS = "cardIds"
     const val QUESTION_IDS = "questionIds"

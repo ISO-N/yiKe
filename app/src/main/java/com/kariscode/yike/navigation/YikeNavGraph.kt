@@ -206,12 +206,18 @@ fun YikeNavGraph(
                         type = NavType.StringType
                         nullable = true
                         defaultValue = null
+                    },
+                    navArgument(NavArguments.TAG) {
+                        type = NavType.StringType
+                        nullable = true
+                        defaultValue = null
                     }
                 )
             ) { entry ->
                 QuestionSearchScreen(
                     initialDeckId = entry.optionalStringArg(NavArguments.DECK_ID),
                     initialCardId = entry.optionalStringArg(NavArguments.CARD_ID),
+                    initialTag = entry.optionalStringArg(NavArguments.TAG),
                     navigator = navigator,
                     deckIdForEditor = entry.optionalStringArg(NavArguments.DECK_ID)
                 )

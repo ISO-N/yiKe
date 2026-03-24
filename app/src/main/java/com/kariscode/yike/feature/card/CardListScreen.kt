@@ -1,15 +1,21 @@
 package com.kariscode.yike.feature.card
 
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.kariscode.yike.app.LocalAppContainer
@@ -19,6 +25,7 @@ import com.kariscode.yike.domain.model.PracticeSessionArgs
 import com.kariscode.yike.navigation.YikeNavigator
 import com.kariscode.yike.ui.component.backNavigationAction
 import com.kariscode.yike.ui.component.YikeBadge
+import com.kariscode.yike.ui.component.YikeDangerButton
 import com.kariscode.yike.ui.component.YikeFab
 import com.kariscode.yike.ui.component.YikeFlowScaffold
 import com.kariscode.yike.ui.component.YikeHeroCard
@@ -291,7 +298,8 @@ private fun CardMasterySection(
 }
 
 /**
- * 单卡片列表项把主操作和维护操作拆开，是为了在窄屏与大字号下仍保留清晰的点击层级。
+ * 单卡片列表项把主操作留在首层、低频维护动作移到上下文菜单，是为了在窄屏与大字号下仍保留清晰层级，
+ * 同时把“长按查看更多操作”的路径稳定下来。
  */
 @Composable
 private fun CardSummaryCard(
@@ -304,9 +312,15 @@ private fun CardSummaryCard(
     onDelete: () -> Unit
 ) {
     val spacing = LocalYikeSpacing.current
+    var actionDialogVisible by remember(item.card.id) { mutableStateOf(false) }
     YikeListItemCard(
         title = item.card.title,
         summary = "${item.questionCount} 个问题",
+        modifier = Modifier.pointerInput(item.card.id) {
+            detectTapGestures(
+                onLongPress = { actionDialogVisible = true }
+            )
+        },
         supporting = item.card.description.ifBlank {
             if (item.dueQuestionCount > 0) {
                 "今天有 ${item.dueQuestionCount} 题到期，适合作为当前复习入口。"
@@ -334,23 +348,93 @@ private fun CardSummaryCard(
                 onClick = onOpenEditor,
                 modifier = Modifier.weight(1f)
             )
-            YikeSecondaryButton(
-                text = "编辑卡片",
-                onClick = onEditMeta,
+            TextButton(
+                onClick = { actionDialogVisible = true },
                 modifier = Modifier.weight(1f)
-            )
-        }
-        TextButton(
-            onClick = onOpenSearch,
-            modifier = Modifier.fillMaxWidth()
-        ) { Text("检索本卡") }
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(spacing.sm)
-        ) {
-            TextButton(onClick = onArchive, modifier = Modifier.weight(1f)) { Text("归档") }
-            TextButton(onClick = onDelete, modifier = Modifier.weight(1f)) { Text("删除") }
+            ) { Text("更多操作") }
         }
     }
+
+    if (actionDialogVisible) {
+        CardActionDialog(
+            cardTitle = item.card.title,
+            onDismiss = { actionDialogVisible = false },
+            onEditMeta = {
+                actionDialogVisible = false
+                onEditMeta()
+            },
+            onOpenSearch = {
+                actionDialogVisible = false
+                onOpenSearch()
+            },
+            onArchive = {
+                actionDialogVisible = false
+                onArchive()
+            },
+            onDelete = {
+                actionDialogVisible = false
+                onDelete()
+            }
+        )
+    }
+}
+
+/**
+ * 卡片页把低频维护动作集中到上下文菜单，是为了在窄屏下优先保留“练习 / 编辑问题”两条高频路径，
+ * 同时让长按整张卡片也能快速进入同一组维护动作。
+ */
+@Composable
+private fun CardActionDialog(
+    cardTitle: String,
+    onDismiss: () -> Unit,
+    onEditMeta: () -> Unit,
+    onOpenSearch: () -> Unit,
+    onArchive: () -> Unit,
+    onDelete: () -> Unit
+) {
+    val spacing = LocalYikeSpacing.current
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("卡片操作") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
+                Text("“$cardTitle” 的低频动作会集中在这里，避免卡片列表首屏信息过载。")
+                Text("也可以直接长按卡片，快速打开同一组操作。")
+            }
+        },
+        confirmButton = {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(spacing.sm)
+            ) {
+                YikePrimaryButton(
+                    text = "编辑卡片",
+                    onClick = onEditMeta,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                YikeSecondaryButton(
+                    text = "检索本卡",
+                    onClick = onOpenSearch,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                YikeSecondaryButton(
+                    text = "归档这张卡片",
+                    onClick = onArchive,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                YikeDangerButton(
+                    text = "删除这张卡片",
+                    onClick = onDelete,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        },
+        dismissButton = {
+            YikeSecondaryButton(
+                text = "关闭",
+                onClick = onDismiss
+            )
+        }
+    )
 }
 

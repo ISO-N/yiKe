@@ -69,6 +69,31 @@ class QuestionSearchViewModelTest {
     }
 
     /**
+     * 路由预置标签应在首轮查询里直接生效，
+     * 这样用户从卡组标签跳到搜索页时，不需要再手动补一次相同筛选。
+     */
+    @Test
+    fun init_withInitialTag_appliesTagFilterImmediately() = runTest {
+        Dispatchers.setMain(UnconfinedTestDispatcher(testScheduler))
+        try {
+            val studyInsightsRepository = FakeStudyInsightsRepository().apply {
+                searchResults = listOf(questionContext(questionId = "question_1"))
+            }
+
+            val viewModel = createViewModel(
+                initialTag = "高频",
+                studyInsightsRepository = studyInsightsRepository
+            )
+            advanceUntilIdle()
+
+            assertEquals("高频", viewModel.uiState.value.selectedTag)
+            assertEquals("高频", studyInsightsRepository.searchFilters.first().tag)
+        } finally {
+            Dispatchers.resetMain()
+        }
+    }
+
+    /**
      * 切换卡组后必须清空旧卡片筛选并加载新候选，
      * 否则搜索会在用户看不见的旧条件下悄悄继续生效。
      */
@@ -165,12 +190,14 @@ class QuestionSearchViewModelTest {
     private fun createViewModel(
         initialDeckId: String? = null,
         initialCardId: String? = null,
+        initialTag: String? = null,
         studyInsightsRepository: FakeStudyInsightsRepository = FakeStudyInsightsRepository(),
         deckRepository: FakeDeckRepository = FakeDeckRepository(),
         cardRepository: FakeCardRepository = FakeCardRepository()
     ): QuestionSearchViewModel = QuestionSearchViewModel(
         initialDeckId = initialDeckId,
         initialCardId = initialCardId,
+        initialTag = initialTag,
         studyInsightsRepository = studyInsightsRepository,
         deckRepository = deckRepository,
         cardRepository = cardRepository,

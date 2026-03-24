@@ -29,6 +29,7 @@ import kotlinx.coroutines.launch
 class QuestionSearchViewModel(
     private val initialDeckId: String?,
     private val initialCardId: String?,
+    private val initialTag: String?,
     private val studyInsightsRepository: StudyInsightsRepository,
     private val deckRepository: DeckRepository,
     private val cardRepository: CardRepository,
@@ -38,7 +39,7 @@ class QuestionSearchViewModel(
         QuestionSearchUiState(
             isLoading = true,
             keyword = "",
-            selectedTag = null,
+            selectedTag = initialTag,
             selectedStatus = QuestionStatus.ACTIVE,
             selectedDeckId = initialDeckId,
             selectedCardId = initialCardId,
@@ -260,6 +261,7 @@ class QuestionSearchViewModel(
         fun factory(
             initialDeckId: String?,
             initialCardId: String?,
+            initialTag: String?,
             studyInsightsRepository: StudyInsightsRepository,
             deckRepository: DeckRepository,
             cardRepository: CardRepository,
@@ -268,6 +270,7 @@ class QuestionSearchViewModel(
             QuestionSearchViewModel(
                 initialDeckId = initialDeckId,
                 initialCardId = initialCardId,
+                initialTag = initialTag,
                 studyInsightsRepository = studyInsightsRepository,
                 deckRepository = deckRepository,
                 cardRepository = cardRepository,

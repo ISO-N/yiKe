@@ -84,6 +84,7 @@ fun ReviewCardScreen(
             onRate = viewModel::onRateClick,
             onRetryLoad = viewModel::loadSession,
             onContinueNextCard = viewModel::onContinueNextCardClick,
+            onOpenAnalytics = navigator::openAnalytics,
             onBackHome = viewModel::onBackHomeClick,
             modifier = modifier,
             contentPadding = padding
@@ -112,6 +113,7 @@ fun ReviewCardContent(
     onRate: (ReviewRating) -> Unit,
     onRetryLoad: () -> Unit,
     onContinueNextCard: () -> Unit,
+    onOpenAnalytics: () -> Unit,
     onBackHome: () -> Unit,
     contentPadding: PaddingValues = PaddingValues(),
     modifier: Modifier = Modifier
@@ -153,6 +155,7 @@ fun ReviewCardContent(
                 ReviewCompletedSection(
                     uiState = uiState,
                     onContinueNextCard = onContinueNextCard,
+                    onOpenAnalytics = onOpenAnalytics,
                     onBackHome = onBackHome
                 )
             }
@@ -321,12 +324,14 @@ private fun RatingSection(
 }
 
 /**
- * 本卡完成态需要提供“继续下一张”和“返回首页”两个明确出口，避免用户停在流程尾部无所适从。
+ * 本卡完成态需要把“继续复习 / 查看统计 / 返回首页”三种收尾动作放到一起，
+ * 避免用户完成一张卡后还要回忆统计页或首页入口分别在哪里。
  */
 @Composable
 private fun ReviewCompletedSection(
     uiState: ReviewCardUiState,
     onContinueNextCard: () -> Unit,
+    onOpenAnalytics: () -> Unit,
     onBackHome: () -> Unit
 ) {
     val spacing = LocalYikeSpacing.current
@@ -335,7 +340,7 @@ private fun ReviewCompletedSection(
     } ?: 1
     YikeStateBanner(
         title = "本卡完成",
-        description = "已完成 ${uiState.completedCount} / ${uiState.totalCount} 题，耗时约 $elapsedMinutes 分钟。现在可以前往下一张卡片，或先回首页收尾。"
+        description = "已完成 ${uiState.completedCount} / ${uiState.totalCount} 题，耗时约 $elapsedMinutes 分钟。现在可以继续复习、查看统计，或先回首页收尾。"
     ) {
         Row(horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
             ReviewRating.entries.forEach { rating ->
@@ -347,14 +352,21 @@ private fun ReviewCompletedSection(
         }
         Row(horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
             YikePrimaryButton(
-                text = "前往下一张卡片",
+                text = "继续复习",
                 onClick = onContinueNextCard,
                 modifier = Modifier.weight(1f)
             )
             YikeSecondaryButton(
+                text = "查看统计",
+                onClick = onOpenAnalytics,
+                modifier = Modifier.weight(1f)
+            )
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
+            YikeSecondaryButton(
                 text = "返回首页",
                 onClick = onBackHome,
-                modifier = Modifier.weight(1f)
+                modifier = Modifier.fillMaxWidth()
             )
         }
     }

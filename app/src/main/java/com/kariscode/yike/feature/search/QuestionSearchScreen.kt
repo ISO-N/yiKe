@@ -30,6 +30,7 @@ import com.kariscode.yike.ui.theme.LocalYikeSpacing
 fun QuestionSearchScreen(
     initialDeckId: String?,
     initialCardId: String?,
+    initialTag: String?,
     navigator: YikeNavigator,
     deckIdForEditor: String?,
     modifier: Modifier = Modifier
@@ -39,6 +40,7 @@ fun QuestionSearchScreen(
         factory = QuestionSearchViewModel.factory(
             initialDeckId = initialDeckId,
             initialCardId = initialCardId,
+            initialTag = initialTag,
             studyInsightsRepository = container.studyInsightsRepository,
             deckRepository = container.deckRepository,
             cardRepository = container.cardRepository,

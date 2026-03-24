@@ -1,15 +1,21 @@
 package com.kariscode.yike.feature.deck
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -159,6 +165,9 @@ private fun DeckListContent(
                                 PracticeSessionArgs(deckIds = listOf(item.deck.id))
                             )
                         },
+                        onOpenTagSearch = { tag ->
+                            navigator.openQuestionSearch(tag = tag)
+                        },
                         onEdit = { onEditDeck(item) },
                         onArchive = { onToggleArchive(item) }
                     )
@@ -238,9 +247,11 @@ private fun DeckSummaryCard(
     item: DeckSummary,
     onOpen: () -> Unit,
     onPractice: () -> Unit,
+    onOpenTagSearch: (String) -> Unit,
     onEdit: () -> Unit,
     onArchive: () -> Unit
 ) {
+    var actionDialogVisible by remember(item.deck.id) { mutableStateOf(false) }
     YikeListItemCard(
         title = item.deck.name,
         summary = buildString {
@@ -263,7 +274,10 @@ private fun DeckSummaryCard(
         }
     ) {
         if (item.deck.tags.isNotEmpty()) {
-            DeckTagRow(tags = item.deck.tags)
+            DeckTagRow(
+                tags = item.deck.tags,
+                onTagClick = onOpenTagSearch
+            )
         }
         YikePrimaryButton(
             text = "进入卡组",
@@ -280,15 +294,25 @@ private fun DeckSummaryCard(
                 modifier = Modifier.weight(1f)
             )
             YikeSecondaryButton(
-                text = "编辑信息",
-                onClick = onEdit,
+                text = "更多操作",
+                onClick = { actionDialogVisible = true },
                 modifier = Modifier.weight(1f)
             )
         }
-        YikeDangerButton(
-            text = "归档这组内容",
-            onClick = onArchive,
-            modifier = Modifier.fillMaxWidth()
+    }
+
+    if (actionDialogVisible) {
+        DeckActionDialog(
+            deckName = item.deck.name,
+            onDismiss = { actionDialogVisible = false },
+            onEdit = {
+                actionDialogVisible = false
+                onEdit()
+            },
+            onArchive = {
+                actionDialogVisible = false
+                onArchive()
+            }
         )
     }
 }
@@ -312,13 +336,55 @@ private fun DeckSearchSection(
 }
 
 /**
- * 列表卡片直接展示标签，可以让用户在浏览卡组时快速确认当前分类语义，而不必再进编辑弹窗核对。
+ * 列表卡片直接展示可点击标签，是为了把“浏览卡组”和“按同类标签继续筛题”两条路径接在一起，
+ * 用户不必先记住标签再手动跳到搜索页重输一次。
  */
 @Composable
-private fun DeckTagRow(tags: List<String>) {
+private fun DeckTagRow(
+    tags: List<String>,
+    onTagClick: (String) -> Unit
+) {
     YikeScrollableRow {
         tags.forEach { tag ->
-            YikeBadge(text = tag)
+            YikeBadge(
+                text = tag,
+                modifier = Modifier.clickable(
+                    role = Role.Button,
+                    onClickLabel = "按标签查看题目"
+                ) {
+                    onTagClick(tag)
+                }
+            )
         }
     }
+}
+
+/**
+ * 卡组页把低频维护动作收进二级弹窗，是为了给窄屏保留更稳定的主操作密度，
+ * 同时仍让编辑与归档保留明确可达入口。
+ */
+@Composable
+private fun DeckActionDialog(
+    deckName: String,
+    onDismiss: () -> Unit,
+    onEdit: () -> Unit,
+    onArchive: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("卡组操作") },
+        text = { Text("“$deckName” 的低频维护动作会集中在这里，避免列表首屏被按钮挤满。") },
+        confirmButton = {
+            YikeDangerButton(
+                text = "归档这组内容",
+                onClick = onArchive
+            )
+        },
+        dismissButton = {
+            Row(horizontalArrangement = Arrangement.spacedBy(LocalYikeSpacing.current.sm)) {
+                YikeSecondaryButton(text = "取消", onClick = onDismiss)
+                YikePrimaryButton(text = "编辑信息", onClick = onEdit)
+            }
+        }
+    )
 }

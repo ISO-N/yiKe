@@ -147,6 +147,7 @@ private fun SettingsContent(
             uiState = uiState,
             hasNotificationPermission = hasNotificationPermission
         )
+        SettingsOverviewSection()
 
         YikeOperationFeedback(
             successMessage = uiState.message,
@@ -199,6 +200,25 @@ private fun ReminderStatusSection(
 }
 
 /**
+ * 设置页先给出分组总览，是为了让用户在首屏就建立“复习设置 / 数据管理 / 关于应用”的心智地图，
+ * 不必从一长串入口里再自己重新分组。
+ */
+@Composable
+private fun SettingsOverviewSection() {
+    val spacing = LocalYikeSpacing.current
+    YikeStateBanner(
+        title = "设置分组",
+        description = "先调复习节奏，再处理数据工具，最后再查看版本信息，能让整个页面更容易扫读。"
+    ) {
+        Row(horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
+            YikeBadge(text = "复习设置")
+            YikeBadge(text = "数据管理")
+            YikeBadge(text = "关于应用")
+        }
+    }
+}
+
+/**
  * 提醒设置区把开关、时间、低频工具入口和版本信息排成统一列表，是为了保持设置页可扫读。
  */
 @Composable
@@ -214,8 +234,8 @@ private fun ReminderSettingsSection(
     onOpenRecycleBin: () -> Unit
 ) {
     SettingsSectionHeader(
-        title = "提醒与外观",
-        description = "先把每天的复习节奏和界面显示偏好调整到舒服的状态。"
+        title = "复习设置",
+        description = "先把每天的复习提醒、时间和显示偏好整理好，再继续处理低频工具入口。"
     )
 
     YikeListItemCard(
@@ -258,8 +278,8 @@ private fun ReminderSettingsSection(
     }
 
     SettingsSectionHeader(
-        title = "连接与数据",
-        description = "这些入口会跳转到独立流程页，用于处理备份、同步和局域网访问。"
+        title = "数据管理",
+        description = "备份、同步、网页后台和归档恢复都会跳到独立流程页，统一归在数据工具组里更容易定位。"
     )
 
     YikeListItemCard(
@@ -320,7 +340,7 @@ private fun ReminderSettingsSection(
 
     SettingsSectionHeader(
         title = "关于应用",
-        description = "版本信息保留在末尾，是为了让设置页的工具入口和静态信息层级更清楚。"
+        description = "静态版本信息固定放在最后，是为了让操作入口和说明信息自然分层。"
     )
 
     YikeListItemCard(

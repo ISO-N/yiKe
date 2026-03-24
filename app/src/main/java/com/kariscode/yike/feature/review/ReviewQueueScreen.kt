@@ -55,6 +55,7 @@ fun ReviewQueueScreen(
             onRetry = viewModel::loadNext,
             onBackToHome = navigator::backToHome,
             onOpenPractice = { navigator.openPracticeSetup(PracticeSessionArgs()) },
+            onOpenAnalytics = navigator::openAnalytics,
             modifier = modifier,
             contentPadding = padding
         )
@@ -70,6 +71,7 @@ private fun ReviewQueueContent(
     onRetry: () -> Unit,
     onBackToHome: () -> Unit,
     onOpenPractice: () -> Unit,
+    onOpenAnalytics: () -> Unit,
     contentPadding: PaddingValues = PaddingValues(),
     modifier: Modifier = Modifier
 ) {
@@ -109,12 +111,17 @@ private fun ReviewQueueContent(
             uiState.isAllDone -> {
                 YikeStateBanner(
                     title = "今日复习已经完成",
-                    description = "当前没有新的到期卡片了。你可以回首页收尾，或直接进入自由练习继续巩固。"
+                    description = "当前没有新的到期卡片了。你可以继续自由练习、查看统计，或直接返回首页收尾。"
                 ) {
                     Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
                         YikePrimaryButton(
-                            text = "进入自由练习",
+                            text = "继续复习",
                             onClick = onOpenPractice,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        YikeSecondaryButton(
+                            text = "查看统计",
+                            onClick = onOpenAnalytics,
                             modifier = Modifier.fillMaxWidth()
                         )
                         YikeSecondaryButton(

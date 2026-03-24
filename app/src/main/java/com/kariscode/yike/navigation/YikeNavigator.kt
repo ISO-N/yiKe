@@ -74,7 +74,7 @@ interface YikeNavigator {
     /**
      * 打开搜索页并可选预置筛选，是为了让“全局搜索”和“检索本卡/本卡组”复用同一页面能力。
      */
-    fun openQuestionSearch(deckId: String? = null, cardId: String? = null)
+    fun openQuestionSearch(deckId: String? = null, cardId: String? = null, tag: String? = null)
 
     /**
      * 打开编辑页并携带可选 deckId 上下文，是为了让编辑页能复用同一条“路径参数 + query 参数”协议。
@@ -161,8 +161,14 @@ class NavControllerYikeNavigator(
         navController.navigate(YikeDestination.REVIEW_ANALYTICS)
     }
 
-    override fun openQuestionSearch(deckId: String?, cardId: String?) {
-        navController.navigate(YikeDestination.questionSearch(deckId = deckId, cardId = cardId))
+    override fun openQuestionSearch(deckId: String?, cardId: String?, tag: String?) {
+        navController.navigate(
+            YikeDestination.questionSearch(
+                deckId = deckId,
+                cardId = cardId,
+                tag = tag
+            )
+        )
     }
 
     override fun openQuestionEditor(cardId: String, deckId: String?) {

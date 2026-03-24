@@ -27,7 +27,7 @@ object YikeDestination {
     const val CARD_LIST = "card_list/{deckId}"
     const val QUESTION_EDITOR = "question_editor/{cardId}?deckId={deckId}"
     const val QUESTION_SEARCH = "question_search"
-    const val QUESTION_SEARCH_ROUTE = "question_search?deckId={deckId}&cardId={cardId}"
+    const val QUESTION_SEARCH_ROUTE = "question_search?deckId={deckId}&cardId={cardId}&tag={tag}"
 
     /**
      * 单卡复习路由统一从模板生成，是为了避免声明模板和拼接实现逐渐演变成两份来源。
@@ -63,10 +63,15 @@ object YikeDestination {
     /**
      * 搜索页允许带入 deckId/cardId 预设筛选，是为了让首页总入口和卡片页“检索本卡”共享同一页面。
      */
-    fun questionSearch(deckId: String? = null, cardId: String? = null): String = buildQueryRoute(
+    fun questionSearch(
+        deckId: String? = null,
+        cardId: String? = null,
+        tag: String? = null
+    ): String = buildQueryRoute(
         QUESTION_SEARCH,
         NavArguments.DECK_ID to deckId,
-        NavArguments.CARD_ID to cardId
+        NavArguments.CARD_ID to cardId,
+        NavArguments.TAG to tag
     )
 
     /**
