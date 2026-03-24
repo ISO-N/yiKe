@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.MaterialTheme
@@ -21,6 +20,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.unit.dp
 import com.kariscode.yike.ui.theme.LocalYikeSpacing
+import com.kariscode.yike.ui.theme.YikeThemeTokens
 
 /**
  * Hero 卡承担“当前页面最重要的信息块”，这样首页待复习、卡组总览和设置状态都能共享同一层级。
@@ -36,11 +36,11 @@ fun YikeHeroCard(
     val spacing = LocalYikeSpacing.current
     ElevatedCard(
         modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(24.dp),
+        shape = MaterialTheme.shapes.large,
         colors = CardDefaults.elevatedCardColors(
-            containerColor = MaterialTheme.colorScheme.surface
+            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
         ),
-        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 6.dp)
+        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp)
     ) {
         Column(
             modifier = Modifier
@@ -48,8 +48,8 @@ fun YikeHeroCard(
                 .background(
                     Brush.verticalGradient(
                         colors = listOf(
-                            MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.52f),
-                            MaterialTheme.colorScheme.surface
+                            YikeThemeTokens.chromeColors.heroGradientStart,
+                            YikeThemeTokens.chromeColors.heroGradientEnd
                         )
                     )
                 )
@@ -73,8 +73,9 @@ fun YikeSurfaceCard(
     val spacing = LocalYikeSpacing.current
     ElevatedCard(
         modifier = modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.large,
         colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 4.dp)
+        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 1.dp)
     ) {
         Column(
             modifier = Modifier
@@ -98,8 +99,8 @@ fun YikeWarningCard(
     val spacing = LocalYikeSpacing.current
     Surface(
         modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(24.dp),
-        color = MaterialTheme.colorScheme.tertiaryContainer
+        shape = MaterialTheme.shapes.large,
+        color = YikeThemeTokens.semanticColors.warningContainer
     ) {
         Column(
             modifier = Modifier
@@ -110,12 +111,12 @@ fun YikeWarningCard(
             Text(
                 text = title,
                 style = MaterialTheme.typography.titleLarge,
-                color = MaterialTheme.colorScheme.onTertiaryContainer
+                color = YikeThemeTokens.semanticColors.onWarningContainer
             )
             Text(
                 text = description,
                 style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onTertiaryContainer
+                color = YikeThemeTokens.semanticColors.onWarningContainer
             )
         }
     }
@@ -133,9 +134,9 @@ fun YikeMetricCard(
     val spacing = LocalYikeSpacing.current
     Surface(
         modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(18.dp),
-        color = MaterialTheme.colorScheme.surface,
-        tonalElevation = 1.dp
+        shape = MaterialTheme.shapes.medium,
+        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+        tonalElevation = 0.dp
     ) {
         Column(
             modifier = Modifier
@@ -177,7 +178,7 @@ fun YikeListItemCard(
         ) {
             Column(
                 modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(6.dp)
+                verticalArrangement = Arrangement.spacedBy(spacing.xs)
             ) {
                 Text(text = title, style = MaterialTheme.typography.titleMedium)
                 Text(

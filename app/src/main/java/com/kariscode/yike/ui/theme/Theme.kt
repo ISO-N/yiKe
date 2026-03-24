@@ -83,7 +83,11 @@ fun YikeTheme(
         ThemeMode.SYSTEM -> isSystemInDarkTheme()
     }
     YikeSystemBarAppearance(useDarkColors = useDarkColors)
-    CompositionLocalProvider(LocalYikeSpacing provides YikeSpacing()) {
+    CompositionLocalProvider(
+        LocalYikeSpacing provides YikeSpacing(),
+        LocalYikeSemanticColors provides if (useDarkColors) DarkSemanticColors else LightSemanticColors,
+        LocalYikeChromeColors provides if (useDarkColors) DarkChromeColors else LightChromeColors
+    ) {
         MaterialTheme(
             colorScheme = if (useDarkColors) DarkColorScheme else LightColorScheme,
             typography = Typography,

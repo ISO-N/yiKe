@@ -1,6 +1,5 @@
 package com.kariscode.yike.ui.component
 
-import android.os.Build
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -19,6 +18,7 @@ import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
@@ -26,11 +26,14 @@ import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CollectionsBookmark
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
@@ -39,33 +42,29 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.drawWithContent
-import androidx.compose.ui.graphics.BlurEffect
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.TileMode
-import androidx.compose.ui.graphics.layer.GraphicsLayer
-import androidx.compose.ui.graphics.layer.drawLayer
-import androidx.compose.ui.graphics.rememberGraphicsLayer
-import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.kariscode.yike.navigation.YikeDestination
 import com.kariscode.yike.ui.theme.LocalYikeSpacing
+import com.kariscode.yike.ui.theme.YikeThemeTokens
 
 /**
  * 一级入口目标集中定义，是为了让首页、卡组和设置在切换时共享同一套底部导航语义。
  */
 enum class YikePrimaryDestination(
     val route: String,
-    val label: String
+    val label: String,
+    val icon: ImageVector
 ) {
-    HOME(route = YikeDestination.HOME, label = "首页"),
-    DECKS(route = YikeDestination.DECK_LIST, label = "卡组"),
-    SETTINGS(route = YikeDestination.SETTINGS, label = "设置")
+    HOME(route = YikeDestination.HOME, label = "首页", icon = Icons.Filled.Home),
+    DECKS(route = YikeDestination.DECK_LIST, label = "卡组", icon = Icons.Filled.CollectionsBookmark),
+    SETTINGS(route = YikeDestination.SETTINGS, label = "设置", icon = Icons.Filled.Settings)
 }
 
 /**
@@ -82,7 +81,7 @@ fun YikeScreenBackground(
             .background(
                 brush = Brush.radialGradient(
                     colors = listOf(
-                        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.55f),
+                        YikeThemeTokens.chromeColors.screenGlow,
                         MaterialTheme.colorScheme.background
                     ),
                     radius = 950f
@@ -105,10 +104,9 @@ fun YikePrimaryScaffold(
     content: @Composable (PaddingValues) -> Unit
 ) {
     val navigationBottomPadding = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
-    val contentBottomPadding = navigationBottomPadding + 112.dp
-    val contentBlurOverlayHeight = navigationBottomPadding + 148.dp
+    val contentBottomPadding = navigationBottomPadding + 110.dp
     val fabBottomPadding = navigationBottomPadding + 68.dp
-    val contentGraphicsLayer = rememberGraphicsLayer()
+    val spacing = YikeThemeTokens.spacing
 
     YikeScreenBackground {
         Box(modifier = Modifier.fillMaxSize()) {
@@ -116,23 +114,16 @@ fun YikePrimaryScaffold(
                 modifier = Modifier
                     .fillMaxSize()
                     .windowInsetsPadding(WindowInsets.statusBars.only(WindowInsetsSides.Top))
-                    .padding(horizontal = 16.dp)
-                    .padding(top = 0.dp)
+                    .padding(horizontal = spacing.lg)
             ) {
                 YikePrimaryHeaderBlock(
                     eyebrow = currentDestination.label,
                     title = title,
                     subtitle = subtitle
                 )
-                Spacer(modifier = Modifier.height(6.dp))
+                Spacer(modifier = Modifier.height(spacing.sm))
                 Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .yikeBottomContentBlur(
-                            graphicsLayer = contentGraphicsLayer,
-                            overlayHeight = contentBlurOverlayHeight,
-                            tintColor = MaterialTheme.colorScheme.surface
-                        )
+                    modifier = Modifier.fillMaxSize()
                 ) {
                     content(PaddingValues(bottom = contentBottomPadding))
                 }
@@ -142,7 +133,7 @@ fun YikePrimaryScaffold(
                 Box(
                     modifier = Modifier
                         .align(Alignment.BottomEnd)
-                        .padding(end = 16.dp, bottom = fabBottomPadding)
+                        .padding(end = spacing.lg, bottom = fabBottomPadding)
                 ) {
                     floatingActionButton()
                 }
@@ -163,6 +154,7 @@ fun YikePrimaryNavigationChrome(
 ) {
     val navigationBarPadding = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
     val navigationBottomOffset = navigationBarPadding + 2.dp
+    val spacing = YikeThemeTokens.spacing
 
     Box(modifier = modifier.fillMaxSize()) {
         YikeBottomNavigation(
@@ -170,14 +162,14 @@ fun YikePrimaryNavigationChrome(
             onNavigate = onNavigate,
             modifier = Modifier
                 .align(Alignment.BottomCenter)
-                .padding(horizontal = 16.dp)
+                .padding(horizontal = spacing.lg)
                 .padding(bottom = navigationBottomOffset)
         )
     }
 }
 
 /**
- * 底部导航使用文本 pill 风格，是为了贴合原型里强调当前入口高亮的手机端语气。
+ * 底部导航改成图标加文字并强化选中态，是为了让一级入口在首屏不依赖纯文本猜位置。
  */
 @Composable
 private fun YikeBottomNavigation(
@@ -185,16 +177,18 @@ private fun YikeBottomNavigation(
     onNavigate: (YikePrimaryDestination) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val navigationShape = RoundedCornerShape(22.dp)
+    val spacing = YikeThemeTokens.spacing
+    val chromeColors = YikeThemeTokens.chromeColors
+    val navigationShape = MaterialTheme.shapes.large
     Surface(
         tonalElevation = 0.dp,
         shadowElevation = 0.dp,
-        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.58f),
+        color = chromeColors.navigationContainer,
         modifier = modifier
             .fillMaxWidth()
             .border(
                 width = 1.dp,
-                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.58f),
+                color = chromeColors.navigationBorder,
                 shape = navigationShape
             ),
         shape = navigationShape
@@ -202,77 +196,42 @@ private fun YikeBottomNavigation(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 8.dp, vertical = 4.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                .padding(horizontal = spacing.sm, vertical = spacing.xs),
+            horizontalArrangement = Arrangement.spacedBy(spacing.sm)
         ) {
             YikePrimaryDestination.entries.forEach { destination ->
                 val selected = destination == currentDestination
                 TextButton(
                     onClick = { onNavigate(destination) },
                     modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(18.dp),
+                    shape = MaterialTheme.shapes.medium,
                     colors = ButtonDefaults.textButtonColors(
                         containerColor = if (selected) {
-                            MaterialTheme.colorScheme.primary.copy(alpha = 0.14f)
+                            chromeColors.navigationSelectedContainer
                         } else {
                             Color.Transparent
                         },
-                        contentColor = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                        contentColor = if (selected) chromeColors.navigationSelectedContent else MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 ) {
-                    Text(text = destination.label, fontWeight = FontWeight.SemiBold)
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(spacing.xs)
+                    ) {
+                        Icon(
+                            imageVector = destination.icon,
+                            contentDescription = destination.label,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Text(
+                            text = destination.label,
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
                 }
             }
         }
-    }
-}
-
-/**
- * 一级页底部内容需要在导航开始前进入朦胧层级，
- * 因此这里直接对底部一段内容重绘模糊版本，让导航上缘不再像“另起一块底板”。
- */
-private fun Modifier.yikeBottomContentBlur(
-    graphicsLayer: GraphicsLayer,
-    overlayHeight: Dp,
-    tintColor: Color
-): Modifier {
-    return drawWithContent {
-        graphicsLayer.record {
-            this@drawWithContent.drawContent()
-        }
-        drawLayer(graphicsLayer)
-        val overlayHeightPx = overlayHeight.toPx().coerceAtMost(size.height)
-        if (overlayHeightPx <= 0f) {
-            return@drawWithContent
-        }
-        val overlayTop = size.height - overlayHeightPx
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            val previousRenderEffect = graphicsLayer.renderEffect
-            graphicsLayer.renderEffect = BlurEffect(
-                renderEffect = null,
-                radiusX = 20f,
-                radiusY = 20f,
-                edgeTreatment = TileMode.Decal
-            )
-            clipRect(left = 0f, top = overlayTop, right = size.width, bottom = size.height) {
-                drawLayer(graphicsLayer)
-            }
-            graphicsLayer.renderEffect = previousRenderEffect
-        }
-        drawRect(
-            brush = Brush.verticalGradient(
-                colors = listOf(
-                    tintColor.copy(alpha = 0f),
-                    tintColor.copy(alpha = 0.08f),
-                    tintColor.copy(alpha = 0.18f),
-                    tintColor.copy(alpha = 0.3f)
-                ),
-                startY = overlayTop,
-                endY = size.height
-            ),
-            topLeft = androidx.compose.ui.geometry.Offset(x = 0f, y = overlayTop),
-            size = androidx.compose.ui.geometry.Size(width = size.width, height = overlayHeightPx)
-        )
     }
 }
 
@@ -288,6 +247,7 @@ fun YikeFlowScaffold(
     onActionClick: (() -> Unit)? = null,
     content: @Composable (PaddingValues) -> Unit
 ) {
+    val spacing = YikeThemeTokens.spacing
     Scaffold(
         containerColor = Color.Transparent,
         topBar = {
@@ -305,8 +265,8 @@ fun YikeFlowScaffold(
                 modifier = Modifier
                     .fillMaxSize()
                     .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Bottom))
-                    .padding(horizontal = 16.dp)
-                    .padding(top = 12.dp)
+                    .padding(horizontal = spacing.lg)
+                    .padding(top = spacing.md)
             ) {
                 content(padding)
             }
@@ -324,7 +284,8 @@ fun YikeHeaderBlock(
     title: String,
     subtitle: String
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+    val spacing = YikeThemeTokens.spacing
+    Column(verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
         Text(
             text = eyebrow,
             style = MaterialTheme.typography.labelSmall,
@@ -352,6 +313,7 @@ private fun YikePrimaryHeaderBlock(
     title: String,
     subtitle: String
 ) {
+    val spacing = YikeThemeTokens.spacing
     val supportingText = when {
         title.isNotBlank() && title != eyebrow -> title
         subtitle.isNotBlank() -> subtitle
@@ -359,7 +321,10 @@ private fun YikePrimaryHeaderBlock(
         else -> null
     }
 
-    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+    Column(
+        modifier = Modifier.padding(top = spacing.xs),
+        verticalArrangement = Arrangement.spacedBy(spacing.xs)
+    ) {
         Text(
             text = eyebrow,
             style = MaterialTheme.typography.titleLarge,
@@ -423,12 +388,12 @@ private fun YikeScrollableTailBlock(
             .background(
                 brush = Brush.verticalGradient(
                     colors = listOf(
-                        MaterialTheme.colorScheme.surface.copy(alpha = 0.08f),
-                        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.16f),
-                        MaterialTheme.colorScheme.surface.copy(alpha = 0.26f)
+                        MaterialTheme.colorScheme.surface.copy(alpha = 0.04f),
+                        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.1f),
+                        MaterialTheme.colorScheme.surface.copy(alpha = 0.14f)
                     )
                 ),
-                shape = RoundedCornerShape(28.dp)
+                shape = MaterialTheme.shapes.extraLarge
             )
     )
 }
