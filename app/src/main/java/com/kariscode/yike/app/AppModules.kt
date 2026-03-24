@@ -44,12 +44,22 @@ import com.kariscode.yike.domain.repository.StudyInsightsRepository
 import com.kariscode.yike.domain.repository.WebConsoleRepository
 import com.kariscode.yike.domain.scheduler.ReviewSchedulerV1
 import com.kariscode.yike.domain.usecase.GetHomeOverviewUseCase
+import com.kariscode.yike.domain.usecase.GetDeckAvailableTagsUseCase
+import com.kariscode.yike.domain.usecase.GetDeckCardMasterySummaryUseCase
 import com.kariscode.yike.domain.usecase.GetQuestionSearchMetadataUseCase
 import com.kariscode.yike.domain.usecase.LoadQuestionEditorContentUseCase
+import com.kariscode.yike.domain.usecase.LoadDeckCardContextUseCase
 import com.kariscode.yike.domain.usecase.LoadReviewCardSessionUseCase
+import com.kariscode.yike.domain.usecase.ObserveCardSummariesUseCase
+import com.kariscode.yike.domain.usecase.ObserveDeckSummariesUseCase
 import com.kariscode.yike.domain.usecase.SaveQuestionEditorChangesUseCase
+import com.kariscode.yike.domain.usecase.SaveCardUseCase
+import com.kariscode.yike.domain.usecase.SaveDeckUseCase
 import com.kariscode.yike.domain.usecase.SearchQuestionsUseCase
 import com.kariscode.yike.domain.usecase.SubmitReviewRatingUseCase
+import com.kariscode.yike.domain.usecase.ToggleCardArchiveUseCase
+import com.kariscode.yike.domain.usecase.ToggleDeckArchiveUseCase
+import com.kariscode.yike.domain.usecase.DeleteCardUseCase
 import org.koin.android.ext.koin.androidContext
 import org.koin.dsl.module
 
@@ -230,6 +240,16 @@ private val serviceModule = module {
  */
 private val useCaseModule = module {
     factory { GetHomeOverviewUseCase(questionRepository = get(), deckRepository = get()) }
+    factory { ObserveDeckSummariesUseCase(deckRepository = get(), timeProvider = get()) }
+    factory { GetDeckAvailableTagsUseCase(studyInsightsRepository = get()) }
+    factory { SaveDeckUseCase(deckRepository = get(), timeProvider = get()) }
+    factory { ToggleDeckArchiveUseCase(deckRepository = get(), timeProvider = get()) }
+    factory { LoadDeckCardContextUseCase(deckRepository = get()) }
+    factory { ObserveCardSummariesUseCase(cardRepository = get(), timeProvider = get()) }
+    factory { SaveCardUseCase(cardRepository = get(), timeProvider = get()) }
+    factory { ToggleCardArchiveUseCase(cardRepository = get(), timeProvider = get()) }
+    factory { DeleteCardUseCase(cardRepository = get()) }
+    factory { GetDeckCardMasterySummaryUseCase(studyInsightsRepository = get()) }
     factory { LoadReviewCardSessionUseCase(cardRepository = get(), reviewRepository = get()) }
     factory { SubmitReviewRatingUseCase(reviewRepository = get()) }
     factory { GetQuestionSearchMetadataUseCase(studyInsightsRepository = get(), deckRepository = get(), cardRepository = get()) }
