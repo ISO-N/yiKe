@@ -14,26 +14,40 @@ internal class WebConsoleAssetLoader(
      * 缺省路径回退到首页，是为了让用户只输入 IP:端口 就能直接进入网页后台入口。
      */
     fun load(path: String): WebConsoleAsset? {
-        val normalizedPath = when (path.trim().removePrefix("/")) {
-            "", "index.html" -> "webconsole/index.html"
-            "app.css" -> "webconsole/app.css"
-            "app.js" -> "webconsole/app.js"
-            else -> null
-        } ?: return null
+        val normalizedAssetPath = path.trim()
+            .removePrefix("/")
+            .ifBlank { "index.html" }
+            .let { assetPath ->
+                when {
+                    assetPath.contains("..") -> return null
+                    else -> "webconsole/$assetPath"
+                }
+            }
         val bytes = runCatching {
-            context.assets.open(normalizedPath).use { input ->
+            context.assets.open(normalizedAssetPath).use { input ->
                 input.readBytes()
             }
         }.getOrNull() ?: return null
         return WebConsoleAsset(
             bytes = bytes,
-            contentType = when {
-                normalizedPath.endsWith(".css") -> ContentType.Text.CSS
-                normalizedPath.endsWith(".js") -> ContentType.Application.JavaScript
-                else -> ContentType.Text.Html
-            }
+            contentType = normalizedAssetPath.resolveContentType()
         )
     }
+}
+
+/**
+ * 资源类型按扩展名集中判定，是为了让模块化后的脚本、样式和图片目录不必继续在路由层追加硬编码分支。
+ */
+private fun String.resolveContentType(): ContentType = when {
+    endsWith(".css") -> ContentType.Text.CSS
+    endsWith(".js") -> ContentType.Application.JavaScript
+    endsWith(".json") -> ContentType.Application.Json
+    endsWith(".svg") -> ContentType.Image.SVG
+    endsWith(".png") -> ContentType.Image.PNG
+    endsWith(".jpg") || endsWith(".jpeg") -> ContentType.Image.JPEG
+    endsWith(".woff2") -> ContentType.parse("font/woff2")
+    endsWith(".woff") -> ContentType.parse("font/woff")
+    else -> ContentType.Text.Html
 }
 
 /**
