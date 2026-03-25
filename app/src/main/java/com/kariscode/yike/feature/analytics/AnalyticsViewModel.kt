@@ -8,7 +8,7 @@ import com.kariscode.yike.core.ui.message.ErrorMessages
 import com.kariscode.yike.core.ui.message.userMessageOr
 import com.kariscode.yike.core.domain.time.TimeConstants
 import com.kariscode.yike.core.domain.time.TimeProvider
-import com.kariscode.yike.core.domain.time.toLocalDate
+import com.kariscode.yike.core.domain.time.calculateStudyStreakDays
 import com.kariscode.yike.core.ui.viewmodel.restartStateResult
 import com.kariscode.yike.core.ui.viewmodel.typedViewModelFactory
 import com.kariscode.yike.domain.model.ReviewAnalyticsSnapshot
@@ -125,7 +125,7 @@ class AnalyticsViewModel(
                 val startEpochMillis = _uiState.value.selectedRange.toStartEpochMillis(timeProvider.nowEpochMillis())
                 parallel(
                     first = { studyInsightsRepository.getReviewAnalytics(startEpochMillis = startEpochMillis) },
-                    second = { studyInsightsRepository.listReviewTimestamps(startEpochMillis = startEpochMillis) }
+                    second = { studyInsightsRepository.listReviewTimestamps(startEpochMillis = null) }
                 )
             },
             onStart = { it.copy(isLoading = true, errorMessage = null) },
@@ -160,7 +160,11 @@ class AnalyticsViewModel(
         }
         return _uiState.value.copy(
             isLoading = false,
-            streakDays = calculateStreakDays(timestamps),
+            streakDays = calculateStudyStreakDays(
+                reviewTimestamps = timestamps,
+                nowEpochMillis = timeProvider.nowEpochMillis(),
+                zoneId = zoneId
+            ),
             totalReviews = analytics.totalReviews,
             averageResponseSeconds = ((analytics.averageResponseTimeMs ?: 0.0) / 1000.0).toInt(),
             forgettingRatePercent = (analytics.forgettingRate * 100).toInt(),
@@ -169,26 +173,6 @@ class AnalyticsViewModel(
             conclusion = buildConclusion(deckBreakdowns),
             errorMessage = null
         )
-    }
-
-    /**
-     * 连续学习按本地日期计算，并允许最新记录落在“今天或昨天”，是为了避免用户在当天尚未学习时过早被判定断档。
-     */
-    private fun calculateStreakDays(timestamps: List<Long>): Int {
-        val reviewedDates = timestamps
-            .map { it.toLocalDate(zoneId) }
-            .toSet()
-        val latestDate = reviewedDates.maxOrNull() ?: return 0
-        val today = timeProvider.nowEpochMillis().toLocalDate(zoneId)
-        if (latestDate.isBefore(today.minusDays(1))) return 0
-
-        var streak = 0
-        var expectedDate = latestDate
-        while (expectedDate in reviewedDates) {
-            streak += 1
-            expectedDate = expectedDate.minusDays(1)
-        }
-        return streak
     }
 
     /**
