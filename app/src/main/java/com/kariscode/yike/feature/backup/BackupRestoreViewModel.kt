@@ -11,8 +11,10 @@ import com.kariscode.yike.data.backup.BackupExportMode
 import com.kariscode.yike.core.ui.viewmodel.launchResult
 import com.kariscode.yike.core.ui.viewmodel.typedViewModelFactory
 import com.kariscode.yike.data.backup.BackupOperations
+import com.kariscode.yike.data.export.CsvExporter
 import com.kariscode.yike.data.reminder.ReminderSyncScheduler
 import com.kariscode.yike.domain.repository.AppSettingsRepository
+import java.time.LocalDate
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -45,6 +47,10 @@ sealed interface BackupRestoreEffect {
         val mode: BackupExportMode
     ) : BackupRestoreEffect
 
+    data class LaunchCsvExport(
+        val suggestedFileName: String
+    ) : BackupRestoreEffect
+
     data object LaunchImport : BackupRestoreEffect
 }
 
@@ -54,6 +60,7 @@ sealed interface BackupRestoreEffect {
  */
 class BackupRestoreViewModel(
     private val backupService: BackupOperations,
+    private val csvExporter: CsvExporter,
     private val appSettingsRepository: AppSettingsRepository,
     private val reminderScheduler: ReminderSyncScheduler
 ) : ViewModel() {
@@ -117,6 +124,17 @@ class BackupRestoreViewModel(
     }
 
     /**
+     * CSV 导出用于在外部工具查看与编辑题目，因此入口与 JSON 备份区分开可以避免用户误解它能用于恢复。
+     */
+    fun onExportCsvClick() {
+        _effects.tryEmit(
+            BackupRestoreEffect.LaunchCsvExport(
+                suggestedFileName = "yike_questions_${LocalDate.now()}.csv"
+            )
+        )
+    }
+
+    /**
      * 导出模式进入 effect 前先记住当前选择，是为了让系统文件选择返回后仍能执行正确的导出分支。
      */
     private fun launchExport(mode: BackupExportMode) {
@@ -155,6 +173,35 @@ class BackupRestoreViewModel(
                         isExporting = false,
                         message = null,
                         errorMessage = throwable.userMessageOr(ErrorMessages.BACKUP_EXPORT_FAILED)
+                    )
+                }
+            }
+        )
+    }
+
+    /**
+     * CSV 选择保存位置后再写文件，可保证用户取消操作时不产生误导性的成功提示。
+     */
+    fun onCsvExportUriSelected(uri: Uri?) {
+        if (uri == null) return
+        _uiState.update { it.copy(isExporting = true, message = null, errorMessage = null) }
+        launchResult(
+            action = { csvExporter.exportActiveQuestionsToUri(uri) },
+            onSuccess = {
+                _uiState.update {
+                    it.copy(
+                        isExporting = false,
+                        message = "CSV 导出成功",
+                        errorMessage = null
+                    )
+                }
+            },
+            onFailure = { throwable ->
+                _uiState.update {
+                    it.copy(
+                        isExporting = false,
+                        message = null,
+                        errorMessage = throwable.userMessageOr("CSV 导出失败")
                     )
                 }
             }
@@ -244,11 +291,13 @@ class BackupRestoreViewModel(
          */
         fun factory(
             backupService: BackupOperations,
+            csvExporter: CsvExporter,
             appSettingsRepository: AppSettingsRepository,
             reminderScheduler: ReminderSyncScheduler
         ): ViewModelProvider.Factory = typedViewModelFactory {
             BackupRestoreViewModel(
                 backupService = backupService,
+                csvExporter = csvExporter,
                 appSettingsRepository = appSettingsRepository,
                 reminderScheduler = reminderScheduler
             )
