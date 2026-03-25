@@ -5,7 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.kariscode.yike.core.ui.message.ErrorMessages
 import com.kariscode.yike.core.ui.viewmodel.launchResult
-import com.kariscode.yike.data.reminder.ReminderScheduler
+import com.kariscode.yike.data.reminder.ReminderSyncScheduler
 import com.kariscode.yike.data.settings.SettingsConstants
 import com.kariscode.yike.domain.model.AppSettings
 import com.kariscode.yike.domain.model.ThemeMode
@@ -52,7 +52,7 @@ sealed interface SettingsEffect {
  */
 class SettingsViewModel(
     private val appSettingsRepository: AppSettingsRepository,
-    private val reminderScheduler: ReminderScheduler,
+    private val reminderScheduler: ReminderSyncScheduler,
     private val appVersionName: String
 ) : ViewModel() {
     private var latestSettings = AppSettings(
@@ -179,14 +179,14 @@ class SettingsViewModel(
      * 以免配置变更或重新进入页面时重复弹出同一条反馈。
      */
     fun consumeMessage() {
-        _uiState.update { it.copy(message = null) }
+        _uiState.update(SettingsUiState::consumeMessage)
     }
 
     /**
      * 错误提示同样属于一次性反馈，展示后清理可以避免用户在恢复后仍被旧错误反复打断。
      */
     fun consumeErrorMessage() {
-        _uiState.update { it.copy(errorMessage = null) }
+        _uiState.update(SettingsUiState::consumeErrorMessage)
     }
 
     /**
@@ -214,20 +214,10 @@ class SettingsViewModel(
         launchResult(
             action = action,
             onSuccess = {
-                _uiState.update {
-                    it.copy(
-                        message = successMessage,
-                        errorMessage = null
-                    )
-                }
+                _uiState.update { state -> state.withSaveSucceeded(successMessage) }
             },
             onFailure = {
-                _uiState.update {
-                    it.copy(
-                        message = null,
-                        errorMessage = ErrorMessages.SETTINGS_SAVE_FAILED
-                    )
-                }
+                _uiState.update { state -> state.withSaveFailed(ErrorMessages.SETTINGS_SAVE_FAILED) }
             }
         )
     }
@@ -247,4 +237,30 @@ class SettingsViewModel(
     )
 
 }
+
+/**
+ * 成功提示展示后要立即从状态里移除，是为了避免设置页在配置变更后把旧提示再次当成新反馈。
+ */
+private fun SettingsUiState.consumeMessage(): SettingsUiState = copy(message = null)
+
+/**
+ * 错误提示同样只应消费一次，是为了让用户完成后续操作后不再被旧失败状态反复打断。
+ */
+private fun SettingsUiState.consumeErrorMessage(): SettingsUiState = copy(errorMessage = null)
+
+/**
+ * 设置写入成功后统一清理旧错误，是为了让提醒和主题两条路径共享同一套反馈语义。
+ */
+private fun SettingsUiState.withSaveSucceeded(message: String): SettingsUiState = copy(
+    message = message,
+    errorMessage = null
+)
+
+/**
+ * 设置写入失败时统一清空成功提示，是为了避免界面同时保留互相冲突的反馈结果。
+ */
+private fun SettingsUiState.withSaveFailed(errorMessage: String): SettingsUiState = copy(
+    message = null,
+    errorMessage = errorMessage
+)
 

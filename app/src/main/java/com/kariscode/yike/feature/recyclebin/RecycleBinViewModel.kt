@@ -73,21 +73,17 @@ class RecycleBinViewModel(
                 cardRepository.observeArchivedCardSummaries(now)
             ) { decks, cards -> decks to cards }
                 .catch { throwable ->
-                    _uiState.update {
-                        it.copy(
-                            isLoading = false,
-                            message = null,
-                            errorMessage = throwable.userMessageOr(ErrorMessages.LOAD_FAILED)
+                    _uiState.update { state ->
+                        state.withLoadFailed(
+                            throwable.userMessageOr(ErrorMessages.LOAD_FAILED)
                         )
                     }
                 }
                 .collect { (decks, cards) ->
-                    _uiState.update {
-                        it.copy(
-                            isLoading = false,
+                    _uiState.update { state ->
+                        state.withArchivedContent(
                             archivedDecks = decks,
-                            archivedCards = cards,
-                            errorMessage = null
+                            archivedCards = cards
                         )
                     }
                 }
@@ -99,14 +95,14 @@ class RecycleBinViewModel(
      * 避免配置变更或重复进入页面时再次弹出同一条恢复/删除反馈。
      */
     fun consumeMessage() {
-        _uiState.update { it.copy(message = null) }
+        _uiState.update(RecycleBinUiState::consumeMessage)
     }
 
     /**
      * 错误提示展示后清理可以避免用户完成后续操作时仍被旧错误反复打断。
      */
     fun consumeErrorMessage() {
-        _uiState.update { it.copy(errorMessage = null) }
+        _uiState.update(RecycleBinUiState::consumeErrorMessage)
     }
 
     /**
@@ -145,21 +141,25 @@ class RecycleBinViewModel(
      * 卡组的彻底删除必须先进入确认态，避免把“回收站浏览”误触成不可逆操作。
      */
     fun onDeleteDeckClick(item: DeckSummary) {
-        _uiState.update { it.copy(pendingDelete = RecycleBinDeleteTarget.DeckTarget(item), errorMessage = null) }
+        _uiState.update { state ->
+            state.withPendingDelete(RecycleBinDeleteTarget.DeckTarget(item))
+        }
     }
 
     /**
      * 卡片删除与卡组共用确认流，但仍需保留独立入口以便界面语义清晰。
      */
     fun onDeleteCardClick(item: ArchivedCardSummary) {
-        _uiState.update { it.copy(pendingDelete = RecycleBinDeleteTarget.CardTarget(item), errorMessage = null) }
+        _uiState.update { state ->
+            state.withPendingDelete(RecycleBinDeleteTarget.CardTarget(item))
+        }
     }
 
     /**
      * 关闭确认态时不修改列表数据，是为了让用户能安全地继续浏览当前回收站上下文。
      */
     fun onDismissDelete() {
-        _uiState.update { it.copy(pendingDelete = null, errorMessage = null) }
+        _uiState.update { state -> state.withPendingDelete(null) }
     }
 
     /**
@@ -196,21 +196,69 @@ class RecycleBinViewModel(
     ) {
         launchStateResult(state = _uiState) {
             action(action)
-            onSuccess { state, _ ->
-                state.copy(
-                    pendingDelete = null,
-                    message = successMessage,
-                    errorMessage = null
-                )
-            }
-            onFailure { state, _ ->
-                state.copy(
-                    message = null,
-                    errorMessage = errorMessage
-                )
-            }
+            onSuccess { state, _ -> state.withMutationSucceeded(successMessage) }
+            onFailure { state, _ -> state.withMutationFailed(errorMessage) }
         }
     }
 
 }
+
+/**
+ * 成功提示消费后立即清空，是为了避免回收站在配置变更后重复提示同一次恢复或删除结果。
+ */
+private fun RecycleBinUiState.consumeMessage(): RecycleBinUiState = copy(message = null)
+
+/**
+ * 错误提示只保留到 Snackbar 展示完，是为了让用户完成修正后不再被旧失败状态反复干扰。
+ */
+private fun RecycleBinUiState.consumeErrorMessage(): RecycleBinUiState = copy(errorMessage = null)
+
+/**
+ * 归档列表更新统一清理加载态与旧错误，是为了让双流合并后的正常快照保持同一套回写模板。
+ */
+private fun RecycleBinUiState.withArchivedContent(
+    archivedDecks: List<DeckSummary>,
+    archivedCards: List<ArchivedCardSummary>
+): RecycleBinUiState = copy(
+    isLoading = false,
+    archivedDecks = archivedDecks,
+    archivedCards = archivedCards,
+    errorMessage = null
+)
+
+/**
+ * 初次加载失败时统一保留现有内容并清空成功提示，是为了避免错误态和旧操作反馈同时出现。
+ */
+private fun RecycleBinUiState.withLoadFailed(errorMessage: String): RecycleBinUiState = copy(
+    isLoading = false,
+    message = null,
+    errorMessage = errorMessage
+)
+
+/**
+ * 删除确认态统一通过单一 helper 进入和退出，是为了让卡组与卡片两条高风险入口保持完全一致的回写语义。
+ */
+private fun RecycleBinUiState.withPendingDelete(
+    pendingDelete: RecycleBinDeleteTarget?
+): RecycleBinUiState = copy(
+    pendingDelete = pendingDelete,
+    errorMessage = null
+)
+
+/**
+ * 恢复或彻底删除成功后统一退出确认态，是为了把回收站高风险操作完成后的稳定状态固定下来。
+ */
+private fun RecycleBinUiState.withMutationSucceeded(successMessage: String): RecycleBinUiState = copy(
+    pendingDelete = null,
+    message = successMessage,
+    errorMessage = null
+)
+
+/**
+ * 写操作失败后统一清空旧成功提示，是为了避免用户看到与当前实际结果冲突的反馈。
+ */
+private fun RecycleBinUiState.withMutationFailed(errorMessage: String): RecycleBinUiState = copy(
+    message = null,
+    errorMessage = errorMessage
+)
 
