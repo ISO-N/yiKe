@@ -31,7 +31,7 @@ import com.kariscode.yike.ui.component.YikeHeroCard
 import com.kariscode.yike.ui.component.YikeListItemCard
 import com.kariscode.yike.ui.component.YikeLoadingBanner
 import com.kariscode.yike.ui.component.YikeMetricCard
-import com.kariscode.yike.ui.component.YikeOperationFeedback
+import com.kariscode.yike.ui.component.YikeOperationSnackbarEffect
 import com.kariscode.yike.ui.component.YikePrimaryButton
 import com.kariscode.yike.ui.component.YikePrimaryDestination
 import com.kariscode.yike.ui.component.YikePrimaryScaffold
@@ -56,6 +56,12 @@ fun DeckListScreen(
 ) {
     val viewModel = koinViewModel<DeckListViewModel>()
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+
+    YikeOperationSnackbarEffect(
+        successMessage = uiState.message,
+        errorMessage = null,
+        onSuccessConsumed = viewModel::consumeMessage
+    )
 
     YikePrimaryScaffold(
         currentDestination = YikePrimaryDestination.DECKS,
@@ -191,11 +197,6 @@ private fun DeckListContent(
                 }
             }
         }
-
-        YikeOperationFeedback(
-            successMessage = uiState.message,
-            errorMessage = null
-        )
     }
 
     uiState.editor?.let { editor ->

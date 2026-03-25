@@ -85,6 +85,14 @@ class DeckListViewModel(
     }
 
     /**
+     * Snackbar 展示完成功提示后就应清理 message，
+     * 这样在配置变更或重新进入页面时不会重复弹出同一条反馈。
+     */
+    fun consumeMessage() {
+        _uiState.update { it.copy(message = null) }
+    }
+
+    /**
      * 主动重试时需要同时重建卡组流订阅和标签候选，是为了把失败后的恢复路径也保持成完整快照。
      */
     fun refresh() {

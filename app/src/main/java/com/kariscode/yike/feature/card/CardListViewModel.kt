@@ -114,6 +114,14 @@ class CardListViewModel(
     }
 
     /**
+     * Snackbar 展示完成功提示后清理 message，
+     * 能避免页面重建或返回再进入时重复弹出同一条反馈。
+     */
+    fun consumeMessage() {
+        _uiState.update { it.copy(message = null) }
+    }
+
+    /**
      * 重试时要把标题读取和列表流订阅一起重建，是为了保证错误恢复后页面重新回到完整的首屏加载语义。
      */
     fun refresh() {

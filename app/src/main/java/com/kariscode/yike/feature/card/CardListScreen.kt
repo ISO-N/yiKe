@@ -32,7 +32,7 @@ import com.kariscode.yike.ui.component.YikeHeroCard
 import com.kariscode.yike.ui.component.YikeListItemCard
 import com.kariscode.yike.ui.component.YikeLoadingBanner
 import com.kariscode.yike.ui.component.YikeMetricCard
-import com.kariscode.yike.ui.component.YikeOperationFeedback
+import com.kariscode.yike.ui.component.YikeOperationSnackbarEffect
 import com.kariscode.yike.ui.component.YikePrimaryButton
 import com.kariscode.yike.ui.component.YikeScrollableColumn
 import com.kariscode.yike.ui.component.YikeSecondaryButton
@@ -58,6 +58,12 @@ fun CardListScreen(
         parameters = { parametersOf(deckId) }
     )
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+
+    YikeOperationSnackbarEffect(
+        successMessage = uiState.message,
+        errorMessage = null,
+        onSuccessConsumed = viewModel::consumeMessage
+    )
 
     YikeFlowScaffold(
         title = uiState.deckName ?: "卡片列表",
@@ -193,11 +199,6 @@ private fun CardListContent(
                 }
             }
         }
-
-        YikeOperationFeedback(
-            successMessage = uiState.message,
-            errorMessage = null
-        )
     }
 
     uiState.editor?.let { editor ->
