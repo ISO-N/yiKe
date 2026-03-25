@@ -107,10 +107,15 @@ app/src/main/java/com/kariscode/yike/
   app/
     YikeApplication.kt
   core/
-    common/
-    time/
-    result/
-    dispatchers/
+    domain/
+      constant/
+      coroutine/
+      dispatchers/
+      id/
+      time/
+    ui/
+      message/
+      viewmodel/
   navigation/
     YikeNavGraph.kt
     YikeDestination.kt
@@ -156,7 +161,7 @@ app/src/main/assets/webconsole/
 - `feature` 按页面或业务域拆分 UI 代码。
 - `domain` 放业务模型与用例接口。
 - `data` 放所有本地持久化与系统能力接入。
-- `core` 放跨功能公用能力。
+- `core` 放跨功能公用能力，但应继续按“领域公共能力 / UI 公共能力”拆分子包，避免再次回到单个杂糅工具箱。
 - `navigation` 独立出来，避免路由散落。
 - `assets/webconsole` 作为网页后台富后台资源根目录，其中 `entries/` 只放入口模板，`app.js` / `app.css` 由脚本生成，不再手工直接编辑。
 
