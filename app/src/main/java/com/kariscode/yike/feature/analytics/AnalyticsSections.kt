@@ -15,6 +15,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.FilterChip
@@ -282,6 +284,224 @@ internal fun AnalyticsDistributionSection(
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
+    }
+}
+
+/**
+ * 遗忘曲线用 stage 作为横轴、AGAIN 比例作为纵轴，是为了把“难点集中在哪个阶段”可视化，
+ * 从而帮助用户判断是否需要拆卡、降难度或放慢节奏。
+ */
+@Composable
+internal fun AnalyticsForgettingCurveSection(
+    items: List<AnalyticsStageAgainUiModel>
+) {
+    val spacing = LocalYikeSpacing.current
+    val lineColor = distributionColor("AGAIN")
+    val axisColor = MaterialTheme.colorScheme.outlineVariant
+    val gridColor = MaterialTheme.colorScheme.surfaceVariant
+    val labelColor = MaterialTheme.colorScheme.onSurfaceVariant
+
+    YikeSurfaceCard {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(text = "遗忘曲线", style = MaterialTheme.typography.titleLarge)
+            YikeBadge(text = "按 stage 统计 AGAIN 比例")
+        }
+
+        if (items.all { it.reviewCount <= 0 }) {
+            Text(
+                modifier = Modifier.padding(top = spacing.sm),
+                text = "当前时间范围内复习记录不足，先完成一轮复习后这里会出现按阶段聚合的 AGAIN 曲线。",
+                style = MaterialTheme.typography.bodyMedium,
+                color = labelColor
+            )
+            return@YikeSurfaceCard
+        }
+
+        Canvas(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(160.dp)
+                .padding(top = spacing.sm)
+        ) {
+            val paddingLeft = 20.dp.toPx()
+            val paddingRight = 10.dp.toPx()
+            val paddingTop = 12.dp.toPx()
+            val paddingBottom = 18.dp.toPx()
+            val plotWidth = size.width - paddingLeft - paddingRight
+            val plotHeight = size.height - paddingTop - paddingBottom
+            if (plotWidth <= 0f || plotHeight <= 0f) return@Canvas
+
+            // 横纵轴
+            drawLine(
+                color = axisColor,
+                start = Offset(paddingLeft, paddingTop),
+                end = Offset(paddingLeft, paddingTop + plotHeight),
+                strokeWidth = 2.dp.toPx()
+            )
+            drawLine(
+                color = axisColor,
+                start = Offset(paddingLeft, paddingTop + plotHeight),
+                end = Offset(paddingLeft + plotWidth, paddingTop + plotHeight),
+                strokeWidth = 2.dp.toPx()
+            )
+
+            // 参考网格: 0%, 50%, 100%
+            listOf(0f, 0.5f, 1f).forEach { ratio ->
+                val y = paddingTop + plotHeight * (1f - ratio)
+                drawLine(
+                    color = gridColor,
+                    start = Offset(paddingLeft, y),
+                    end = Offset(paddingLeft + plotWidth, y),
+                    strokeWidth = 1.dp.toPx()
+                )
+            }
+
+            val maxStage = items.maxOfOrNull(AnalyticsStageAgainUiModel::stageIndex) ?: 0
+            val stageCount = (maxStage + 1).coerceAtLeast(1)
+            val stepX = if (stageCount <= 1) 0f else plotWidth / (stageCount - 1).toFloat()
+
+            val points = items
+                .sortedBy(AnalyticsStageAgainUiModel::stageIndex)
+                .map { item ->
+                    val x = paddingLeft + item.stageIndex * stepX
+                    val y = paddingTop + plotHeight * (1f - item.againRatio.coerceIn(0f, 1f))
+                    Offset(x, y)
+                }
+
+            // 折线
+            for (index in 0 until points.lastIndex) {
+                drawLine(
+                    color = lineColor,
+                    start = points[index],
+                    end = points[index + 1],
+                    strokeWidth = 3.dp.toPx(),
+                    cap = StrokeCap.Round
+                )
+            }
+
+            // 点
+            points.forEach { point ->
+                drawCircle(
+                    color = lineColor,
+                    radius = 4.dp.toPx(),
+                    center = point
+                )
+            }
+        }
+
+        Text(
+            modifier = Modifier.padding(top = spacing.sm),
+            text = "提示：曲线越高代表该阶段更容易点 AGAIN，可以考虑拆分卡片或降低单次信息密度。",
+            style = MaterialTheme.typography.bodySmall,
+            color = labelColor
+        )
+    }
+}
+
+/**
+ * 未来到期预测用 7 天柱状图展示，是为了把未来压力提前暴露给用户，
+ * 避免某一天突然集中爆发导致复习中断。
+ */
+@Composable
+internal fun AnalyticsDueForecastSection(
+    items: List<AnalyticsDueForecastUiModel>
+) {
+    val spacing = LocalYikeSpacing.current
+    val barColor = YikeThemeTokens.semanticColors.successContainer
+    val labelColor = MaterialTheme.colorScheme.onSurfaceVariant
+
+    YikeSurfaceCard {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(text = "未来 7 天到期预测", style = MaterialTheme.typography.titleLarge)
+            YikeBadge(text = "按 dueAt 统计")
+        }
+
+        if (items.isEmpty() || items.all { it.dueCount <= 0 }) {
+            Text(
+                modifier = Modifier.padding(top = spacing.sm),
+                text = "未来 7 天内没有预计到期的问题，保持节奏就好。",
+                style = MaterialTheme.typography.bodyMedium,
+                color = labelColor
+            )
+            return@YikeSurfaceCard
+        }
+
+        val max = items.maxOfOrNull(AnalyticsDueForecastUiModel::dueCount)?.coerceAtLeast(1) ?: 1
+        val axisColor = MaterialTheme.colorScheme.outlineVariant
+        val gridColor = MaterialTheme.colorScheme.surfaceVariant
+
+        Canvas(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(140.dp)
+                .padding(top = spacing.sm)
+        ) {
+            val paddingTop = 8.dp.toPx()
+            val paddingBottom = 22.dp.toPx()
+            val paddingHorizontal = 8.dp.toPx()
+            val plotWidth = size.width - paddingHorizontal * 2
+            val plotHeight = size.height - paddingTop - paddingBottom
+            if (plotWidth <= 0f || plotHeight <= 0f) return@Canvas
+
+            // 参考线
+            drawLine(
+                color = gridColor,
+                start = Offset(paddingHorizontal, paddingTop + plotHeight * 0.5f),
+                end = Offset(paddingHorizontal + plotWidth, paddingTop + plotHeight * 0.5f),
+                strokeWidth = 1.dp.toPx()
+            )
+            drawLine(
+                color = axisColor,
+                start = Offset(paddingHorizontal, paddingTop + plotHeight),
+                end = Offset(paddingHorizontal + plotWidth, paddingTop + plotHeight),
+                strokeWidth = 2.dp.toPx()
+            )
+
+            val barCount = items.size.coerceAtLeast(1)
+            val gap = 6.dp.toPx()
+            val barWidth = ((plotWidth - gap * (barCount - 1)) / barCount).coerceAtLeast(2.dp.toPx())
+
+            items.forEachIndexed { index, item ->
+                val x = paddingHorizontal + index * (barWidth + gap)
+                val heightRatio = item.dueCount.toFloat() / max.toFloat()
+                val barHeight = plotHeight * heightRatio.coerceIn(0f, 1f)
+                val top = paddingTop + (plotHeight - barHeight)
+                drawRoundRect(
+                    color = barColor,
+                    topLeft = Offset(x, top),
+                    size = Size(barWidth, barHeight),
+                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(10.dp.toPx(), 10.dp.toPx())
+                )
+            }
+        }
+
+        Row(
+            modifier = Modifier.padding(top = spacing.xs),
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            items.forEach { item ->
+                Text(
+                    text = item.label,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = labelColor
+                )
+            }
+        }
+
+        Text(
+            modifier = Modifier.padding(top = spacing.sm),
+            text = "如果某天柱子明显更高，可以提前安排一轮复习或拆分卡片，避免压力堆积。",
+            style = MaterialTheme.typography.bodySmall,
+            color = labelColor
+        )
     }
 }
 
