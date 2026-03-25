@@ -7,6 +7,7 @@ import com.kariscode.yike.data.local.db.entity.QuestionEntity
 import com.kariscode.yike.data.mapper.toDomain
 import com.kariscode.yike.data.mapper.toEntity
 import com.kariscode.yike.data.sync.LanSyncChangeRecorder
+import com.kariscode.yike.domain.error.EntityNotFoundException
 import com.kariscode.yike.domain.model.ArchivedCardSummary
 import com.kariscode.yike.domain.model.Card
 import com.kariscode.yike.domain.model.CardSummary
@@ -87,7 +88,10 @@ class OfflineCardRepository(
             val current = cardDao.findById(cardId)?.let { entity ->
                 entity.toDomain()
             }
-            cardDao.setArchived(cardId = cardId, archived = archived, updatedAt = updatedAt)
+            val updatedRows = cardDao.setArchived(cardId = cardId, archived = archived, updatedAt = updatedAt)
+            if (updatedRows == 0) {
+                throw EntityNotFoundException(entityLabel = "卡片", entityId = cardId)
+            }
             RepositorySyncSupport.recordUpdatedSnapshot(
                 current = current,
                 buildUpdated = { card -> card.copy(archived = archived, updatedAt = updatedAt) },
@@ -104,7 +108,10 @@ class OfflineCardRepository(
         val current = cardDao.findById(cardId)?.let { entity ->
             entity.toDomain()
         }
-        cardDao.deleteById(cardId)
+        val deletedRows = cardDao.deleteById(cardId)
+        if (deletedRows == 0) {
+            throw EntityNotFoundException(entityLabel = "卡片", entityId = cardId)
+        }
         RepositorySyncSupport.recordDeleteFromSnapshot(
             syncChangeRecorder = syncChangeRecorder,
             entityType = SyncEntityType.CARD,

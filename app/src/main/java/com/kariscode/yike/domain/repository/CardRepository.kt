@@ -34,7 +34,8 @@ interface CardRepository {
     fun observeArchivedCardSummaries(nowEpochMillis: Long): Flow<List<ArchivedCardSummary>>
 
     /**
-     * 单对象读取用于编辑页根据 cardId 重建表单状态，避免跨页面传对象。
+     * 单对象读取用于编辑页根据 cardId 重建表单状态，避免跨页面传对象；
+     * 当卡片已被删除或路由参数失效时返回 null，方便页面显式走失败态而不是误用旧对象。
      */
     suspend fun findById(cardId: String): Card?
 

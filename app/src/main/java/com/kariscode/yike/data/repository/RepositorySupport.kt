@@ -20,7 +20,11 @@ internal suspend inline fun <T> AppDispatchers.onIo(
 internal inline fun <Source, Target> Flow<List<Source>>.mapEach(
     crossinline transform: (Source) -> Target
 ): Flow<List<Target>> = map { list ->
-    list.map(transform)
+    ArrayList<Target>(list.size).apply {
+        list.forEach { item ->
+            add(transform(item))
+        }
+    }
 }
 
 /**

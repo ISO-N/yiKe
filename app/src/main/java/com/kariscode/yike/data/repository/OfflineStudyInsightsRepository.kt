@@ -171,9 +171,10 @@ class OfflineStudyInsightsRepository(
         questionIds: List<String>,
         includeAllQuestionIds: Boolean
     ): List<QuestionContextRow> {
+        val effectiveKeyword = keyword.takeIf { includeAllQuestionIds }
         if (includeAllQuestionIds) {
             return questionDao.listQuestionContexts(
-                keyword = keyword,
+                keyword = effectiveKeyword,
                 tagKeyword = tagKeyword,
                 status = status,
                 deckId = deckId,
@@ -186,7 +187,7 @@ class OfflineStudyInsightsRepository(
         return questionIds.chunked(MAX_QUESTION_IDS_PER_QUERY)
             .flatMap { chunk ->
                 questionDao.listQuestionContexts(
-                    keyword = keyword,
+                    keyword = null,
                     tagKeyword = tagKeyword,
                     status = status,
                     deckId = deckId,

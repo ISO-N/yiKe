@@ -275,6 +275,12 @@ interface QuestionDao {
     suspend fun listAll(): List<QuestionEntity>
 
     /**
+     * 启动期索引补建按分页拉取题目，是为了避免把整张题目表一次性装进内存后再做分词。
+     */
+    @Query("SELECT * FROM question ORDER BY createdAt ASC LIMIT :limit OFFSET :offset")
+    suspend fun listPage(limit: Int, offset: Int): List<QuestionEntity>
+
+    /**
      * 直接按 id 删除可以把“对象不存在时无操作”的判定留给数据库，
      * 从而避免 Repository 为了删除再做一次额外读取。
      */

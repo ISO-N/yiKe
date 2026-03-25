@@ -10,6 +10,7 @@ import com.kariscode.yike.data.mapper.toEntity
 import com.kariscode.yike.data.search.NoOpQuestionSearchIndexWriter
 import com.kariscode.yike.data.search.QuestionSearchIndexWriter
 import com.kariscode.yike.data.sync.LanSyncChangeRecorder
+import com.kariscode.yike.domain.error.EntityNotFoundException
 import com.kariscode.yike.domain.model.Question
 import com.kariscode.yike.domain.model.SyncEntityType
 import com.kariscode.yike.domain.model.TodayReviewSummary
@@ -57,7 +58,8 @@ class OfflineQuestionRepository(
      */
     override suspend fun upsertAll(questions: List<Question>) = dispatchers.onIo {
         val entities = questions.map { question -> question.toEntity() }
-        questionDao.upsertAll(entities)
+        val rowIds = questionDao.upsertAll(entities)
+        check(rowIds.size == entities.size) { "批量保存问题时返回数量异常：${rowIds.size}/${entities.size}" }
         questionSearchIndexWriter.refreshQuestions(entities)
         questions.forEach { question ->
             syncChangeRecorder.recordQuestionUpsert(question)
@@ -105,7 +107,10 @@ class OfflineQuestionRepository(
         val current = questionDao.findById(questionId)?.let { entity ->
             entity.toDomain()
         }
-        questionDao.deleteById(questionId)
+        val deletedRows = questionDao.deleteById(questionId)
+        if (deletedRows == 0) {
+            throw EntityNotFoundException(entityLabel = "问题", entityId = questionId)
+        }
         RepositorySyncSupport.recordDeleteFromSnapshot(
             syncChangeRecorder = syncChangeRecorder,
             entityType = SyncEntityType.QUESTION,
@@ -127,7 +132,13 @@ class OfflineQuestionRepository(
         val currentQuestions = questionDao.listByIds(questionIds.toList()).map { entity ->
             entity.toDomain()
         }
-        questionDao.deleteByIds(questionIds)
+        val deletedRows = questionDao.deleteByIds(questionIds)
+        if (deletedRows != questionIds.size) {
+            throw EntityNotFoundException(
+                entityLabel = "部分问题",
+                entityId = questionIds.joinToString(separator = ",")
+            )
+        }
         currentQuestions.forEach { question ->
             RepositorySyncSupport.recordDeleteFromSnapshot(
                 syncChangeRecorder = syncChangeRecorder,
