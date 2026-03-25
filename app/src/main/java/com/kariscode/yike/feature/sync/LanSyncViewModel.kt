@@ -94,6 +94,25 @@ class LanSyncViewModel(
     }
 
     /**
+     * 会话 message 属于一次性提示，Snackbar 展示后清理本地副本，
+     * 可以避免配置变更或重组后重复弹出“同步完成”等成功反馈。
+     */
+    fun consumeSessionMessage() {
+        _uiState.update { state ->
+            state.copy(session = state.session.copy(message = null))
+        }
+    }
+
+    /**
+     * 同步失败也属于一次性反馈，展示后清理本地副本能避免后续流程推进时反复提示旧失败。
+     */
+    fun consumeSessionFailure() {
+        _uiState.update { state ->
+            state.copy(session = state.session.copy(activeFailure = null))
+        }
+    }
+
+    /**
      * 权限具备后再启动会话，可以保持“只在用户主动进入同步页时发现设备”的产品边界。
      */
     fun onPermissionReady() {

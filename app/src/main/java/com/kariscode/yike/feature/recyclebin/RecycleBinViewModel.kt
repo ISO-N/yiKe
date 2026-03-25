@@ -97,6 +97,21 @@ class RecycleBinViewModel(
     }
 
     /**
+     * Snackbar 展示完成功提示后应清理 message，
+     * 避免配置变更或重复进入页面时再次弹出同一条恢复/删除反馈。
+     */
+    fun consumeMessage() {
+        _uiState.update { it.copy(message = null) }
+    }
+
+    /**
+     * 错误提示展示后清理可以避免用户完成后续操作时仍被旧错误反复打断。
+     */
+    fun consumeErrorMessage() {
+        _uiState.update { it.copy(errorMessage = null) }
+    }
+
+    /**
      * 恢复卡组本质上是撤销归档，这样原有卡组页无需新增一套专门的导入路径。
      */
     fun onRestoreDeckClick(item: DeckSummary) {

@@ -34,7 +34,7 @@ import com.kariscode.yike.navigation.YikeNavigator
 import com.kariscode.yike.ui.component.YikeFlowScaffold
 import com.kariscode.yike.ui.component.YikeAlertDialog
 import com.kariscode.yike.ui.component.YikeListItemCard
-import com.kariscode.yike.ui.component.YikeOperationFeedback
+import com.kariscode.yike.ui.component.YikeOperationSnackbarEffect
 import com.kariscode.yike.ui.component.YikePrimaryButton
 import com.kariscode.yike.ui.component.YikeScrollableColumn
 import com.kariscode.yike.ui.component.YikeSingleInputDialog
@@ -70,6 +70,13 @@ fun LanSyncScreen(
                 viewModel.onPermissionReady()
             }
         }
+    )
+
+    YikeOperationSnackbarEffect(
+        successMessage = uiState.session.message,
+        errorMessage = uiState.session.activeFailure?.let(::failureMessage),
+        onSuccessConsumed = viewModel::consumeSessionMessage,
+        onErrorConsumed = viewModel::consumeSessionFailure
     )
 
     /**
@@ -183,13 +190,6 @@ private fun LanSyncContent(
             peers = uiState.session.peers,
             isSessionActive = uiState.session.isSessionActive,
             onPeerClick = onPeerClick
-        )
-
-        YikeOperationFeedback(
-            successMessage = uiState.session.message,
-            errorMessage = uiState.session.activeFailure?.let(::failureMessage),
-            successTitle = "同步成功",
-            errorTitle = "同步失败"
         )
     }
 }
