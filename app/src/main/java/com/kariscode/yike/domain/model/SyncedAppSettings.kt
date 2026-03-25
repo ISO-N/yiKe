@@ -8,7 +8,8 @@ data class SyncedAppSettings(
     val dailyReminderEnabled: Boolean,
     val dailyReminderHour: Int,
     val dailyReminderMinute: Int,
-    val themeMode: ThemeMode
+    val themeMode: ThemeMode,
+    val streakAchievementUnlocks: List<StreakAchievementUnlock> = emptyList()
 )
 
 /**
@@ -18,7 +19,8 @@ fun AppSettings.toSyncedAppSettings(): SyncedAppSettings = SyncedAppSettings(
     dailyReminderEnabled = dailyReminderEnabled,
     dailyReminderHour = dailyReminderHour,
     dailyReminderMinute = dailyReminderMinute,
-    themeMode = themeMode
+    themeMode = themeMode,
+    streakAchievementUnlocks = streakAchievementUnlocks
 )
 
 /**
@@ -29,5 +31,6 @@ fun AppSettings.mergeSyncedSettings(settings: SyncedAppSettings): AppSettings = 
     dailyReminderEnabled = settings.dailyReminderEnabled,
     dailyReminderHour = settings.dailyReminderHour,
     dailyReminderMinute = settings.dailyReminderMinute,
-    themeMode = settings.themeMode
+    themeMode = settings.themeMode,
+    streakAchievementUnlocks = settings.streakAchievementUnlocks
 )

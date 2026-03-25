@@ -15,6 +15,7 @@ import com.kariscode.yike.domain.model.QuestionMasteryCalculator
 import com.kariscode.yike.domain.model.QuestionQueryFilters
 import com.kariscode.yike.domain.model.QuestionStatus
 import com.kariscode.yike.domain.model.ReviewAnalyticsSnapshot
+import com.kariscode.yike.domain.model.StageAgainRatioSnapshot
 import com.kariscode.yike.domain.repository.StudyInsightsRepository
 
 /**
@@ -142,6 +143,34 @@ class OfflineStudyInsightsRepository(
     override suspend fun listReviewTimestamps(startEpochMillis: Long?): List<Long> =
         dispatchers.onIo {
             reviewRecordDao.listReviewTimestamps(startEpochMillis = startEpochMillis)
+        }
+
+    /**
+     * 遗忘曲线聚合下推到数据库后，仓储只负责把 DAO 行模型转换为 domain 快照，
+     * 这样统计口径仍然由一处 SQL 决定，而页面只消费稳定的领域模型。
+     */
+    override suspend fun listStageAgainRatios(startEpochMillis: Long?): List<StageAgainRatioSnapshot> =
+        dispatchers.onIo {
+            reviewRecordDao.listStageAgainRatios(startEpochMillis = startEpochMillis)
+                .map { row ->
+                    StageAgainRatioSnapshot(
+                        stageIndex = row.stageIndex,
+                        reviewCount = row.reviewCount,
+                        againCount = row.againCount
+                    )
+                }
+        }
+
+    /**
+     * 未来到期预测需要过滤归档层级与 active 状态，保持与其他统计一致的活跃口径。
+     */
+    override suspend fun listUpcomingDueAts(startEpochMillis: Long, endEpochMillis: Long): List<Long> =
+        dispatchers.onIo {
+            questionDao.listUpcomingDueAts(
+                activeStatus = QuestionStatus.ACTIVE.storageValue,
+                startEpochMillis = startEpochMillis,
+                endEpochMillis = endEpochMillis
+            )
         }
     /**
      * 熟练度筛选保持在仓储层收口，是为了让卡片页摘要和搜索页结果始终看到同一批题目。

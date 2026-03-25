@@ -4,6 +4,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.OutlinedTextField
@@ -31,16 +32,17 @@ import com.kariscode.yike.ui.component.YikeHeroCard
 import com.kariscode.yike.ui.component.YikeListItemCard
 import com.kariscode.yike.ui.component.YikeLoadingBanner
 import com.kariscode.yike.ui.component.YikeMetricCard
-import com.kariscode.yike.ui.component.YikeOperationFeedback
+import com.kariscode.yike.ui.component.YikeOperationSnackbarEffect
 import com.kariscode.yike.ui.component.YikePrimaryButton
 import com.kariscode.yike.ui.component.YikePrimaryDestination
 import com.kariscode.yike.ui.component.YikePrimaryScaffold
+import com.kariscode.yike.ui.component.YikePullToRefresh
 import com.kariscode.yike.ui.component.YikeScrollableColumn
 import com.kariscode.yike.ui.component.YikeScrollableRow
 import com.kariscode.yike.ui.component.YikeSecondaryButton
 import com.kariscode.yike.ui.component.YikeStateBanner
 import com.kariscode.yike.ui.component.YikeTextMetadataDialog
-import com.kariscode.yike.ui.component.YikeSkeletonBlock
+import com.kariscode.yike.ui.component.YikeShimmerBlock
 import com.kariscode.yike.ui.component.YikeEmptyStateIcon
 import com.kariscode.yike.ui.theme.LocalYikeSpacing
 import org.koin.androidx.compose.koinViewModel
@@ -56,6 +58,12 @@ fun DeckListScreen(
 ) {
     val viewModel = koinViewModel<DeckListViewModel>()
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+
+    YikeOperationSnackbarEffect(
+        successMessage = uiState.message,
+        errorMessage = null,
+        onSuccessConsumed = viewModel::consumeMessage
+    )
 
     YikePrimaryScaffold(
         currentDestination = YikePrimaryDestination.DECKS,
@@ -109,93 +117,97 @@ private fun DeckListContent(
     modifier: Modifier = Modifier,
     contentPadding: PaddingValues = PaddingValues()
 ) {
-    YikeScrollableColumn(
-        modifier = modifier,
-        contentPadding = contentPadding
+    val isInitialLoading = uiState.isLoading && uiState.items.isEmpty()
+    val isRefreshing = uiState.isLoading && uiState.items.isNotEmpty()
+
+    YikePullToRefresh(
+        isRefreshing = isRefreshing,
+        onRefresh = onRetry,
+        modifier = modifier
     ) {
-        DeckOverviewSection(items = uiState.visibleItems)
-        DeckSearchSection(
-            keyword = uiState.keyword,
-            onKeywordChange = onKeywordChange
-        )
+        YikeScrollableColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = contentPadding
+        ) {
+            DeckOverviewSection(items = uiState.visibleItems)
+            DeckSearchSection(
+                keyword = uiState.keyword,
+                onKeywordChange = onKeywordChange
+            )
 
-        when {
-            uiState.isLoading -> {
-                DeckListLoadingSection()
-            }
+            when {
+                isInitialLoading -> {
+                    DeckListLoadingSection()
+                }
 
-            uiState.errorMessage != null -> {
-                YikeStateBanner(
-                    title = ErrorMessages.DECK_LIST_LOAD_FAILED,
-                    description = uiState.errorMessage.orEmpty()
-                ) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(LocalYikeSpacing.current.sm)) {
+                uiState.errorMessage != null -> {
+                    YikeStateBanner(
+                        title = ErrorMessages.DECK_LIST_LOAD_FAILED,
+                        description = uiState.errorMessage.orEmpty()
+                    ) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(LocalYikeSpacing.current.sm)) {
+                            YikePrimaryButton(
+                                text = "重试",
+                                onClick = onRetry,
+                                modifier = Modifier.weight(1f)
+                            )
+                            YikeSecondaryButton(
+                                text = "创建卡组",
+                                onClick = onCreateDeck,
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                    }
+                }
+
+                uiState.items.isEmpty() -> {
+                    YikeStateBanner(
+                        title = "还没有卡组",
+                        description = "先创建一个卡组开始整理内容。",
+                        leading = { YikeEmptyStateIcon() }
+                    ) {
                         YikePrimaryButton(
-                            text = "重试",
-                            onClick = onRetry,
-                            modifier = Modifier.weight(1f)
-                        )
-                        YikeSecondaryButton(
-                            text = "创建卡组",
+                            text = "创建第一个卡组",
                             onClick = onCreateDeck,
-                            modifier = Modifier.weight(1f)
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                    }
+                }
+
+                uiState.visibleItems.isEmpty() -> {
+                    YikeStateBanner(
+                        title = "没有找到匹配的卡组",
+                        description = "换个关键词试试，卡组名称、说明和标签都会参与查找。",
+                        leading = { YikeEmptyStateIcon() }
+                    ) {
+                        YikeSecondaryButton(
+                            text = "清空关键词",
+                            onClick = { onKeywordChange("") },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                }
+
+                else -> {
+                    uiState.visibleItems.forEach { item ->
+                        DeckSummaryCard(
+                            item = item,
+                            onOpen = { navigator.openCardList(item.deck.id) },
+                            onPractice = {
+                                navigator.openPracticeSetup(
+                                    PracticeSessionArgs(deckIds = listOf(item.deck.id))
+                                )
+                            },
+                            onOpenTagSearch = { tag ->
+                                navigator.openQuestionSearch(tag = tag)
+                            },
+                            onEdit = { onEditDeck(item) },
+                            onArchive = { onToggleArchive(item) }
                         )
                     }
                 }
             }
-
-            uiState.items.isEmpty() -> {
-                YikeStateBanner(
-                    title = "还没有卡组",
-                    description = "先创建一个卡组开始整理内容。",
-                    leading = { YikeEmptyStateIcon() }
-                ) {
-                    YikePrimaryButton(
-                        text = "创建第一个卡组",
-                        onClick = onCreateDeck,
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                }
-            }
-
-            uiState.visibleItems.isEmpty() -> {
-                YikeStateBanner(
-                    title = "没有找到匹配的卡组",
-                    description = "换个关键词试试，卡组名称、说明和标签都会参与查找。",
-                    leading = { YikeEmptyStateIcon() }
-                ) {
-                    YikeSecondaryButton(
-                        text = "清空关键词",
-                        onClick = { onKeywordChange("") },
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
-            }
-
-            else -> {
-                uiState.visibleItems.forEach { item ->
-                    DeckSummaryCard(
-                        item = item,
-                        onOpen = { navigator.openCardList(item.deck.id) },
-                        onPractice = {
-                            navigator.openPracticeSetup(
-                                PracticeSessionArgs(deckIds = listOf(item.deck.id))
-                            )
-                        },
-                        onOpenTagSearch = { tag ->
-                            navigator.openQuestionSearch(tag = tag)
-                        },
-                        onEdit = { onEditDeck(item) },
-                        onArchive = { onToggleArchive(item) }
-                    )
-                }
-            }
         }
-
-        YikeOperationFeedback(
-            successMessage = uiState.message,
-            errorMessage = null
-        )
     }
 
     uiState.editor?.let { editor ->
@@ -241,7 +253,7 @@ private fun DeckListLoadingSection() {
         description = "正在同步卡组和到期统计。"
     )
     repeat(3) {
-        YikeSkeletonBlock(
+        YikeShimmerBlock(
             modifier = Modifier.fillMaxWidth(),
             height = if (it == 0) 104.dp else 88.dp
         )

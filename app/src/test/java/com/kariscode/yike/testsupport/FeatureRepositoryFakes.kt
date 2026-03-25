@@ -18,6 +18,7 @@ import com.kariscode.yike.domain.model.ReviewRating
 import com.kariscode.yike.domain.model.ReviewAnalyticsSnapshot
 import com.kariscode.yike.domain.model.ReviewRecord
 import com.kariscode.yike.domain.model.ReviewSubmission
+import com.kariscode.yike.domain.model.StageAgainRatioSnapshot
 import com.kariscode.yike.domain.model.ThemeMode
 import com.kariscode.yike.domain.model.TodayReviewSummary
 import com.kariscode.yike.domain.repository.AppSettingsRepository
@@ -265,6 +266,8 @@ open class FakeStudyInsightsRepository : StudyInsightsRepository {
         deckBreakdowns = emptyList()
     )
     var reviewTimestamps: List<Long> = emptyList()
+    var stageAgainRatios: List<StageAgainRatioSnapshot> = emptyList()
+    var upcomingDueAts: List<Long> = emptyList()
     var deckMasterySummary: DeckMasterySummarySnapshot = DeckMasterySummarySnapshot(
         totalQuestions = 0,
         newCount = 0,
@@ -277,6 +280,7 @@ open class FakeStudyInsightsRepository : StudyInsightsRepository {
     val searchFilters = mutableListOf<QuestionQueryFilters>()
     val deckMasteryRequests = mutableListOf<String>()
     val analyticsRequests = mutableListOf<Long?>()
+    val dueForecastRequests = mutableListOf<DueForecastRequest>()
 
     /**
      * 搜索调用会记录筛选条件，便于断言 ViewModel 是否把状态正确映射成查询参数。
@@ -318,6 +322,28 @@ open class FakeStudyInsightsRepository : StudyInsightsRepository {
      * 连续学习天数依赖原始时间戳列表，因此假实现直接回放预设集合。
      */
     override suspend fun listReviewTimestamps(startEpochMillis: Long?): List<Long> = reviewTimestamps
+        .filter { timestamp -> startEpochMillis == null || timestamp >= startEpochMillis }
+
+    /**
+     * 遗忘曲线聚合在测试里通常只需要回放预设快照，足以断言 ViewModel 是否正确请求与映射。
+     */
+    override suspend fun listStageAgainRatios(startEpochMillis: Long?): List<StageAgainRatioSnapshot> = stageAgainRatios
+
+    /**
+     * 未来到期预测会记录请求窗口，便于断言 ViewModel 是否用“从今天开始的 7 天”这类稳定口径。
+     */
+    override suspend fun listUpcomingDueAts(startEpochMillis: Long, endEpochMillis: Long): List<Long> {
+        dueForecastRequests += DueForecastRequest(startEpochMillis = startEpochMillis, endEpochMillis = endEpochMillis)
+        return upcomingDueAts.filter { dueAt -> dueAt in startEpochMillis until endEpochMillis }
+    }
+
+    /**
+     * 预测窗口记录单独建模，是为了让断言不需要依赖 Pair 下标，提升可读性。
+     */
+    data class DueForecastRequest(
+        val startEpochMillis: Long,
+        val endEpochMillis: Long
+    )
 }
 
 /**

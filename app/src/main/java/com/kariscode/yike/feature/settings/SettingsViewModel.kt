@@ -63,7 +63,8 @@ class SettingsViewModel(
         dailyReminderMinute = 0,
         schemaVersion = SettingsConstants.SCHEMA_VERSION,
         backupLastAt = null,
-        themeMode = ThemeMode.LIGHT
+        themeMode = ThemeMode.LIGHT,
+        streakAchievementUnlocks = emptyList()
     )
 
     private val _uiState = MutableStateFlow(
@@ -173,6 +174,21 @@ class SettingsViewModel(
         persistSettingsChange(successMessage = "主题设置已保存") {
             appSettingsRepository.setThemeMode(themeMode)
         }
+    }
+
+    /**
+     * Snackbar 负责展示一次性成功提示，因此展示后需要清理 message，
+     * 以免配置变更或重新进入页面时重复弹出同一条反馈。
+     */
+    fun consumeMessage() {
+        _uiState.update { it.copy(message = null) }
+    }
+
+    /**
+     * 错误提示同样属于一次性反馈，展示后清理可以避免用户在恢复后仍被旧错误反复打断。
+     */
+    fun consumeErrorMessage() {
+        _uiState.update { it.copy(errorMessage = null) }
     }
 
     /**

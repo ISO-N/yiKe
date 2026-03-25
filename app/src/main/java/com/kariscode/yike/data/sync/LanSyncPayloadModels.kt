@@ -10,6 +10,7 @@ import com.kariscode.yike.domain.model.ReviewRecord
 import com.kariscode.yike.domain.model.SyncChangeOperation
 import com.kariscode.yike.domain.model.SyncEntityType
 import com.kariscode.yike.domain.model.SyncedAppSettings
+import com.kariscode.yike.domain.model.StreakAchievementUnlock
 import com.kariscode.yike.domain.model.ThemeMode
 import kotlinx.serialization.Serializable
 
@@ -36,7 +37,17 @@ data class SyncSettingsPayload(
     val dailyReminderEnabled: Boolean,
     val dailyReminderHour: Int,
     val dailyReminderMinute: Int,
-    val themeMode: String
+    val themeMode: String,
+    val streakAchievementUnlocks: List<SyncStreakAchievementUnlockPayload> = emptyList()
+)
+
+/**
+ * 解锁记录进入同步载荷，是为了让成就进度能够跨设备一致而不是依赖每台设备本地派生。
+ */
+@Serializable
+data class SyncStreakAchievementUnlockPayload(
+    val id: String,
+    val unlockedAt: Long
 )
 
 /**
@@ -114,7 +125,13 @@ fun SyncedAppSettings.toPayload(): SyncSettingsPayload = SyncSettingsPayload(
     dailyReminderEnabled = dailyReminderEnabled,
     dailyReminderHour = dailyReminderHour,
     dailyReminderMinute = dailyReminderMinute,
-    themeMode = themeMode.storageValue
+    themeMode = themeMode.storageValue,
+    streakAchievementUnlocks = streakAchievementUnlocks.map { unlock ->
+        SyncStreakAchievementUnlockPayload(
+            id = unlock.achievementId,
+            unlockedAt = unlock.unlockedAtEpochMillis
+        )
+    }
 )
 
 /**
@@ -188,7 +205,13 @@ fun SyncSettingsPayload.toDomain(): SyncedAppSettings = SyncedAppSettings(
     dailyReminderEnabled = dailyReminderEnabled,
     dailyReminderHour = dailyReminderHour,
     dailyReminderMinute = dailyReminderMinute,
-    themeMode = ThemeMode.fromStorageValue(themeMode)
+    themeMode = ThemeMode.fromStorageValue(themeMode),
+    streakAchievementUnlocks = streakAchievementUnlocks.map { payload ->
+        StreakAchievementUnlock(
+            achievementId = payload.id,
+            unlockedAtEpochMillis = payload.unlockedAt
+        )
+    }
 )
 
 /**

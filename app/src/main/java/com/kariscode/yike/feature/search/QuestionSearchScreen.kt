@@ -3,6 +3,7 @@ package com.kariscode.yike.feature.search
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.runtime.Composable
@@ -17,6 +18,7 @@ import com.kariscode.yike.navigation.YikeNavigator
 import com.kariscode.yike.ui.component.YikeFlowScaffold
 import com.kariscode.yike.ui.component.YikeLoadingBanner
 import com.kariscode.yike.ui.component.YikePrimaryButton
+import com.kariscode.yike.ui.component.YikePullToRefresh
 import com.kariscode.yike.ui.component.YikeSecondaryButton
 import com.kariscode.yike.ui.component.YikeStateBanner
 import com.kariscode.yike.ui.component.backNavigationAction
@@ -99,74 +101,82 @@ private fun QuestionSearchContent(
     modifier: Modifier = Modifier
 ) {
     val spacing = LocalYikeSpacing.current
-    LazyColumn(
-        modifier = modifier,
-        contentPadding = contentPadding,
-        verticalArrangement = Arrangement.spacedBy(spacing.lg)
+    val isRefreshing = uiState.isLoading && uiState.results.isNotEmpty()
+
+    YikePullToRefresh(
+        isRefreshing = isRefreshing,
+        onRefresh = onRetry,
+        modifier = modifier
     ) {
-        if (uiState.isLoading && uiState.results.isEmpty() && uiState.errorMessage == null) {
-            item {
-                YikeLoadingBanner(
-                    title = "正在整理题库结果",
-                    description = "稍等一下，我们会把关键字、标签和层级筛选对应的结果一起准备好。"
-                )
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = contentPadding,
+            verticalArrangement = Arrangement.spacedBy(spacing.lg)
+        ) {
+            if (uiState.isLoading && uiState.results.isEmpty() && uiState.errorMessage == null) {
+                item {
+                    YikeLoadingBanner(
+                        title = "正在整理题库结果",
+                        description = "稍等一下，我们会把关键字、标签和层级筛选对应的结果一起准备好。"
+                    )
+                }
             }
-        }
-        if (uiState.errorMessage != null) {
-            item {
-                YikeStateBanner(
-                    title = ErrorMessages.SEARCH_LOAD_FAILED,
-                    description = uiState.errorMessage
-                ) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
-                        YikePrimaryButton(
-                            text = "重试",
-                            onClick = onRetry,
-                            modifier = Modifier.weight(1f)
-                        )
-                        YikeSecondaryButton(
-                            text = "清空筛选",
-                            onClick = onClearFilters,
-                            modifier = Modifier.weight(1f)
-                        )
+            if (uiState.errorMessage != null) {
+                item {
+                    YikeStateBanner(
+                        title = ErrorMessages.SEARCH_LOAD_FAILED,
+                        description = uiState.errorMessage
+                    ) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
+                            YikePrimaryButton(
+                                text = "重试",
+                                onClick = onRetry,
+                                modifier = Modifier.weight(1f)
+                            )
+                            YikeSecondaryButton(
+                                text = "清空筛选",
+                                onClick = onClearFilters,
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
                     }
                 }
             }
-        }
-        item {
-            QuestionSearchHeroSection(
-                uiState = uiState,
-                onKeywordChange = onKeywordChange,
-                onSearchTriggered = onSearchTriggered
-            )
-        }
-        item {
-            QuestionSearchFilterSection(
-                uiState = uiState,
-                onTagSelected = onTagSelected,
-                onStatusSelected = onStatusSelected,
-                onDeckSelected = onDeckSelected,
-                onCardSelected = onCardSelected,
-                onMasterySelected = onMasterySelected,
-                onClearFilters = onClearFilters
-            )
-        }
-        if (uiState.results.isNotEmpty()) {
             item {
-                QuestionSearchPracticeEntry(
+                QuestionSearchHeroSection(
                     uiState = uiState,
-                    onOpenPractice = onOpenPractice
+                    onKeywordChange = onKeywordChange,
+                    onSearchTriggered = onSearchTriggered
                 )
             }
+            item {
+                QuestionSearchFilterSection(
+                    uiState = uiState,
+                    onTagSelected = onTagSelected,
+                    onStatusSelected = onStatusSelected,
+                    onDeckSelected = onDeckSelected,
+                    onCardSelected = onCardSelected,
+                    onMasterySelected = onMasterySelected,
+                    onClearFilters = onClearFilters
+                )
+            }
+            if (uiState.results.isNotEmpty()) {
+                item {
+                    QuestionSearchPracticeEntry(
+                        uiState = uiState,
+                        onOpenPractice = onOpenPractice
+                    )
+                }
+            }
+            questionSearchResultItems(
+                uiState = uiState,
+                onClearFilters = onClearFilters,
+                onCreateContent = onCreateContent,
+                onOpenEditor = onOpenEditor,
+                onOpenReview = onOpenReview,
+                onOpenPractice = onOpenPractice
+            )
         }
-        questionSearchResultItems(
-            uiState = uiState,
-            onClearFilters = onClearFilters,
-            onCreateContent = onCreateContent,
-            onOpenEditor = onOpenEditor,
-            onOpenReview = onOpenReview,
-            onOpenPractice = onOpenPractice
-        )
     }
 }
 

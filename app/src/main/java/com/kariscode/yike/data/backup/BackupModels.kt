@@ -71,7 +71,18 @@ data class BackupSettings(
     val dailyReminderTime: String,
     val schemaVersion: Int,
     val backupLastAt: String? = null,
-    val themeMode: String = ThemeMode.LIGHT.storageValue
+    val themeMode: String = ThemeMode.LIGHT.storageValue,
+    val streakAchievementUnlocks: List<BackupStreakAchievementUnlock> = emptyList()
+)
+
+/**
+ * 成就解锁记录需要随设置一起进入备份，
+ * 这样跨设备迁移或误删恢复后仍能保留用户的学习进度反馈。
+ */
+@Serializable
+data class BackupStreakAchievementUnlock(
+    val id: String,
+    val unlockedAt: String
 )
 
 /**

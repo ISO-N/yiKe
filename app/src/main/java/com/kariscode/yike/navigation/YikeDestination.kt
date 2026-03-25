@@ -25,6 +25,7 @@ object YikeDestination {
     const val PRACTICE_SESSION = "practice_session?deckIds={deckIds}&cardIds={cardIds}&questionIds={questionIds}&orderMode={orderMode}"
 
     const val CARD_LIST = "card_list/{deckId}"
+    const val CARD_LIST_ROUTE = "card_list/{deckId}?createCard={createCard}"
     const val QUESTION_EDITOR = "question_editor/{cardId}?deckId={deckId}"
     const val QUESTION_SEARCH = "question_search"
     const val QUESTION_SEARCH_ROUTE = "question_search?deckId={deckId}&cardId={cardId}&tag={tag}"
@@ -40,10 +41,16 @@ object YikeDestination {
     /**
      * 卡片列表路由复用模板替换后，后续若路径结构调整，只需维护一处占位定义。
      */
-    fun cardList(deckId: String): String = buildPathRoute(
-        CARD_LIST,
-        NavArguments.DECK_ID to deckId
-    )
+    fun cardList(deckId: String, createCard: Boolean = false): String {
+        val route = buildPathRoute(
+            CARD_LIST,
+            NavArguments.DECK_ID to deckId
+        )
+        return buildQueryRoute(
+            route,
+            NavArguments.CREATE_CARD to createCard.takeIf { value -> value }?.toString()
+        )
+    }
 
     /**
      * 使用 query 参数承载可选 deckId，能让编辑页在“从卡片列表进入”和“深链路直接进入”

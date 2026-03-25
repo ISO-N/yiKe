@@ -509,6 +509,15 @@ class OfflineQuestionRepositoryTest {
 
         override suspend fun listTagsJson(activeStatus: String): List<String> = emptyList()
 
+        override suspend fun listCsvExportRows(activeStatus: String): List<com.kariscode.yike.data.local.db.dao.CsvQuestionExportRow> =
+            emptyList()
+
+        override suspend fun listUpcomingDueAts(
+            activeStatus: String,
+            startEpochMillis: Long,
+            endEpochMillis: Long
+        ): List<Long> = emptyList()
+
         /**
          * 练习模式查询不在当前仓储测试关注范围内，这里返回空列表即可满足接口约束。
          */

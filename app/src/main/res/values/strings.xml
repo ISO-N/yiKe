@@ -1,3 +1,21 @@
 <resources>
     <string name="app_name">Yike</string>
+
+    <!--
+        Shortcuts 文案集中在 string 资源中，是为了兼容后续多语言或统一文案调整，
+        避免 shortcuts.xml 内硬编码导致更新时遗漏。
+    -->
+    <string name="shortcut_review_short_label">快速复习</string>
+    <string name="shortcut_review_long_label">快速进入复习队列</string>
+    <string name="shortcut_new_card_short_label">新建卡片</string>
+    <string name="shortcut_new_card_long_label">快速创建一张新卡片</string>
+    <string name="shortcut_disabled_message">入口暂不可用</string>
+
+    <!--
+        Widget 文案资源化的原因是：Widget 更新频率低，一旦发布后要修正文案成本更高，
+        因此避免在 layout/xml 中硬编码，便于统一维护。
+    -->
+    <string name="widget_entry_title">忆刻</string>
+    <string name="widget_entry_subtitle">开始复习或快速补内容</string>
+    <string name="widget_entry_description">桌面入口：快速复习与新建卡片</string>
 </resources>

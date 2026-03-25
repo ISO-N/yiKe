@@ -5,13 +5,22 @@ import androidx.lifecycle.ViewModelProvider
 import com.kariscode.yike.core.ui.message.ErrorMessages
 import com.kariscode.yike.core.ui.message.userMessageOr
 import com.kariscode.yike.core.domain.time.TimeProvider
+import com.kariscode.yike.core.domain.time.calculateStudyStreakDays
 import com.kariscode.yike.core.ui.viewmodel.launchResult
 import com.kariscode.yike.core.ui.viewmodel.typedViewModelFactory
 import com.kariscode.yike.domain.model.DeckSummary
+import com.kariscode.yike.domain.model.StreakAchievement
+import com.kariscode.yike.domain.model.highestUnlockedAchievement
+import com.kariscode.yike.domain.model.unlockForStreakDays
 import com.kariscode.yike.domain.model.TodayReviewSummary
 import com.kariscode.yike.domain.repository.DeckRepository
 import com.kariscode.yike.domain.repository.QuestionRepository
+import com.kariscode.yike.domain.repository.AppSettingsRepository
+import com.kariscode.yike.domain.repository.StudyInsightsRepository
 import com.kariscode.yike.domain.usecase.GetHomeOverviewUseCase
+import com.kariscode.yike.domain.usecase.HomeOverview
+import com.kariscode.yike.core.domain.coroutine.parallel3
+import java.time.ZoneId
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -36,6 +45,8 @@ data class HomeUiState(
     val summary: TodayReviewSummary,
     val recentDecks: List<DeckSummary>,
     val contentMode: HomeContentMode,
+    val streakDays: Int,
+    val highestAchievement: StreakAchievement?,
     val errorMessage: String?
 )
 
@@ -45,8 +56,21 @@ data class HomeUiState(
  */
 class HomeViewModel(
     private val getHomeOverviewUseCase: GetHomeOverviewUseCase,
-    private val timeProvider: TimeProvider
+    private val studyInsightsRepository: StudyInsightsRepository,
+    private val appSettingsRepository: AppSettingsRepository,
+    private val timeProvider: TimeProvider,
+    private val zoneId: ZoneId = ZoneId.systemDefault()
 ) : ViewModel() {
+    /**
+     * 刷新需要把“概览 + streak + 最高徽章”组合成一份一致结果，
+     * 抽成局部模型是为了让 `launchResult` 的 onSuccess 保持纯 UI 回写，不再混入 suspend 写入动作。
+     */
+    private data class HomeRefreshResult(
+        val overview: HomeOverview,
+        val streakDays: Int,
+        val highestAchievement: StreakAchievement?
+    )
+
     private val _uiState = MutableStateFlow(
         HomeUiState(
             isLoading = true,
@@ -56,6 +80,8 @@ class HomeViewModel(
             ),
             recentDecks = emptyList(),
             contentMode = HomeContentMode.CONTENT_EMPTY,
+            streakDays = 0,
+            highestAchievement = null,
             errorMessage = null
         )
     )
@@ -75,17 +101,46 @@ class HomeViewModel(
         _uiState.update { it.copy(isLoading = true, errorMessage = null) }
         launchResult(
             action = {
-                getHomeOverviewUseCase(
-                    nowEpochMillis = timeProvider.nowEpochMillis(),
-                    recentDeckLimit = 3
+                val nowEpochMillis = timeProvider.nowEpochMillis()
+                val (overview, timestamps, settings) = parallel3(
+                    first = {
+                        getHomeOverviewUseCase(
+                            nowEpochMillis = nowEpochMillis,
+                            recentDeckLimit = 3
+                        )
+                    },
+                    second = { studyInsightsRepository.listReviewTimestamps(startEpochMillis = null) },
+                    third = { appSettingsRepository.getSettings() }
+                )
+
+                val streakDays = calculateStudyStreakDays(
+                    reviewTimestamps = timestamps,
+                    nowEpochMillis = nowEpochMillis,
+                    zoneId = zoneId
+                )
+                val unlocks = settings.streakAchievementUnlocks.unlockForStreakDays(
+                    streakDays = streakDays,
+                    nowEpochMillis = nowEpochMillis
+                )
+                if (unlocks != settings.streakAchievementUnlocks) {
+                    // 写入解锁记录放在 refresh 主协程里执行，保证备份与同步链路能拿到最新进度。
+                    appSettingsRepository.setSettings(settings.copy(streakAchievementUnlocks = unlocks))
+                }
+                HomeRefreshResult(
+                    overview = overview,
+                    streakDays = streakDays,
+                    highestAchievement = unlocks.highestUnlockedAchievement()
                 )
             },
-            onSuccess = { overview ->
+            onSuccess = { result ->
                 _uiState.update {
                     HomeStateFactory.success(
                         state = it,
-                        summary = overview.summary,
-                        recentDecks = overview.recentDecks
+                        summary = result.overview.summary,
+                        recentDecks = result.overview.recentDecks
+                    ).copy(
+                        streakDays = result.streakDays,
+                        highestAchievement = result.highestAchievement
                     )
                 }
             },
@@ -107,6 +162,8 @@ class HomeViewModel(
         fun factory(
             questionRepository: QuestionRepository,
             deckRepository: DeckRepository,
+            studyInsightsRepository: StudyInsightsRepository,
+            appSettingsRepository: AppSettingsRepository,
             timeProvider: TimeProvider
         ): ViewModelProvider.Factory = typedViewModelFactory {
             HomeViewModel(
@@ -114,6 +171,8 @@ class HomeViewModel(
                     questionRepository = questionRepository,
                     deckRepository = deckRepository
                 ),
+                studyInsightsRepository = studyInsightsRepository,
+                appSettingsRepository = appSettingsRepository,
                 timeProvider = timeProvider
             )
         }

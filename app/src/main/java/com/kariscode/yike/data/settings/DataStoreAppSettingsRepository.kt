@@ -123,6 +123,7 @@ class DataStoreAppSettingsRepository(
         val schemaVersion = intPreferencesKey("schemaVersion")
         val backupLastAt = longPreferencesKey("backupLastAt")
         val themeMode = stringPreferencesKey("themeMode")
+        val streakAchievementUnlocksJson = stringPreferencesKey("streakAchievementUnlocks")
     }
 
     /**
@@ -143,6 +144,7 @@ class DataStoreAppSettingsRepository(
             prefs[Keys.backupLastAt] = settings.backupLastAt
         }
         prefs[Keys.themeMode] = settings.themeMode.storageValue
+        prefs[Keys.streakAchievementUnlocksJson] = encodeStreakAchievementUnlocks(settings.streakAchievementUnlocks)
     }
 
     /**
@@ -154,7 +156,9 @@ class DataStoreAppSettingsRepository(
         dailyReminderMinute = this[Keys.dailyReminderMinute] ?: 0,
         schemaVersion = this[Keys.schemaVersion] ?: SettingsConstants.SCHEMA_VERSION,
         backupLastAt = this[Keys.backupLastAt],
-        themeMode = ThemeMode.fromStorageValue(this[Keys.themeMode])
+        themeMode = ThemeMode.fromStorageValue(this[Keys.themeMode]),
+        streakAchievementUnlocks = this[Keys.streakAchievementUnlocksJson]?.let(::decodeStreakAchievementUnlocks)
+            ?: emptyList()
     )
 
     /**

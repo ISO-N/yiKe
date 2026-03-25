@@ -6,10 +6,17 @@ import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavHostController
@@ -34,8 +41,13 @@ import com.kariscode.yike.feature.search.QuestionSearchScreen
 import com.kariscode.yike.feature.settings.SettingsScreen
 import com.kariscode.yike.feature.sync.LanSyncScreen
 import com.kariscode.yike.feature.webconsole.WebConsoleScreen
+import com.kariscode.yike.ui.component.LocalYikeSnackbarState
 import com.kariscode.yike.ui.component.YikePrimaryDestination
 import com.kariscode.yike.ui.component.YikePrimaryNavigationChrome
+import com.kariscode.yike.ui.component.YikeSnackbarHost
+import com.kariscode.yike.ui.component.rememberYikeSnackbarState
+import com.kariscode.yike.ui.theme.YikeAdaptiveTokens
+import com.kariscode.yike.ui.theme.YikeThemeTokens
 import com.kariscode.yike.ui.theme.YikeAnimationDurations
 import com.kariscode.yike.ui.theme.rememberYikeDuration
 
@@ -63,25 +75,35 @@ fun YikeNavGraph(
     val currentBackStackEntry by navController.currentBackStackEntryAsState()
     val currentPrimaryDestination = primaryDestinationForRoute(currentBackStackEntry?.destination?.route)
     val navigator = rememberYikeNavigator(navController)
+    val snackbarState = rememberYikeSnackbarState()
     val primarySlideDuration = rememberYikeDuration(YikeAnimationDurations.NAVIGATION_SLIDE_PRIMARY)
     val standardSlideDuration = rememberYikeDuration(YikeAnimationDurations.NAVIGATION_SLIDE)
-    val standardFadeDuration = rememberYikeDuration(YikeAnimationDurations.MEDIUM)
+    val standardFadeDuration = rememberYikeDuration(200)
+    val adaptiveLayout = YikeAdaptiveTokens.layout
+    val spacing = YikeThemeTokens.spacing
+    val navigationBarsPadding = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+    val snackbarBottomOffset = navigationBarsPadding + if (currentPrimaryDestination != null) {
+        adaptiveLayout.primaryContentBottomInset
+    } else {
+        spacing.md
+    }
 
-    Box(modifier = modifier.fillMaxSize()) {
-        NavHost(
-            navController = navController,
-            startDestination = YikeDestination.HOME,
-            modifier = Modifier.fillMaxSize(),
-            enterTransition = { appEnterTransition(primarySlideDuration, standardSlideDuration, standardFadeDuration) },
-            exitTransition = { appExitTransition(primarySlideDuration, standardSlideDuration, standardFadeDuration) },
-            popEnterTransition = { appPopEnterTransition(primarySlideDuration, standardSlideDuration, standardFadeDuration) },
-            popExitTransition = { appPopExitTransition(primarySlideDuration, standardSlideDuration, standardFadeDuration) }
-        ) {
-            composable(route = YikeDestination.HOME) {
-                HomeScreen(
-                    navigator = navigator
-                )
-            }
+    CompositionLocalProvider(LocalYikeSnackbarState provides snackbarState) {
+        Box(modifier = modifier.fillMaxSize()) {
+            NavHost(
+                navController = navController,
+                startDestination = YikeDestination.HOME,
+                modifier = Modifier.fillMaxSize(),
+                enterTransition = { appEnterTransition(primarySlideDuration, standardSlideDuration, standardFadeDuration) },
+                exitTransition = { appExitTransition(primarySlideDuration, standardSlideDuration, standardFadeDuration) },
+                popEnterTransition = { appPopEnterTransition(primarySlideDuration, standardSlideDuration, standardFadeDuration) },
+                popExitTransition = { appPopExitTransition(primarySlideDuration, standardSlideDuration, standardFadeDuration) }
+            ) {
+                composable(route = YikeDestination.HOME) {
+                    HomeScreen(
+                        navigator = navigator
+                    )
+                }
 
             composable(route = YikeDestination.DECK_LIST) {
                 DeckListScreen(
@@ -96,7 +118,27 @@ fun YikeNavGraph(
                 val deckId = entry.requireStringArg(NavArguments.DECK_ID)
                 CardListScreen(
                     deckId = deckId,
-                    navigator = navigator
+                    navigator = navigator,
+                    openCreateCardOnStart = false
+                )
+            }
+
+            composable(
+                route = YikeDestination.CARD_LIST_ROUTE,
+                arguments = listOf(
+                    navArgument(NavArguments.DECK_ID) { type = NavType.StringType },
+                    navArgument(NavArguments.CREATE_CARD) {
+                        type = NavType.BoolType
+                        defaultValue = false
+                    }
+                )
+            ) { entry ->
+                val deckId = entry.requireStringArg(NavArguments.DECK_ID)
+                val openCreateCard = entry.arguments?.getBoolean(NavArguments.CREATE_CARD) ?: false
+                CardListScreen(
+                    deckId = deckId,
+                    navigator = navigator,
+                    openCreateCardOnStart = openCreateCard
                 )
             }
 
@@ -228,16 +270,25 @@ fun YikeNavGraph(
                 )
             }
 
-            addDebugDestination(onBack = navigator::back)
-        }
+                addDebugDestination(onBack = navigator::back)
+            }
 
-        currentPrimaryDestination?.let { destination ->
-            YikePrimaryNavigationChrome(
-                currentDestination = destination,
-                onNavigate = { primaryDestination ->
-                    navigator.openPrimary(primaryDestination.route)
-                }
+            YikeSnackbarHost(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(horizontal = adaptiveLayout.horizontalPadding)
+                    .padding(bottom = snackbarBottomOffset)
+                    .widthIn(max = adaptiveLayout.maxContentWidth)
             )
+
+            currentPrimaryDestination?.let { destination ->
+                YikePrimaryNavigationChrome(
+                    currentDestination = destination,
+                    onNavigate = { primaryDestination ->
+                        navigator.openPrimary(primaryDestination.route)
+                    }
+                )
+            }
         }
     }
 }
@@ -381,7 +432,7 @@ private fun AnimatedContentTransitionScope<NavBackStackEntry>.appEnterTransition
         )
     }
     return slideFadeEnter(
-        direction = AnimatedContentTransitionScope.SlideDirection.Left,
+        direction = AnimatedContentTransitionScope.SlideDirection.Up,
         slideDurationMillis = standardSlideDuration,
         fadeDurationMillis = standardFadeDuration
     )
@@ -402,7 +453,7 @@ private fun AnimatedContentTransitionScope<NavBackStackEntry>.appExitTransition(
         )
     }
     return slideFadeExit(
-        direction = AnimatedContentTransitionScope.SlideDirection.Left,
+        direction = AnimatedContentTransitionScope.SlideDirection.Up,
         slideDurationMillis = standardSlideDuration,
         fadeDurationMillis = standardFadeDuration
     )
@@ -423,7 +474,7 @@ private fun AnimatedContentTransitionScope<NavBackStackEntry>.appPopEnterTransit
         )
     }
     return slideFadeEnter(
-        direction = AnimatedContentTransitionScope.SlideDirection.Right,
+        direction = AnimatedContentTransitionScope.SlideDirection.Down,
         slideDurationMillis = standardSlideDuration,
         fadeDurationMillis = standardFadeDuration
     )
@@ -444,7 +495,7 @@ private fun AnimatedContentTransitionScope<NavBackStackEntry>.appPopExitTransiti
         )
     }
     return slideFadeExit(
-        direction = AnimatedContentTransitionScope.SlideDirection.Right,
+        direction = AnimatedContentTransitionScope.SlideDirection.Down,
         slideDurationMillis = standardSlideDuration,
         fadeDurationMillis = standardFadeDuration
     )

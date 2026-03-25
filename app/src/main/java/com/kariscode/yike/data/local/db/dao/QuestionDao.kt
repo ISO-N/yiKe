@@ -37,6 +37,21 @@ data class QuestionContextRow(
 )
 
 /**
+ * CSV 导出只需要题目与所属层级的少量字段，单独定义行模型是为了避免复用更重的上下文行，
+ * 同时把“导出只包含活跃内容”这一过滤口径固定在数据库边界。
+ */
+data class CsvQuestionExportRow(
+    val deckName: String,
+    val cardTitle: String,
+    val cardDescription: String,
+    val prompt: String,
+    val answer: String,
+    val tagsJson: String,
+    val stageIndex: Int,
+    val dueAt: Long
+)
+
+/**
  * 熟练度摘要行把卡片页需要的四档统计一次性聚合出来，
  * 是为了避免上层为了几个数字先拉整批题目再重复执行领域级分类。
  */
@@ -148,6 +163,32 @@ interface QuestionDao {
         includeAllQuestionIds: Boolean,
         questionIds: List<String>
     ): List<QuestionContextRow>
+
+    /**
+     * 导出 CSV 的查询直接在数据库层过滤归档与非活跃状态，
+     * 是为了确保导出范围与应用内“活跃内容口径”保持一致，不把回收站/归档内容带出。
+     */
+    @Query(
+        """
+        SELECT
+            d.name AS deckName,
+            c.title AS cardTitle,
+            c.description AS cardDescription,
+            q.prompt AS prompt,
+            q.answer AS answer,
+            q.tagsJson AS tagsJson,
+            q.stageIndex AS stageIndex,
+            q.dueAt AS dueAt
+        FROM question q
+        JOIN card c ON c.id = q.cardId
+        JOIN deck d ON d.id = c.deckId
+        WHERE d.archived = 0
+          AND c.archived = 0
+          AND q.status = :activeStatus
+        ORDER BY d.sortOrder ASC, d.createdAt ASC, d.id ASC, c.sortOrder ASC, c.createdAt ASC, c.id ASC, q.createdAt ASC, q.id ASC
+        """
+    )
+    suspend fun listCsvExportRows(activeStatus: String): List<CsvQuestionExportRow>
 
     /**
      * 标签候选直接读取原始 JSON 字段，是为了让仓储层统一负责解析与去重策略，
@@ -291,6 +332,30 @@ interface QuestionDao {
         """
     )
     suspend fun listDueQuestions(activeStatus: String, nowEpochMillis: Long): List<QuestionEntity>
+
+    /**
+     * 未来到期预测只需要 dueAt 时间戳序列，因此在 DAO 层直接返回 Long 列表，
+     * 既能减少实体装载开销，也能让上层按本地日期自由分桶。
+     */
+    @Query(
+        """
+        SELECT q.dueAt
+        FROM question q
+        JOIN card c ON c.id = q.cardId
+        JOIN deck d ON d.id = c.deckId
+        WHERE d.archived = 0
+          AND c.archived = 0
+          AND q.status = :activeStatus
+          AND q.dueAt >= :startEpochMillis
+          AND q.dueAt < :endEpochMillis
+        ORDER BY q.dueAt ASC
+        """
+    )
+    suspend fun listUpcomingDueAts(
+        activeStatus: String,
+        startEpochMillis: Long,
+        endEpochMillis: Long
+    ): List<Long>
 
     /**
      * 队列页把“下一张卡片”判断下推到数据库，可以避免把全部到期问题加载到内存后再做分组筛选。

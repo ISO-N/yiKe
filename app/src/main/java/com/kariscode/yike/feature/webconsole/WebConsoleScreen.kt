@@ -9,13 +9,14 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.SnackbarHost
-import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -23,16 +24,17 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.kariscode.yike.app.WebConsoleForegroundService
 import com.kariscode.yike.domain.model.WebConsoleState
 import com.kariscode.yike.navigation.YikeNavigator
+import com.kariscode.yike.ui.component.LocalYikeSnackbarState
 import com.kariscode.yike.ui.component.YikeBadge
 import com.kariscode.yike.ui.component.YikeFlowScaffold
 import com.kariscode.yike.ui.component.YikeListItemCard
-import com.kariscode.yike.ui.component.YikeOperationFeedback
 import com.kariscode.yike.ui.component.YikePrimaryButton
 import com.kariscode.yike.ui.component.YikeScrollableColumn
 import com.kariscode.yike.ui.component.YikeSecondaryButton
 import com.kariscode.yike.ui.component.YikeStateBanner
 import com.kariscode.yike.ui.component.YikeWarningCard
 import com.kariscode.yike.ui.component.backNavigationAction
+import com.kariscode.yike.ui.component.YikeSnackbarTone
 import com.kariscode.yike.ui.format.formatLocalDateTime
 import com.kariscode.yike.ui.theme.LocalYikeSpacing
 import kotlinx.coroutines.launch
@@ -50,36 +52,55 @@ fun WebConsoleScreen(
     val spacing = LocalYikeSpacing.current
     val viewModel = koinViewModel<WebConsoleViewModel>()
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    val snackbarHostState = remember { SnackbarHostState() }
+    val snackbarState = LocalYikeSnackbarState.current
     val coroutineScope = rememberCoroutineScope()
+    var lastShownStartedAt by rememberSaveable { mutableStateOf<Long?>(null) }
+    var lastShownError by rememberSaveable { mutableStateOf<String?>(null) }
+
+    LaunchedEffect(uiState.state.lastStartedAt, uiState.state.isRunning, uiState.state.isStarting) {
+        val startedAt = uiState.state.lastStartedAt
+        if (startedAt != null && uiState.state.isRunning && !uiState.state.isStarting && startedAt != lastShownStartedAt) {
+            lastShownStartedAt = startedAt
+            snackbarState.show(
+                message = "网页后台已可访问",
+                tone = YikeSnackbarTone.SUCCESS
+            )
+        }
+    }
+
+    LaunchedEffect(uiState.state.lastError) {
+        val error = uiState.state.lastError
+        if (!error.isNullOrBlank() && error != lastShownError) {
+            lastShownError = error
+            snackbarState.show(
+                message = error,
+                tone = YikeSnackbarTone.ERROR
+            )
+        }
+    }
 
     YikeFlowScaffold(
         title = "网页后台",
         subtitle = "让同一局域网或热点下的其他设备通过 IP:端口访问网页版控制台。",
         navigationAction = backNavigationAction(onClick = navigator::back)
     ) { padding ->
-        Box(modifier = Modifier.fillMaxSize()) {
-            WebConsoleContent(
-                state = uiState.state,
-                onStart = { WebConsoleForegroundService.start(context) },
-                onStop = { WebConsoleForegroundService.stop(context) },
-                onRefreshAccessCode = { WebConsoleForegroundService.refreshAccessCode(context) },
-                onCopyCompleted = { label ->
-                    coroutineScope.launch {
-                        snackbarHostState.currentSnackbarData?.dismiss()
-                        snackbarHostState.showSnackbar("已复制$label")
-                    }
-                },
-                modifier = modifier.fillMaxSize(),
-                contentPadding = padding
-            )
-            SnackbarHost(
-                hostState = snackbarHostState,
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .padding(horizontal = spacing.lg, vertical = spacing.lg)
-            )
-        }
+        WebConsoleContent(
+            state = uiState.state,
+            onStart = { WebConsoleForegroundService.start(context) },
+            onStop = { WebConsoleForegroundService.stop(context) },
+            onRefreshAccessCode = { WebConsoleForegroundService.refreshAccessCode(context) },
+            onCopyCompleted = { label ->
+                coroutineScope.launch {
+                    snackbarState.hostState.currentSnackbarData?.dismiss()
+                    snackbarState.show(
+                        message = "已复制$label",
+                        tone = YikeSnackbarTone.INFO
+                    )
+                }
+            },
+            modifier = modifier.fillMaxSize(),
+            contentPadding = padding
+        )
     }
 }
 
@@ -123,13 +144,6 @@ private fun WebConsoleContent(
         YikeWarningCard(
             title = "使用边界",
             description = "仅在你主动启动后才会对局域网开放；访问码刷新后，旧浏览器会立即失效。"
-        )
-
-        YikeOperationFeedback(
-            successMessage = if (state.isRunning && !state.isStarting) "网页后台已可访问" else null,
-            errorMessage = state.lastError,
-            successTitle = "服务已启动",
-            errorTitle = "服务状态异常"
         )
 
         YikeListItemCard(

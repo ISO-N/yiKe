@@ -32,6 +32,16 @@ data class DeckReviewAnalyticsRow(
 )
 
 /**
+ * 遗忘曲线聚合行只保留 stage 维度的 AGAIN/总量，是为了让上层自由决定如何绘图（折线/柱状），
+ * 同时确保口径始终来自同一条 SQL 聚合而不是散落的内存计算。
+ */
+data class StageAgainRatioRow(
+    val stageIndex: Int,
+    val reviewCount: Int,
+    val againCount: Int
+)
+
+/**
  * ReviewRecord 只允许追加写入，不允许编辑，
  * 这样才能保证复习历史可追溯，且备份恢复后的历史不会被 UI 操作意外篡改。
  */
@@ -108,6 +118,29 @@ interface ReviewRecordDao {
         """
     )
     suspend fun listDeckReviewAnalytics(startEpochMillis: Long?): List<DeckReviewAnalyticsRow>
+
+    /**
+     * 遗忘曲线按“评分时的旧 stage”分组，是为了贴近用户当时的记忆状态；
+     * 如果按 newStageIndex 分组，会把 AGAIN 这种“打回去”的评分映射到更低 stage，反而掩盖问题来源。
+     */
+    @Query(
+        """
+        SELECT
+            rr.oldStageIndex AS stageIndex,
+            COUNT(rr.id) AS reviewCount,
+            COALESCE(SUM(CASE WHEN rr.rating = 'AGAIN' THEN 1 ELSE 0 END), 0) AS againCount
+        FROM review_record rr
+        JOIN question q ON q.id = rr.questionId
+        JOIN card c ON c.id = q.cardId
+        JOIN deck d ON d.id = c.deckId
+        WHERE d.archived = 0
+          AND c.archived = 0
+          AND (:startEpochMillis IS NULL OR rr.reviewedAt >= :startEpochMillis)
+        GROUP BY rr.oldStageIndex
+        ORDER BY rr.oldStageIndex ASC
+        """
+    )
+    suspend fun listStageAgainRatios(startEpochMillis: Long?): List<StageAgainRatioRow>
 
     /**
      * 备份导出必须保留完整历史记录，

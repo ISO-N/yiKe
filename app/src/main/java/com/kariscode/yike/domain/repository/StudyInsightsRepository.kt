@@ -4,6 +4,7 @@ import com.kariscode.yike.domain.model.DeckMasterySummarySnapshot
 import com.kariscode.yike.domain.model.QuestionContext
 import com.kariscode.yike.domain.model.QuestionQueryFilters
 import com.kariscode.yike.domain.model.ReviewAnalyticsSnapshot
+import com.kariscode.yike.domain.model.StageAgainRatioSnapshot
 
 /**
  * 学习洞察仓储把统计、搜索和预览查询收口在一起，
@@ -42,4 +43,16 @@ interface StudyInsightsRepository {
      * 因此提供时间序列本身比只返回数据库侧天数更便于上层按时区处理。
      */
     suspend fun listReviewTimestamps(startEpochMillis: Long?): List<Long>
+
+    /**
+     * 遗忘曲线需要按 stage 分组聚合 AGAIN 比例，因此仓储直接返回聚合快照，
+     * 可以避免 UI/UseCase 在内存里扫描大量复习记录并重复实现分组规则。
+     */
+    suspend fun listStageAgainRatios(startEpochMillis: Long?): List<StageAgainRatioSnapshot>
+
+    /**
+     * 未来到期预测只关心 dueAt 时间点本身，返回时间戳序列可以保留按本地日期分桶的自由度，
+     * 并避免数据库侧为了时区切天引入不可控的 SQL 复杂度。
+     */
+    suspend fun listUpcomingDueAts(startEpochMillis: Long, endEpochMillis: Long): List<Long>
 }

@@ -18,7 +18,7 @@ import com.kariscode.yike.ui.component.backNavigationAction
 import com.kariscode.yike.ui.component.YikeBadge
 import com.kariscode.yike.ui.component.YikeDangerConfirmationDialog
 import com.kariscode.yike.ui.component.YikeFlowScaffold
-import com.kariscode.yike.ui.component.YikeOperationFeedback
+import com.kariscode.yike.ui.component.YikeOperationSnackbarEffect
 import com.kariscode.yike.ui.component.YikePrimaryButton
 import com.kariscode.yike.ui.component.YikeScrollableColumn
 import com.kariscode.yike.ui.component.YikeSecondaryButton
@@ -42,6 +42,10 @@ fun BackupRestoreScreen(
         contract = ActivityResultContracts.CreateDocument("application/json"),
         onResult = viewModel::onExportUriSelected
     )
+    val csvExportLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("text/csv"),
+        onResult = viewModel::onCsvExportUriSelected
+    )
     val importLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument(),
         onResult = viewModel::onImportUriSelected
@@ -50,9 +54,17 @@ fun BackupRestoreScreen(
     CollectFlowEffect(effectFlow = viewModel.effects) { effect ->
         when (effect) {
             is BackupRestoreEffect.LaunchExport -> exportLauncher.launch(effect.suggestedFileName)
+            is BackupRestoreEffect.LaunchCsvExport -> csvExportLauncher.launch(effect.suggestedFileName)
             BackupRestoreEffect.LaunchImport -> importLauncher.launch(arrayOf("application/json"))
         }
     }
+
+    YikeOperationSnackbarEffect(
+        successMessage = uiState.message,
+        errorMessage = uiState.errorMessage,
+        onSuccessConsumed = viewModel::consumeMessage,
+        onErrorConsumed = viewModel::consumeErrorMessage
+    )
 
     YikeFlowScaffold(
         title = "备份与恢复",
@@ -63,6 +75,7 @@ fun BackupRestoreScreen(
             uiState = uiState,
             onExport = viewModel::onExportClick,
             onExportIncremental = viewModel::onExportIncrementalClick,
+            onExportCsv = viewModel::onExportCsvClick,
             onImport = viewModel::onImportClick,
             modifier = modifier,
             contentPadding = padding
@@ -88,6 +101,7 @@ fun BackupRestoreContent(
     uiState: BackupRestoreUiState,
     onExport: () -> Unit,
     onExportIncremental: () -> Unit,
+    onExportCsv: () -> Unit,
     onImport: () -> Unit,
     contentPadding: PaddingValues = PaddingValues(),
     modifier: Modifier = Modifier
@@ -132,6 +146,17 @@ fun BackupRestoreContent(
         }
 
         YikeSurfaceCard {
+            Text(text = "导出题目 CSV")
+            Text(text = "导出活跃题目为表格格式，便于在外部工具中查看和编辑。不包含回收站/归档内容。")
+            YikeSecondaryButton(
+                text = if (uiState.isExporting) "导出中…" else "导出 CSV",
+                onClick = onExportCsv,
+                modifier = Modifier.fillMaxWidth(),
+                enabled = !uiState.isExporting && !uiState.isImporting
+            )
+        }
+
+        YikeSurfaceCard {
             Text(text = "从备份恢复")
             Text(text = "恢复前建议先导出当前数据。增量备份应当恢复到匹配的完整备份基线之上。")
             YikeSecondaryButton(
@@ -141,11 +166,6 @@ fun BackupRestoreContent(
                 enabled = !uiState.isExporting && !uiState.isImporting
             )
         }
-
-        YikeOperationFeedback(
-            successMessage = uiState.message,
-            errorMessage = uiState.errorMessage
-        )
     }
 }
 

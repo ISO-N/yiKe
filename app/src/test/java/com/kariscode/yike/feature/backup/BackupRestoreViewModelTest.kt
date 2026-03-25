@@ -1,8 +1,14 @@
 package com.kariscode.yike.feature.backup
 
+import android.app.Application
 import android.net.Uri
+import androidx.room.Room
+import androidx.test.core.app.ApplicationProvider
+import com.kariscode.yike.core.domain.dispatchers.AppDispatchers
 import com.kariscode.yike.data.backup.BackupExportMode
 import com.kariscode.yike.data.backup.BackupOperations
+import com.kariscode.yike.data.export.CsvExporter
+import com.kariscode.yike.data.local.db.YikeDatabase
 import com.kariscode.yike.data.reminder.ReminderSyncScheduler
 import com.kariscode.yike.domain.model.AppSettings
 import com.kariscode.yike.domain.model.ThemeMode
@@ -17,8 +23,10 @@ import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
+import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -30,6 +38,21 @@ import org.robolectric.RobolectricTestRunner
 @OptIn(ExperimentalCoroutinesApi::class)
 @RunWith(RobolectricTestRunner::class)
 class BackupRestoreViewModelTest {
+    private lateinit var application: Application
+    private lateinit var database: YikeDatabase
+
+    @Before
+    fun setUp() {
+        application = ApplicationProvider.getApplicationContext()
+        database = Room.inMemoryDatabaseBuilder(application, YikeDatabase::class.java)
+            .allowMainThreadQueries()
+            .build()
+    }
+
+    @After
+    fun tearDown() {
+        database.close()
+    }
 
     /**
      * 选择恢复文件后必须先进入确认态，而不是立刻覆盖本地数据，
@@ -164,9 +187,23 @@ class BackupRestoreViewModelTest {
         reminderScheduler: FakeReminderScheduler = FakeReminderScheduler()
     ): BackupRestoreViewModel = BackupRestoreViewModel(
         backupService = backupOperations,
+        csvExporter = CsvExporter(
+            application = application,
+            questionDao = database.questionDao(),
+            dispatchers = testDispatchers()
+        ),
         appSettingsRepository = appSettingsRepository,
         reminderScheduler = reminderScheduler
     )
+
+    /**
+     * 测试 dispatcher 统一映射到 Main，是为了让导出这类 `withContext(io)` 的路径在单元测试里无需额外线程配置。
+     */
+    private fun testDispatchers(): AppDispatchers = object : AppDispatchers {
+        override val main = Dispatchers.Main
+        override val io = Dispatchers.Main
+        override val default = Dispatchers.Main
+    }
 
     /**
      * 假备份操作只记录导出名与恢复参数，足以验证 ViewModel 的流程编排。

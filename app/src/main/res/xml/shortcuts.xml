@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <shortcut
+        android:shortcutId="shortcut_review_queue"
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_review"
+        android:shortcutShortLabel="@string/shortcut_review_short_label"
+        android:shortcutLongLabel="@string/shortcut_review_long_label"
+        android:shortcutDisabledMessage="@string/shortcut_disabled_message">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetClass="com.kariscode.yike.app.MainActivity"
+            android:targetPackage="com.kariscode.yike"
+            android:data="yike://shortcut/review" />
+    </shortcut>
+
+    <shortcut
+        android:shortcutId="shortcut_new_card"
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_new_card"
+        android:shortcutShortLabel="@string/shortcut_new_card_short_label"
+        android:shortcutLongLabel="@string/shortcut_new_card_long_label"
+        android:shortcutDisabledMessage="@string/shortcut_disabled_message">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetClass="com.kariscode.yike.app.MainActivity"
+            android:targetPackage="com.kariscode.yike"
+            android:data="yike://shortcut/new-card" />
+    </shortcut>
+
+</shortcuts>
+

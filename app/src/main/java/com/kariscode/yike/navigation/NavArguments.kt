@@ -15,6 +15,7 @@ object NavArguments {
     const val CARD_IDS = "cardIds"
     const val QUESTION_IDS = "questionIds"
     const val ORDER_MODE = "orderMode"
+    const val CREATE_CARD = "createCard"
 }
 
 /**

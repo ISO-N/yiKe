@@ -17,7 +17,7 @@ import com.kariscode.yike.ui.component.YikeFlowScaffold
 import com.kariscode.yike.ui.component.YikeHeroCard
 import com.kariscode.yike.ui.component.YikeListItemCard
 import com.kariscode.yike.ui.component.YikeMetricCard
-import com.kariscode.yike.ui.component.YikeOperationFeedback
+import com.kariscode.yike.ui.component.YikeOperationSnackbarEffect
 import com.kariscode.yike.ui.component.YikeScrollableColumn
 import com.kariscode.yike.ui.component.YikeSecondaryButton
 import com.kariscode.yike.ui.component.YikeStateBanner
@@ -35,6 +35,13 @@ fun RecycleBinScreen(
 ) {
     val viewModel = koinViewModel<RecycleBinViewModel>()
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+
+    YikeOperationSnackbarEffect(
+        successMessage = uiState.message,
+        errorMessage = uiState.errorMessage,
+        onSuccessConsumed = viewModel::consumeMessage,
+        onErrorConsumed = viewModel::consumeErrorMessage
+    )
 
     YikeFlowScaffold(
         title = "已归档内容",
@@ -105,13 +112,6 @@ private fun RecycleBinContent(
                 )
             }
         }
-
-        YikeOperationFeedback(
-            successMessage = uiState.message,
-            errorMessage = uiState.errorMessage,
-            successTitle = "已归档内容已更新",
-            errorTitle = "已归档内容操作失败"
-        )
     }
 
     uiState.pendingDelete?.let { target ->

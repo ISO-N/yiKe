@@ -398,9 +398,9 @@ private fun Map<ReviewRating, Int>.increment(rating: ReviewRating): Map<ReviewRa
  * 下次复习提示压缩成短句，是为了让评分决策在手机宽度下仍然能一眼比较不同档位差异。
  */
 private fun buildReviewIntervalHint(intervalDays: Int): String = when (intervalDays) {
-    0 -> "今天内再看一次"
-    1 -> "明天再看"
-    else -> "$intervalDays 天后再看"
+    0 -> "今天内"
+    1 -> "1天后"
+    else -> "${intervalDays}天后"
 }
 
 /**

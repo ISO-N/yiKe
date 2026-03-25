@@ -21,6 +21,7 @@ import com.kariscode.yike.data.search.QuestionSearchIndexWriter
 import com.kariscode.yike.data.sync.LanSyncChangeApplier
 import com.kariscode.yike.data.sync.toPayload
 import com.kariscode.yike.domain.model.AppSettings
+import com.kariscode.yike.domain.model.StreakAchievementUnlock
 import com.kariscode.yike.domain.model.ThemeMode
 import com.kariscode.yike.domain.repository.AppSettingsRepository
 import java.io.FileNotFoundException
@@ -163,7 +164,13 @@ class BackupService(
                     dailyReminderTime = snapshot.settings.toBackupReminderTime(),
                     schemaVersion = snapshot.settings.schemaVersion,
                     backupLastAt = snapshot.settings.backupLastAt?.let(BackupJson::formatEpochMillis),
-                    themeMode = snapshot.settings.themeMode.storageValue
+                    themeMode = snapshot.settings.themeMode.storageValue,
+                    streakAchievementUnlocks = snapshot.settings.streakAchievementUnlocks.map { unlock ->
+                        BackupStreakAchievementUnlock(
+                            id = unlock.achievementId,
+                            unlockedAt = BackupJson.formatEpochMillis(unlock.unlockedAtEpochMillis)
+                        )
+                    }
                 ),
                 decks = snapshot.decks.map { deck -> deck.toBackup() },
                 cards = snapshot.cards.map { card -> card.toBackup() },
@@ -273,7 +280,13 @@ class BackupService(
                 dailyReminderMinute = minute,
                 schemaVersion = settings.schemaVersion,
                 backupLastAt = settings.backupLastAt?.let(BackupJson::parseEpochMillis),
-                themeMode = ThemeMode.fromStorageValue(settings.themeMode)
+                themeMode = ThemeMode.fromStorageValue(settings.themeMode),
+                streakAchievementUnlocks = settings.streakAchievementUnlocks.map { payload ->
+                    StreakAchievementUnlock(
+                        achievementId = payload.id,
+                        unlockedAtEpochMillis = BackupJson.parseEpochMillis(payload.unlockedAt)
+                    )
+                }
             )
         )
     }

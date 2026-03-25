@@ -10,6 +10,7 @@ data class AppSettings(
     val dailyReminderMinute: Int,
     val schemaVersion: Int,
     val backupLastAt: Long?,
-    val themeMode: ThemeMode = ThemeMode.LIGHT
+    val themeMode: ThemeMode = ThemeMode.LIGHT,
+    val streakAchievementUnlocks: List<StreakAchievementUnlock> = emptyList()
 )
 

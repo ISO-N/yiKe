@@ -12,6 +12,7 @@ import com.kariscode.yike.core.domain.time.SystemTimeProvider
 import com.kariscode.yike.core.domain.time.TimeProvider
 import com.kariscode.yike.data.backup.BackupService
 import com.kariscode.yike.data.backup.BackupValidator
+import com.kariscode.yike.data.export.CsvExporter
 import com.kariscode.yike.data.editor.FileQuestionEditorDraftRepository
 import com.kariscode.yike.data.local.db.YikeDatabase
 import com.kariscode.yike.data.repository.OfflineCardRepository
@@ -248,6 +249,13 @@ private val serviceModule = module {
     }
     single<BackupOperations> { get<BackupService>() }
     single {
+        CsvExporter(
+            application = get(),
+            questionDao = get(),
+            dispatchers = get()
+        )
+    }
+    single {
         LanSyncRepositoryImpl(
             context = androidContext(),
             database = get(),
@@ -320,6 +328,8 @@ private val viewModelModule = module {
     viewModel {
         HomeViewModel(
             getHomeOverviewUseCase = get(),
+            studyInsightsRepository = get(),
+            appSettingsRepository = get(),
             timeProvider = get()
         )
     }
@@ -373,6 +383,7 @@ private val viewModelModule = module {
     viewModel {
         BackupRestoreViewModel(
             backupService = get(),
+            csvExporter = get(),
             appSettingsRepository = get(),
             reminderScheduler = get()
         )
@@ -393,6 +404,7 @@ private val viewModelModule = module {
     viewModel {
         AnalyticsViewModel(
             studyInsightsRepository = get(),
+            appSettingsRepository = get(),
             timeProvider = get()
         )
     }

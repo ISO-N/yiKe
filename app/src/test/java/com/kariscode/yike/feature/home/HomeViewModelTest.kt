@@ -6,6 +6,8 @@ import com.kariscode.yike.domain.model.TodayReviewSummary
 import com.kariscode.yike.domain.usecase.GetHomeOverviewUseCase
 import com.kariscode.yike.testsupport.FakeDeckRepository
 import com.kariscode.yike.testsupport.FakeQuestionRepository
+import com.kariscode.yike.testsupport.FakeStudyInsightsRepository
+import com.kariscode.yike.testsupport.FakeAppSettingsRepository
 import com.kariscode.yike.testsupport.FixedTimeProvider
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -47,6 +49,8 @@ class HomeViewModelTest {
                     questionRepository = questionRepository,
                     deckRepository = deckRepository
                 ),
+                studyInsightsRepository = FakeStudyInsightsRepository(),
+                appSettingsRepository = FakeAppSettingsRepository(),
                 timeProvider = FixedTimeProvider(nowEpochMillis = 1_700_000_000_000L)
             )
             advanceUntilIdle()
@@ -82,6 +86,8 @@ class HomeViewModelTest {
                     questionRepository = questionRepository,
                     deckRepository = deckRepository
                 ),
+                studyInsightsRepository = FakeStudyInsightsRepository(),
+                appSettingsRepository = FakeAppSettingsRepository(),
                 timeProvider = FixedTimeProvider(nowEpochMillis = 1_700_000_000_000L)
             )
             advanceUntilIdle()
@@ -107,6 +113,8 @@ class HomeViewModelTest {
                     questionRepository = FakeQuestionRepository(),
                     deckRepository = FakeDeckRepository()
                 ),
+                studyInsightsRepository = FakeStudyInsightsRepository(),
+                appSettingsRepository = FakeAppSettingsRepository(),
                 timeProvider = FixedTimeProvider(nowEpochMillis = 1_700_000_000_000L)
             )
             advanceUntilIdle()
@@ -138,6 +146,8 @@ class HomeViewModelTest {
                     questionRepository = questionRepository,
                     deckRepository = FakeDeckRepository()
                 ),
+                studyInsightsRepository = FakeStudyInsightsRepository(),
+                appSettingsRepository = FakeAppSettingsRepository(),
                 timeProvider = FixedTimeProvider(nowEpochMillis = 1_700_000_000_000L)
             )
             advanceUntilIdle()

@@ -307,6 +307,11 @@ class DeckListViewModelTest {
             throw UnsupportedOperationException("Not required for DeckListViewModelTest")
 
         override suspend fun listReviewTimestamps(startEpochMillis: Long?): List<Long> = emptyList()
+
+        override suspend fun listStageAgainRatios(startEpochMillis: Long?): List<com.kariscode.yike.domain.model.StageAgainRatioSnapshot> =
+            emptyList()
+
+        override suspend fun listUpcomingDueAts(startEpochMillis: Long, endEpochMillis: Long): List<Long> = emptyList()
     }
 }
 

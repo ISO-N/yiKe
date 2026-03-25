@@ -4,6 +4,7 @@ import com.kariscode.yike.core.domain.time.TimeConstants
 import com.kariscode.yike.domain.model.DeckReviewAnalyticsSnapshot
 import com.kariscode.yike.domain.model.ReviewAnalyticsSnapshot
 import com.kariscode.yike.testsupport.FakeStudyInsightsRepository
+import com.kariscode.yike.testsupport.FakeAppSettingsRepository
 import com.kariscode.yike.testsupport.FixedTimeProvider
 import java.time.ZoneId
 import kotlinx.coroutines.Dispatchers
@@ -67,6 +68,7 @@ class AnalyticsViewModelTest {
 
             val viewModel = AnalyticsViewModel(
                 studyInsightsRepository = repository,
+                appSettingsRepository = FakeAppSettingsRepository(),
                 timeProvider = FixedTimeProvider(nowEpochMillis = now),
                 zoneId = ZoneId.of("UTC")
             )
@@ -103,6 +105,7 @@ class AnalyticsViewModelTest {
 
             val viewModel = AnalyticsViewModel(
                 studyInsightsRepository = repository,
+                appSettingsRepository = FakeAppSettingsRepository(),
                 timeProvider = FixedTimeProvider(nowEpochMillis = now),
                 zoneId = ZoneId.of("UTC")
             )
@@ -126,6 +129,7 @@ class AnalyticsViewModelTest {
             val repository = FakeStudyInsightsRepository()
             val viewModel = AnalyticsViewModel(
                 studyInsightsRepository = repository,
+                appSettingsRepository = FakeAppSettingsRepository(),
                 timeProvider = FixedTimeProvider(nowEpochMillis = now),
                 zoneId = ZoneId.of("UTC")
             )
@@ -155,6 +159,7 @@ class AnalyticsViewModelTest {
 
             val viewModel = AnalyticsViewModel(
                 studyInsightsRepository = repository,
+                appSettingsRepository = FakeAppSettingsRepository(),
                 timeProvider = FixedTimeProvider(nowEpochMillis = 1_700_000_000_000L),
                 zoneId = ZoneId.of("UTC")
             )

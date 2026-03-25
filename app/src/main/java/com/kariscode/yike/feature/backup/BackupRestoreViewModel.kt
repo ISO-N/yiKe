@@ -11,8 +11,10 @@ import com.kariscode.yike.data.backup.BackupExportMode
 import com.kariscode.yike.core.ui.viewmodel.launchResult
 import com.kariscode.yike.core.ui.viewmodel.typedViewModelFactory
 import com.kariscode.yike.data.backup.BackupOperations
+import com.kariscode.yike.data.export.CsvExporter
 import com.kariscode.yike.data.reminder.ReminderSyncScheduler
 import com.kariscode.yike.domain.repository.AppSettingsRepository
+import java.time.LocalDate
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -45,6 +47,10 @@ sealed interface BackupRestoreEffect {
         val mode: BackupExportMode
     ) : BackupRestoreEffect
 
+    data class LaunchCsvExport(
+        val suggestedFileName: String
+    ) : BackupRestoreEffect
+
     data object LaunchImport : BackupRestoreEffect
 }
 
@@ -54,6 +60,7 @@ sealed interface BackupRestoreEffect {
  */
 class BackupRestoreViewModel(
     private val backupService: BackupOperations,
+    private val csvExporter: CsvExporter,
     private val appSettingsRepository: AppSettingsRepository,
     private val reminderScheduler: ReminderSyncScheduler
 ) : ViewModel() {
@@ -87,6 +94,21 @@ class BackupRestoreViewModel(
     }
 
     /**
+     * Snackbar 展示完成功提示后清理 message，
+     * 避免页面旋转或返回再进入时重复弹出导出/恢复结果。
+     */
+    fun consumeMessage() {
+        _uiState.update { it.copy(message = null) }
+    }
+
+    /**
+     * 失败提示同样属于一次性反馈，展示后清理能防止后续重试成功却仍被旧错误反复打断。
+     */
+    fun consumeErrorMessage() {
+        _uiState.update { it.copy(errorMessage = null) }
+    }
+
+    /**
      * 导出入口只负责触发系统文件创建器，
      * 真正写文件要等用户明确选择保存位置后再执行。
      */
@@ -99,6 +121,17 @@ class BackupRestoreViewModel(
      */
     fun onExportIncrementalClick() {
         launchExport(mode = BackupExportMode.INCREMENTAL)
+    }
+
+    /**
+     * CSV 导出用于在外部工具查看与编辑题目，因此入口与 JSON 备份区分开可以避免用户误解它能用于恢复。
+     */
+    fun onExportCsvClick() {
+        _effects.tryEmit(
+            BackupRestoreEffect.LaunchCsvExport(
+                suggestedFileName = "yike_questions_${LocalDate.now()}.csv"
+            )
+        )
     }
 
     /**
@@ -140,6 +173,35 @@ class BackupRestoreViewModel(
                         isExporting = false,
                         message = null,
                         errorMessage = throwable.userMessageOr(ErrorMessages.BACKUP_EXPORT_FAILED)
+                    )
+                }
+            }
+        )
+    }
+
+    /**
+     * CSV 选择保存位置后再写文件，可保证用户取消操作时不产生误导性的成功提示。
+     */
+    fun onCsvExportUriSelected(uri: Uri?) {
+        if (uri == null) return
+        _uiState.update { it.copy(isExporting = true, message = null, errorMessage = null) }
+        launchResult(
+            action = { csvExporter.exportActiveQuestionsToUri(uri) },
+            onSuccess = {
+                _uiState.update {
+                    it.copy(
+                        isExporting = false,
+                        message = "CSV 导出成功",
+                        errorMessage = null
+                    )
+                }
+            },
+            onFailure = { throwable ->
+                _uiState.update {
+                    it.copy(
+                        isExporting = false,
+                        message = null,
+                        errorMessage = throwable.userMessageOr("CSV 导出失败")
                     )
                 }
             }
@@ -229,11 +291,13 @@ class BackupRestoreViewModel(
          */
         fun factory(
             backupService: BackupOperations,
+            csvExporter: CsvExporter,
             appSettingsRepository: AppSettingsRepository,
             reminderScheduler: ReminderSyncScheduler
         ): ViewModelProvider.Factory = typedViewModelFactory {
             BackupRestoreViewModel(
                 backupService = backupService,
+                csvExporter = csvExporter,
                 appSettingsRepository = appSettingsRepository,
                 reminderScheduler = reminderScheduler
             )

@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -12,7 +13,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.dp
@@ -32,12 +35,13 @@ import com.kariscode.yike.ui.component.YikeHeroCard
 import com.kariscode.yike.ui.component.YikeListItemCard
 import com.kariscode.yike.ui.component.YikeLoadingBanner
 import com.kariscode.yike.ui.component.YikeMetricCard
-import com.kariscode.yike.ui.component.YikeOperationFeedback
+import com.kariscode.yike.ui.component.YikeOperationSnackbarEffect
 import com.kariscode.yike.ui.component.YikePrimaryButton
+import com.kariscode.yike.ui.component.YikePullToRefresh
 import com.kariscode.yike.ui.component.YikeScrollableColumn
 import com.kariscode.yike.ui.component.YikeSecondaryButton
 import com.kariscode.yike.ui.component.YikeDangerConfirmationDialog
-import com.kariscode.yike.ui.component.YikeSkeletonBlock
+import com.kariscode.yike.ui.component.YikeShimmerBlock
 import com.kariscode.yike.ui.component.YikeStateBanner
 import com.kariscode.yike.ui.component.YikeTextMetadataDialog
 import com.kariscode.yike.ui.component.YikeEmptyStateIcon
@@ -52,12 +56,31 @@ import org.koin.core.parameter.parametersOf
 fun CardListScreen(
     deckId: String,
     navigator: YikeNavigator,
+    openCreateCardOnStart: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     val viewModel = koinViewModel<CardListViewModel>(
         parameters = { parametersOf(deckId) }
     )
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    var hasAutoOpenedCreateCard by rememberSaveable { mutableStateOf(false) }
+
+    /**
+     * Shortcuts/Widget 可能会要求在进入卡片列表后立刻打开“新建卡片”弹窗；
+     * 这里用一次性标记守住“只触发一次”的语义，避免重组或状态刷新反复弹窗。
+     */
+    LaunchedEffect(openCreateCardOnStart) {
+        if (openCreateCardOnStart && !hasAutoOpenedCreateCard) {
+            viewModel.onCreateCardClick()
+            hasAutoOpenedCreateCard = true
+        }
+    }
+
+    YikeOperationSnackbarEffect(
+        successMessage = uiState.message,
+        errorMessage = null,
+        onSuccessConsumed = viewModel::consumeMessage
+    )
 
     YikeFlowScaffold(
         title = uiState.deckName ?: "卡片列表",
@@ -114,90 +137,94 @@ private fun CardListContent(
     val openEditor: (String) -> Unit = { cardId ->
         navigator.openQuestionEditor(cardId = cardId, deckId = deckId)
     }
-    YikeScrollableColumn(
-        modifier = modifier,
-        contentPadding = contentPadding
+    val isInitialLoading = uiState.isLoading && uiState.items.isEmpty()
+    val isRefreshing = uiState.isLoading && uiState.items.isNotEmpty()
+
+    YikePullToRefresh(
+        isRefreshing = isRefreshing,
+        onRefresh = onRetry,
+        modifier = modifier
     ) {
-        CardOverviewSection(
-            items = uiState.items,
-            onCreateCard = onCreateCard,
-            onOpenTodayPreview = openTodayPreview,
-            onOpenSearch = { openSearch(null) },
-            onOpenPractice = {
-                navigator.openPracticeSetup(
-                    PracticeSessionArgs(deckIds = listOf(deckId))
-                )
+        YikeScrollableColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = contentPadding
+        ) {
+            CardOverviewSection(
+                items = uiState.items,
+                onCreateCard = onCreateCard,
+                onOpenTodayPreview = openTodayPreview,
+                onOpenSearch = { openSearch(null) },
+                onOpenPractice = {
+                    navigator.openPracticeSetup(
+                        PracticeSessionArgs(deckIds = listOf(deckId))
+                    )
+                }
+            )
+            uiState.masterySummary?.let { summary ->
+                CardMasterySection(summary = summary)
             }
-        )
-        uiState.masterySummary?.let { summary ->
-            CardMasterySection(summary = summary)
-        }
 
-        when {
-            uiState.isLoading -> {
-                CardListLoadingSection()
-            }
+            when {
+                isInitialLoading -> {
+                    CardListLoadingSection()
+                }
 
-            uiState.errorMessage != null -> {
-                YikeStateBanner(
-                    title = ErrorMessages.CARD_LIST_LOAD_FAILED,
-                    description = uiState.errorMessage.orEmpty()
-                ) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(LocalYikeSpacing.current.sm)) {
+                uiState.errorMessage != null -> {
+                    YikeStateBanner(
+                        title = ErrorMessages.CARD_LIST_LOAD_FAILED,
+                        description = uiState.errorMessage.orEmpty()
+                    ) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(LocalYikeSpacing.current.sm)) {
+                            YikePrimaryButton(
+                                text = "重试",
+                                onClick = onRetry,
+                                modifier = Modifier.weight(1f)
+                            )
+                            YikeSecondaryButton(
+                                text = "新建卡片",
+                                onClick = onCreateCard,
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                    }
+                }
+
+                uiState.items.isEmpty() -> {
+                    YikeStateBanner(
+                        title = "还没有卡片",
+                        description = "先创建第一张卡片，再进入问题编辑把复习内容录进去。",
+                        leading = { YikeEmptyStateIcon() }
+                    ) {
                         YikePrimaryButton(
-                            text = "重试",
-                            onClick = onRetry,
-                            modifier = Modifier.weight(1f)
-                        )
-                        YikeSecondaryButton(
                             text = "新建卡片",
                             onClick = onCreateCard,
-                            modifier = Modifier.weight(1f)
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                }
+
+                else -> {
+                    uiState.items.forEach { item ->
+                        CardSummaryCard(
+                            item = item,
+                            onOpenEditor = { openEditor(item.card.id) },
+                            onOpenSearch = { openSearch(item.card.id) },
+                            onOpenPractice = {
+                                navigator.openPracticeSetup(
+                                    PracticeSessionArgs(
+                                        deckIds = listOf(deckId),
+                                        cardIds = listOf(item.card.id)
+                                    )
+                                )
+                            },
+                            onEditMeta = { onEditCardMeta(item) },
+                            onArchive = { onArchive(item) },
+                            onDelete = { onDelete(item) }
                         )
                     }
                 }
             }
-
-            uiState.items.isEmpty() -> {
-                YikeStateBanner(
-                    title = "还没有卡片",
-                    description = "先创建第一张卡片，再进入问题编辑把复习内容录进去。",
-                    leading = { YikeEmptyStateIcon() }
-                ) {
-                    YikePrimaryButton(
-                        text = "新建卡片",
-                        onClick = onCreateCard,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
-            }
-
-            else -> {
-                uiState.items.forEach { item ->
-                    CardSummaryCard(
-                        item = item,
-                        onOpenEditor = { openEditor(item.card.id) },
-                        onOpenSearch = { openSearch(item.card.id) },
-                        onOpenPractice = {
-                            navigator.openPracticeSetup(
-                                PracticeSessionArgs(
-                                    deckIds = listOf(deckId),
-                                    cardIds = listOf(item.card.id)
-                                )
-                            )
-                        },
-                        onEditMeta = { onEditCardMeta(item) },
-                        onArchive = { onArchive(item) },
-                        onDelete = { onDelete(item) }
-                    )
-                }
-            }
         }
-
-        YikeOperationFeedback(
-            successMessage = uiState.message,
-            errorMessage = null
-        )
     }
 
     uiState.editor?.let { editor ->
@@ -236,7 +263,7 @@ private fun CardListLoadingSection() {
         description = "稍等一下，我们会把卡片统计和今日到期数量一起准备好。"
     )
     repeat(3) {
-        YikeSkeletonBlock(
+        YikeShimmerBlock(
             modifier = Modifier.fillMaxWidth(),
             height = if (it == 0) 120.dp else 92.dp
         )
