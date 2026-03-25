@@ -1,8 +1,8 @@
 package com.kariscode.yike.data.webconsole
 
 import android.content.Context
-import com.kariscode.yike.core.dispatchers.AppDispatchers
-import com.kariscode.yike.core.time.TimeProvider
+import com.kariscode.yike.core.domain.dispatchers.AppDispatchers
+import com.kariscode.yike.core.domain.time.TimeProvider
 import com.kariscode.yike.domain.model.WebConsoleState
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.withContext
@@ -95,3 +95,4 @@ internal class WebConsoleSessionCoordinator(
             )
         }
 }
+

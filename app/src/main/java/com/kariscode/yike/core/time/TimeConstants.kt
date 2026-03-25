@@ -1,4 +1,4 @@
-package com.kariscode.yike.core.time
+package com.kariscode.yike.core.domain.time
 
 /**
  * 统一管理时间相关的常量，
@@ -8,3 +8,4 @@ object TimeConstants {
     const val DAY_MILLIS = 24L * 60L * 60L * 1000L
     const val WEEK_MILLIS = 7L * DAY_MILLIS
 }
+

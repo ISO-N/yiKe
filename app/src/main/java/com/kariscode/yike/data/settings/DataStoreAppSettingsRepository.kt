@@ -9,7 +9,7 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
-import com.kariscode.yike.core.time.TimeProvider
+import com.kariscode.yike.core.domain.time.TimeProvider
 import com.kariscode.yike.data.sync.LanSyncChangeRecorder
 import com.kariscode.yike.domain.model.AppSettings
 import com.kariscode.yike.domain.model.ThemeMode
@@ -199,3 +199,4 @@ class DataStoreAppSettingsRepository(
         )
     }
 }
+

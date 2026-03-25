@@ -1,4 +1,4 @@
-package com.kariscode.yike.core.coroutine
+package com.kariscode.yike.core.domain.coroutine
 
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.async
@@ -54,4 +54,5 @@ suspend inline fun <A, B, C> parallel3(
     crossinline second: suspend CoroutineScope.() -> B,
     crossinline third: suspend CoroutineScope.() -> C
 ): Triple<A, B, C> = Parallel.triple(first, second, third)
+
 

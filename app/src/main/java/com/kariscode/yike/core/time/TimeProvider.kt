@@ -1,4 +1,4 @@
-package com.kariscode.yike.core.time
+package com.kariscode.yike.core.domain.time
 
 /**
  * 抽象时间的目的不是“换一种拿时间的方式”，而是确保调度/提醒/备份等核心逻辑
@@ -15,4 +15,5 @@ interface TimeProvider {
 class SystemTimeProvider : TimeProvider {
     override fun nowEpochMillis(): Long = System.currentTimeMillis()
 }
+
 

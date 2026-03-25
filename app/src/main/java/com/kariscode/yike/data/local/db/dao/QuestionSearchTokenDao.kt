@@ -25,6 +25,13 @@ interface QuestionSearchTokenDao {
     suspend fun deleteByQuestionId(questionId: String)
 
     /**
+     * 批量覆盖刷新时统一清理旧 token，可以把 N 次往返压缩成一次删除，
+     * 避免编辑/同步批量写入时索引维护成本随题目数线性放大。
+     */
+    @Query("DELETE FROM question_search_token WHERE questionId IN (:questionIds)")
+    suspend fun deleteByQuestionIds(questionIds: Collection<String>)
+
+    /**
      * 全量重建时清空旧索引，是为了避免历史脏 token 混入新一轮搜索候选集。
      */
     @Query("DELETE FROM question_search_token")

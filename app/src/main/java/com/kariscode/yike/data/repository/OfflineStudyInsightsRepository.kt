@@ -1,6 +1,6 @@
 package com.kariscode.yike.data.repository
 
-import com.kariscode.yike.core.dispatchers.AppDispatchers
+import com.kariscode.yike.core.domain.dispatchers.AppDispatchers
 import com.kariscode.yike.data.local.db.dao.QuestionDao
 import com.kariscode.yike.data.local.db.dao.QuestionContextRow
 import com.kariscode.yike.data.local.db.dao.QuestionSearchTokenDao
@@ -8,6 +8,7 @@ import com.kariscode.yike.data.local.db.dao.ReviewRecordDao
 import com.kariscode.yike.data.mapper.decodeTags
 import com.kariscode.yike.data.mapper.toDomain
 import com.kariscode.yike.data.search.QuestionSearchTokenizer
+import com.kariscode.yike.domain.model.DeckMasterySummarySnapshot
 import com.kariscode.yike.domain.model.DeckReviewAnalyticsSnapshot
 import com.kariscode.yike.domain.model.QuestionContext
 import com.kariscode.yike.domain.model.QuestionMasteryCalculator
@@ -86,6 +87,26 @@ class OfflineStudyInsightsRepository(
             .take(limit)
             .map { it.key }
     }
+
+    /**
+     * 卡片页熟练度摘要直接依赖数据库聚合结果，是为了把“汇总统计”停留在仓储边界，
+     * 避免用例层重复装载完整题目上下文后再做一轮分类。
+     */
+    override suspend fun getDeckMasterySummary(deckId: String): DeckMasterySummarySnapshot =
+        dispatchers.onIo {
+            questionDao.getDeckMasterySummary(
+                deckId = deckId,
+                activeStatus = QuestionStatus.ACTIVE.storageValue
+            ).let { row ->
+                DeckMasterySummarySnapshot(
+                    totalQuestions = row.totalQuestions,
+                    newCount = row.newCount,
+                    learningCount = row.learningCount,
+                    familiarCount = row.familiarCount,
+                    masteredCount = row.masteredCount
+                )
+            }
+        }
 
     /**
      * 统计摘要在仓储层转换成领域模型后，页面就不需要再理解 SQL 聚合字段的细节语义。
@@ -171,9 +192,10 @@ class OfflineStudyInsightsRepository(
         questionIds: List<String>,
         includeAllQuestionIds: Boolean
     ): List<QuestionContextRow> {
+        val effectiveKeyword = keyword.takeIf { includeAllQuestionIds }
         if (includeAllQuestionIds) {
             return questionDao.listQuestionContexts(
-                keyword = keyword,
+                keyword = effectiveKeyword,
                 tagKeyword = tagKeyword,
                 status = status,
                 deckId = deckId,
@@ -186,7 +208,7 @@ class OfflineStudyInsightsRepository(
         return questionIds.chunked(MAX_QUESTION_IDS_PER_QUERY)
             .flatMap { chunk ->
                 questionDao.listQuestionContexts(
-                    keyword = keyword,
+                    keyword = null,
                     tagKeyword = tagKeyword,
                     status = status,
                     deckId = deckId,
@@ -212,3 +234,4 @@ class OfflineStudyInsightsRepository(
         const val NO_MATCH_QUESTION_ID: String = "__unused__"
     }
 }
+

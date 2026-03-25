@@ -1,6 +1,6 @@
 package com.kariscode.yike.domain.usecase
 
-import com.kariscode.yike.core.time.TimeProvider
+import com.kariscode.yike.core.domain.time.TimeProvider
 import com.kariscode.yike.domain.repository.DeckRepository
 
 /**
@@ -21,3 +21,4 @@ class ToggleDeckArchiveUseCase(
         )
     }
 }
+

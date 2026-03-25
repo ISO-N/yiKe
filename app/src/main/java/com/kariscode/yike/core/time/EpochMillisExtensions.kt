@@ -1,4 +1,4 @@
-package com.kariscode.yike.core.time
+package com.kariscode.yike.core.domain.time
 
 import java.time.Instant
 import java.time.LocalDate
@@ -34,4 +34,5 @@ fun LocalDate.toStartOfDayEpochMillis(
 fun Long.toLocalDateTime(
     zoneId: ZoneId = ZoneId.systemDefault()
 ): LocalDateTime = LocalDateTime.ofInstant(toInstant(), zoneId)
+
 

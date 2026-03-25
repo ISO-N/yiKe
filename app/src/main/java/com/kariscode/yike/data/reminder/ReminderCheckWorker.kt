@@ -22,6 +22,17 @@ class ReminderCheckWorker(
         return runCatching {
             container.reminderCheckRunner.run()
             Result.success()
-        }.getOrElse { Result.retry() }
+        }.getOrElse {
+            val attemptCount = runAttemptCount + 1
+            if (attemptCount >= MAX_RETRY_ATTEMPTS) {
+                Result.failure()
+            } else {
+                Result.retry()
+            }
+        }
+    }
+
+    private companion object {
+        const val MAX_RETRY_ATTEMPTS: Int = 3
     }
 }

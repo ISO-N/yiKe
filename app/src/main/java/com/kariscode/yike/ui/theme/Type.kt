@@ -19,6 +19,16 @@ private val YikeSystemSansFontFamily = FontFamily(
 )
 
 /**
+ * 等宽字体单独导出，是为了让访问码、种子和未来代码块等内容拥有稳定对齐效果，
+ * 避免在比例字体里出现字符宽度飘动导致的可读性下降。
+ */
+val YikeSystemMonoFontFamily = FontFamily(
+    Font(familyName = DeviceFontFamilyName("monospace")),
+    Font(familyName = DeviceFontFamilyName("monospace"), weight = FontWeight.Medium),
+    Font(familyName = DeviceFontFamilyName("monospace"), weight = FontWeight.Bold)
+)
+
+/**
  * 字重和字号令牌优先贴合原型中的“标题突出、说明克制”节奏，
  * 这样能让首页、复习页和设置页共享同一套信息层级，而不是各写各的字号。
  */
@@ -77,5 +87,11 @@ val Typography = Typography(
         fontSize = 13.sp,
         lineHeight = 18.sp,
         letterSpacing = 0.8.sp
+    ),
+    bodySmall = TextStyle(
+        fontFamily = YikeSystemSansFontFamily,
+        fontWeight = FontWeight.Normal,
+        fontSize = 13.sp,
+        lineHeight = 18.sp
     )
 )

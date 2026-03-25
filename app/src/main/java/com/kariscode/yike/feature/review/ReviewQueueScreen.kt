@@ -9,8 +9,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.viewmodel.compose.viewModel
-import com.kariscode.yike.app.LocalAppContainer
 import com.kariscode.yike.domain.model.PracticeSessionArgs
 import com.kariscode.yike.navigation.YikeNavigator
 import com.kariscode.yike.ui.component.CollectFlowEffect
@@ -20,6 +18,7 @@ import com.kariscode.yike.ui.component.YikePrimaryButton
 import com.kariscode.yike.ui.component.YikeSecondaryButton
 import com.kariscode.yike.ui.component.YikeStateBanner
 import com.kariscode.yike.ui.theme.LocalYikeSpacing
+import org.koin.androidx.compose.koinViewModel
 
 /**
  * 复习队列页只负责决定下一张卡片，因此页面重点应放在当前状态说明，而不是展示无关操作。
@@ -29,13 +28,7 @@ fun ReviewQueueScreen(
     navigator: YikeNavigator,
     modifier: Modifier = Modifier
 ) {
-    val container = LocalAppContainer.current
-    val viewModel = viewModel<ReviewQueueViewModel>(
-        factory = ReviewQueueViewModel.factory(
-            questionRepository = container.questionRepository,
-            timeProvider = container.timeProvider
-        )
-    )
+    val viewModel = koinViewModel<ReviewQueueViewModel>()
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
     CollectFlowEffect(effectFlow = viewModel.effects) { effect ->

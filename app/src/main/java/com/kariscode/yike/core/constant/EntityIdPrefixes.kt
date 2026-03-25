@@ -1,4 +1,4 @@
-package com.kariscode.yike.core.constant
+package com.kariscode.yike.core.domain.constant
 
 /**
  * 统一管理实体 ID 的前缀常量，
@@ -9,3 +9,4 @@ object EntityIdPrefixes {
     const val CARD = "card_"
     const val QUESTION = "q_"
 }
+

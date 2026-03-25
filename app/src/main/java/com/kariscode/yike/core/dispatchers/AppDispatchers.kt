@@ -1,4 +1,4 @@
-package com.kariscode.yike.core.dispatchers
+package com.kariscode.yike.core.domain.dispatchers
 
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
@@ -22,4 +22,5 @@ class DefaultAppDispatchers : AppDispatchers {
     override val io: CoroutineDispatcher = Dispatchers.IO
     override val default: CoroutineDispatcher = Dispatchers.Default
 }
+
 

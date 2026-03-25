@@ -8,11 +8,10 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.viewmodel.compose.viewModel
 import com.kariscode.yike.BuildConfig
-import com.kariscode.yike.app.LocalAppContainer
-import com.kariscode.yike.core.message.ErrorMessages
+import com.kariscode.yike.core.ui.message.ErrorMessages
 import com.kariscode.yike.domain.model.DeckSummary
 import com.kariscode.yike.domain.model.PracticeSessionArgs
 import com.kariscode.yike.navigation.YikeNavigator
@@ -20,6 +19,7 @@ import com.kariscode.yike.ui.component.YikeBadge
 import com.kariscode.yike.ui.component.YikeHeaderBlock
 import com.kariscode.yike.ui.component.YikeHeroCard
 import com.kariscode.yike.ui.component.YikeListItemCard
+import com.kariscode.yike.ui.component.YikeLoadingBanner
 import com.kariscode.yike.ui.component.YikeMetricCard
 import com.kariscode.yike.ui.component.YikePrimaryButton
 import com.kariscode.yike.ui.component.YikePrimaryDestination
@@ -27,8 +27,11 @@ import com.kariscode.yike.ui.component.YikePrimaryScaffold
 import com.kariscode.yike.ui.component.YikeProgressBar
 import com.kariscode.yike.ui.component.YikeScrollableColumn
 import com.kariscode.yike.ui.component.YikeSecondaryButton
+import com.kariscode.yike.ui.component.YikeSkeletonBlock
 import com.kariscode.yike.ui.component.YikeStateBanner
+import com.kariscode.yike.ui.component.YikeEmptyStateIcon
 import com.kariscode.yike.ui.theme.LocalYikeSpacing
+import org.koin.androidx.compose.koinViewModel
 
 /**
  * 首页作为一级入口，需要同时承接复习主路径和内容管理入口，
@@ -39,14 +42,7 @@ fun HomeScreen(
     navigator: YikeNavigator,
     modifier: Modifier = Modifier
 ) {
-    val container = LocalAppContainer.current
-    val viewModel = viewModel<HomeViewModel>(
-        factory = HomeViewModel.factory(
-            questionRepository = container.questionRepository,
-            deckRepository = container.deckRepository,
-            timeProvider = container.timeProvider
-        )
-    )
+    val viewModel = koinViewModel<HomeViewModel>()
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
     YikePrimaryScaffold(
@@ -82,10 +78,7 @@ fun HomeContent(
     ) {
         when {
             uiState.isLoading -> {
-                YikeStateBanner(
-                    title = "正在整理今天的复习内容",
-                    description = "稍等一下，我们会把待复习概览和最近卡组一起准备好。"
-                )
+                HomeLoadingSection()
             }
 
             uiState.errorMessage != null -> {
@@ -284,7 +277,10 @@ private fun RecentDeckSection(
     if (recentDecks.isEmpty()) {
         YikeStateBanner(
             title = "最近卡组",
-            description = "还没有可继续维护的卡组，先创建第一个卡组开始积累内容。"
+            description = "还没有可继续维护的卡组，先创建第一个卡组开始积累内容。",
+            leading = {
+                YikeEmptyStateIcon()
+            }
         ) {
             YikePrimaryButton(
                 text = "创建内容",
@@ -323,6 +319,24 @@ private fun RecentDeckSection(
                 )
             }
         }
+    }
+}
+
+/**
+ * 首页加载时提前铺好骨架，是为了减少“像白屏一样等数据”的空窗感，
+ * 让用户知道页面正在准备哪些信息块。
+ */
+@Composable
+private fun HomeLoadingSection() {
+    val spacing = LocalYikeSpacing.current
+    YikeLoadingBanner(
+        title = "正在整理今天的复习内容",
+        description = "稍等一下，我们会把待复习概览和最近卡组一起准备好。"
+    )
+    Column(verticalArrangement = Arrangement.spacedBy(spacing.md)) {
+        YikeSkeletonBlock(height = 112.dp)
+        YikeSkeletonBlock(height = 168.dp)
+        YikeSkeletonBlock(height = 88.dp)
     }
 }
 
@@ -370,3 +384,4 @@ private fun buildHomeSubtitle(uiState: HomeUiState): String = when {
     uiState.contentMode == HomeContentMode.REVIEW_CLEARED -> "待复习入口已经清空，现在适合补充新内容或回看今日预览。"
     else -> "先创建卡组和卡片，首页才会开始积累真实复习节奏。"
 }
+

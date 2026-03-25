@@ -1,6 +1,6 @@
 package com.kariscode.yike.domain.usecase
 
-import com.kariscode.yike.core.coroutine.parallel3
+import com.kariscode.yike.core.domain.coroutine.parallel3
 import com.kariscode.yike.domain.model.Card
 import com.kariscode.yike.domain.model.Deck
 import com.kariscode.yike.domain.repository.CardRepository
@@ -49,3 +49,4 @@ data class QuestionSearchMetadataSnapshot(
     val decks: List<Deck>,
     val cards: List<Card>
 )
+

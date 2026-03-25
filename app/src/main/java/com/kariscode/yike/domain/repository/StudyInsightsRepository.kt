@@ -1,5 +1,6 @@
 package com.kariscode.yike.domain.repository
 
+import com.kariscode.yike.domain.model.DeckMasterySummarySnapshot
 import com.kariscode.yike.domain.model.QuestionContext
 import com.kariscode.yike.domain.model.QuestionQueryFilters
 import com.kariscode.yike.domain.model.ReviewAnalyticsSnapshot
@@ -25,6 +26,11 @@ interface StudyInsightsRepository {
      * 标签候选统一来自真实题库，是为了让筛选控件只暴露当前真正可用的标签而不是静态示例。
      */
     suspend fun listAvailableTags(limit: Int): List<String>
+
+    /**
+     * 卡片页只需要卡组级熟练度摘要时，直接返回聚合结果可以避免先拉整批题目再在用例层二次计数。
+     */
+    suspend fun getDeckMasterySummary(deckId: String): DeckMasterySummarySnapshot
 
     /**
      * 统计页的主指标聚合在仓储层计算，是为了保证 AGAIN 比例、平均耗时和卡组拆分都共享一致口径。

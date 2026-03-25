@@ -1,6 +1,6 @@
 package com.kariscode.yike.data.backup
 
-import com.kariscode.yike.core.time.TimeTextFormatter
+import com.kariscode.yike.core.domain.time.TimeTextFormatter
 import com.kariscode.yike.data.sync.LanSyncJson
 import com.kariscode.yike.data.sync.SyncCardPayload
 import com.kariscode.yike.data.sync.SyncDeckPayload
@@ -183,3 +183,4 @@ class BackupValidator {
             .getOrElse { throw IllegalArgumentException("$fieldName 不是合法时间：$value") }
     }
 }
+

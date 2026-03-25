@@ -1,6 +1,6 @@
 package com.kariscode.yike.data.reminder
 
-import com.kariscode.yike.core.time.TimeProvider
+import com.kariscode.yike.core.domain.time.TimeProvider
 import com.kariscode.yike.domain.model.AppSettings
 import com.kariscode.yike.domain.model.ThemeMode
 import com.kariscode.yike.domain.model.TodayReviewSummary
@@ -193,3 +193,4 @@ class ReminderCheckRunnerTest {
         themeMode = ThemeMode.SYSTEM
     )
 }
+

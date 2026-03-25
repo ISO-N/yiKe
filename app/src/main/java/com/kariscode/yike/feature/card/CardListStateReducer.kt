@@ -1,6 +1,6 @@
 package com.kariscode.yike.feature.card
 
-import com.kariscode.yike.core.message.SuccessMessages
+import com.kariscode.yike.core.ui.message.SuccessMessages
 import com.kariscode.yike.feature.common.TextMetadataDraft
 import com.kariscode.yike.domain.model.CardSummary
 
@@ -101,9 +101,12 @@ internal object CardListStateReducer {
     /**
      * 保存成功后统一关闭编辑器并展示成功提示，是为了让不同写操作共享同一反馈语义。
      */
-    fun saveSucceeded(state: CardListUiState): CardListUiState = state.copy(
+    fun saveSucceeded(
+        state: CardListUiState,
+        successMessage: String
+    ): CardListUiState = state.copy(
         editor = null,
-        message = SuccessMessages.SAVED,
+        message = successMessage,
         errorMessage = null
     )
 
@@ -140,3 +143,4 @@ internal object CardListStateReducer {
      */
     fun masteryLoadFailed(state: CardListUiState): CardListUiState = state.copy(masterySummary = null)
 }
+

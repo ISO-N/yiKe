@@ -1,7 +1,7 @@
 package com.kariscode.yike.domain.scheduler
 
-import com.kariscode.yike.core.time.toLocalDate
-import com.kariscode.yike.core.time.toStartOfDayEpochMillis
+import com.kariscode.yike.core.domain.time.toLocalDate
+import com.kariscode.yike.core.domain.time.toStartOfDayEpochMillis
 import com.kariscode.yike.domain.model.ReviewRating
 import java.time.ZoneId
 import java.time.temporal.ChronoUnit
@@ -12,18 +12,74 @@ import java.time.temporal.ChronoUnit
  */
 class ReviewSchedulerV1(
     private val intervalDaysByStage: List<Int> = DEFAULT_INTERVAL_DAYS_BY_STAGE
-) {
+) : ReviewScheduler {
     /**
-     * 根据当前阶段与评分，计算下一阶段与下一次 dueAt。
-     * 该方法保持纯计算，便于单元测试覆盖边界并确保 UI/DAO 不承担调度规则。
+     * 保留旧签名的便捷重载，是为了让纯调度测试和轻量调用方在不关心过期衰减时仍能直接复用默认配置，
+     * 同时避免每个测试都重复传入空 dueAt 与默认步数。
      */
     fun scheduleNext(
         currentStageIndex: Int,
         rating: ReviewRating,
         reviewedAtEpochMillis: Long,
-        dueAtEpochMillis: Long? = null,
-        intervalStepCount: Int = intervalDaysByStage.size,
-        zoneId: ZoneId = ZoneId.systemDefault()
+        zoneId: ZoneId
+    ): ReviewScheduleResult = scheduleNext(
+        currentStageIndex = currentStageIndex,
+        rating = rating,
+        reviewedAtEpochMillis = reviewedAtEpochMillis,
+        dueAtEpochMillis = null,
+        intervalStepCount = DEFAULT_INTERVAL_STEP_COUNT,
+        zoneId = zoneId
+    )
+
+    /**
+     * 过期相关测试经常只需要显式提供 dueAt，因此继续提供“带 dueAt、默认步数”的重载，
+     * 可以把测试关注点收敛在过期规则本身，而不是重复样板参数。
+     */
+    fun scheduleNext(
+        currentStageIndex: Int,
+        rating: ReviewRating,
+        reviewedAtEpochMillis: Long,
+        dueAtEpochMillis: Long?,
+        zoneId: ZoneId
+    ): ReviewScheduleResult = scheduleNext(
+        currentStageIndex = currentStageIndex,
+        rating = rating,
+        reviewedAtEpochMillis = reviewedAtEpochMillis,
+        dueAtEpochMillis = dueAtEpochMillis,
+        intervalStepCount = DEFAULT_INTERVAL_STEP_COUNT,
+        zoneId = zoneId
+    )
+
+    /**
+     * 卡组裁剪步数但不参与过期衰减时，测试与调用方只需要显式声明步数，
+     * 因此补充“带步数、默认无 dueAt”的重载来保持调用意图清晰。
+     */
+    fun scheduleNext(
+        currentStageIndex: Int,
+        rating: ReviewRating,
+        reviewedAtEpochMillis: Long,
+        intervalStepCount: Int,
+        zoneId: ZoneId
+    ): ReviewScheduleResult = scheduleNext(
+        currentStageIndex = currentStageIndex,
+        rating = rating,
+        reviewedAtEpochMillis = reviewedAtEpochMillis,
+        dueAtEpochMillis = null,
+        intervalStepCount = intervalStepCount,
+        zoneId = zoneId
+    )
+
+    /**
+     * 根据当前阶段与评分，计算下一阶段与下一次 dueAt。
+     * 该方法保持纯计算，便于单元测试覆盖边界并确保 UI/DAO 不承担调度规则。
+     */
+    override fun scheduleNext(
+        currentStageIndex: Int,
+        rating: ReviewRating,
+        reviewedAtEpochMillis: Long,
+        dueAtEpochMillis: Long?,
+        intervalStepCount: Int,
+        zoneId: ZoneId
     ): ReviewScheduleResult {
         val normalizedIntervalStepCount = normalizeIntervalStepCount(
             intervalStepCount = intervalStepCount,
@@ -67,12 +123,12 @@ class ReviewSchedulerV1(
      * 过期状态评估单独暴露成纯函数，是为了让复习页提示与最终调度共用同一口径，
      * 避免“界面说会衰减、真正提交时却按另一套规则计算”的解释偏差。
      */
-    fun assessOverdueState(
+    override fun assessOverdueState(
         currentStageIndex: Int,
         dueAtEpochMillis: Long?,
         reviewedAtEpochMillis: Long,
-        intervalStepCount: Int = intervalDaysByStage.size,
-        zoneId: ZoneId = ZoneId.systemDefault()
+        intervalStepCount: Int,
+        zoneId: ZoneId
     ): ReviewOverdueAssessment {
         val effectiveIntervalDaysByStage = intervalDaysByStage.take(
             normalizeIntervalStepCount(
@@ -82,7 +138,7 @@ class ReviewSchedulerV1(
         )
         val maxStageIndex = effectiveIntervalDaysByStage.lastIndex
         val boundedCurrentStage = currentStageIndex.coerceIn(0, maxStageIndex)
-        val plannedIntervalDays = effectiveIntervalDaysByStage[boundedCurrentStage]
+        val plannedIntervalDays = effectiveIntervalDaysByStage[boundedCurrentStage].coerceAtLeast(1)
         val overdueDays = dueAtEpochMillis
             ?.let { dueAtEpochMillis.toLocalDate(zoneId).until(reviewedAtEpochMillis.toLocalDate(zoneId), ChronoUnit.DAYS) }
             ?.coerceAtLeast(0L)
@@ -103,6 +159,22 @@ class ReviewSchedulerV1(
             decayLevel = (boundedCurrentStage - effectiveStageIndex).coerceAtLeast(0)
         )
     }
+
+    /**
+     * 过期评估默认走完整 8 段曲线，是为了兼容现有测试和调用方在未显式裁剪卡组步数时的默认预期。
+     */
+    fun assessOverdueState(
+        currentStageIndex: Int,
+        dueAtEpochMillis: Long?,
+        reviewedAtEpochMillis: Long,
+        zoneId: ZoneId
+    ): ReviewOverdueAssessment = assessOverdueState(
+        currentStageIndex = currentStageIndex,
+        dueAtEpochMillis = dueAtEpochMillis,
+        reviewedAtEpochMillis = reviewedAtEpochMillis,
+        intervalStepCount = DEFAULT_INTERVAL_STEP_COUNT,
+        zoneId = zoneId
+    )
 
     /**
      * 极端过期时将高阶段卡片直接拉回低阶段，是为了避免“拖了很久但仍被当成稳定掌握”继续放大失真。
@@ -173,4 +245,5 @@ data class ReviewOverdueAssessment(
     val hasDecay: Boolean
         get() = decayLevel > 0
 }
+
 

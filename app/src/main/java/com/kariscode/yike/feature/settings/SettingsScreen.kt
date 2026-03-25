@@ -1,7 +1,6 @@
 package com.kariscode.yike.feature.settings
 
 import android.Manifest
-import android.app.TimePickerDialog
 import android.content.pm.PackageManager
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -16,30 +15,37 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TimePicker
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.viewmodel.compose.viewModel
-import com.kariscode.yike.BuildConfig
-import com.kariscode.yike.app.LocalAppContainer
 import com.kariscode.yike.domain.model.ThemeMode
 import com.kariscode.yike.navigation.YikeNavigator
 import com.kariscode.yike.ui.component.CollectFlowEffect
 import com.kariscode.yike.ui.component.YikeBadge
 import com.kariscode.yike.ui.component.YikeListItemCard
 import com.kariscode.yike.ui.component.YikeOperationFeedback
+import com.kariscode.yike.ui.component.YikePrimaryButton
 import com.kariscode.yike.ui.component.YikePrimaryDestination
 import com.kariscode.yike.ui.component.YikePrimaryScaffold
 import com.kariscode.yike.ui.component.YikeScrollableColumn
 import com.kariscode.yike.ui.component.YikeScrollableRow
 import com.kariscode.yike.ui.component.YikeSecondaryButton
 import com.kariscode.yike.ui.component.YikeStateBanner
+import com.kariscode.yike.ui.component.YikeAlertDialog
 import com.kariscode.yike.ui.format.formatLocalDateTime
 import com.kariscode.yike.ui.format.formatReminderTime
 import com.kariscode.yike.ui.theme.LocalYikeSpacing
+import com.kariscode.yike.ui.theme.YikeSystemMonoFontFamily
+import org.koin.androidx.compose.koinViewModel
 
 /**
  * 设置页属于一级入口，因此必须复用统一导航壳，并在同一页面里承接提醒、备份和归档内容入口。
@@ -50,14 +56,8 @@ fun SettingsScreen(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-    val container = LocalAppContainer.current
-    val viewModel = viewModel<SettingsViewModel>(
-        factory = SettingsViewModel.factory(
-            appSettingsRepository = container.appSettingsRepository,
-            reminderScheduler = container.reminderScheduler,
-            appVersionName = BuildConfig.VERSION_NAME
-        )
-    )
+    var timePickerVisible by remember { mutableStateOf(false) }
+    val viewModel = koinViewModel<SettingsViewModel>()
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val permissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission(),
@@ -92,15 +92,7 @@ fun SettingsScreen(
                     hasNotificationPermission = hasNotificationPermission
                 )
             },
-            onChangeTime = {
-                TimePickerDialog(
-                    context,
-                    { _, hour, minute -> viewModel.onReminderTimeConfirmed(hour, minute) },
-                    uiState.reminderHour,
-                    uiState.reminderMinute,
-                    true
-                ).show()
-            },
+            onChangeTime = { timePickerVisible = true },
             onThemeModeChange = viewModel::onThemeModeChange,
             onOpenBackupRestore = viewModel::onBackupRestoreClick,
             onOpenLanSync = viewModel::onLanSyncClick,
@@ -108,6 +100,18 @@ fun SettingsScreen(
             onOpenRecycleBin = navigator::openRecycleBin,
             modifier = modifier,
             contentPadding = padding
+        )
+    }
+
+    if (timePickerVisible) {
+        ReminderTimePickerDialog(
+            initialHour = uiState.reminderHour,
+            initialMinute = uiState.reminderMinute,
+            onDismiss = { timePickerVisible = false },
+            onConfirm = { hour, minute ->
+                timePickerVisible = false
+                viewModel.onReminderTimeConfirmed(hour, minute)
+            }
         )
     }
 }
@@ -353,6 +357,11 @@ private fun ReminderSettingsSection(
             horizontalArrangement = Arrangement.spacedBy(LocalYikeSpacing.current.sm)
         ) {
             YikeBadge(text = "MVP")
+            Text(
+                text = "v${uiState.appVersionName}",
+                style = MaterialTheme.typography.bodySmall.copy(fontFamily = YikeSystemMonoFontFamily),
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
     }
 }
@@ -401,5 +410,51 @@ private fun ThemeModeFilterRow(
             )
         }
     }
+}
+
+/**
+ * 时间选择改成 Compose 对话框后，可以和应用自己的主题、按钮和错误反馈保持同一套视觉语言，
+ * 避免系统原生弹窗在深浅色与圆角上显得像另一个应用。
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ReminderTimePickerDialog(
+    initialHour: Int,
+    initialMinute: Int,
+    onDismiss: () -> Unit,
+    onConfirm: (Int, Int) -> Unit
+) {
+    val pickerState = rememberTimePickerState(
+        initialHour = initialHour,
+        initialMinute = initialMinute,
+        is24Hour = true
+    )
+    YikeAlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("选择提醒时间") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(LocalYikeSpacing.current.md)) {
+                Text(
+                    text = "统一使用 Compose 时间选择器，是为了让提醒设置和应用其他弹窗保持一致节奏。",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                TimePicker(state = pickerState)
+            }
+        },
+        confirmButton = {
+            YikePrimaryButton(
+                text = "确认时间",
+                onClick = { onConfirm(pickerState.hour, pickerState.minute) }
+            )
+        },
+        dismissButton = {
+            YikeSecondaryButton(
+                text = "取消",
+                onClick = onDismiss
+            )
+        },
+        modifier = Modifier.fillMaxWidth()
+    )
 }
 

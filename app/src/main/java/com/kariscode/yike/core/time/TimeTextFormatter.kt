@@ -1,4 +1,4 @@
-package com.kariscode.yike.core.time
+package com.kariscode.yike.core.domain.time
 
 /**
  * 小时分钟文本在备份、设置页和提醒说明里都必须保持同一口径，
@@ -22,3 +22,4 @@ object TimeTextFormatter {
         return hour to minute
     }
 }
+

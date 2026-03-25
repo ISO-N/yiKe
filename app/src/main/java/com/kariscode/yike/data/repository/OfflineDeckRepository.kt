@@ -1,12 +1,13 @@
 package com.kariscode.yike.data.repository
 
-import com.kariscode.yike.core.dispatchers.AppDispatchers
-import com.kariscode.yike.core.time.TimeProvider
+import com.kariscode.yike.core.domain.dispatchers.AppDispatchers
+import com.kariscode.yike.core.domain.time.TimeProvider
 import com.kariscode.yike.data.local.db.dao.DeckDao
 import com.kariscode.yike.data.local.db.entity.QuestionEntity
 import com.kariscode.yike.data.mapper.toDomain
 import com.kariscode.yike.data.mapper.toEntity
 import com.kariscode.yike.data.sync.LanSyncChangeRecorder
+import com.kariscode.yike.domain.error.EntityNotFoundException
 import com.kariscode.yike.domain.model.Deck
 import com.kariscode.yike.domain.model.SyncEntityType
 import com.kariscode.yike.domain.model.DeckSummary
@@ -99,7 +100,10 @@ class OfflineDeckRepository(
             val current = deckDao.findById(deckId)?.let { entity ->
                 entity.toDomain()
             }
-            deckDao.setArchived(deckId = deckId, archived = archived, updatedAt = updatedAt)
+            val updatedRows = deckDao.setArchived(deckId = deckId, archived = archived, updatedAt = updatedAt)
+            if (updatedRows == 0) {
+                throw EntityNotFoundException(entityLabel = "卡组", entityId = deckId)
+            }
             RepositorySyncSupport.recordUpdatedSnapshot(
                 current = current,
                 buildUpdated = { deck -> deck.copy(archived = archived, updatedAt = updatedAt) },
@@ -116,7 +120,10 @@ class OfflineDeckRepository(
         val current = deckDao.findById(deckId)?.let { entity ->
             entity.toDomain()
         }
-        deckDao.deleteById(deckId)
+        val deletedRows = deckDao.deleteById(deckId)
+        if (deletedRows == 0) {
+            throw EntityNotFoundException(entityLabel = "卡组", entityId = deckId)
+        }
         RepositorySyncSupport.recordDeleteFromSnapshot(
             syncChangeRecorder = syncChangeRecorder,
             entityType = SyncEntityType.DECK,
@@ -130,3 +137,4 @@ class OfflineDeckRepository(
         Unit
     }
 }
+

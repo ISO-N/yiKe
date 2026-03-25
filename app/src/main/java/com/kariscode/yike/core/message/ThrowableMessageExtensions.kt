@@ -1,4 +1,4 @@
-package com.kariscode.yike.core.message
+package com.kariscode.yike.core.ui.message
 
 /**
  * 异常 message 的可读性和可用性在不同实现里差异很大，
@@ -7,4 +7,5 @@ package com.kariscode.yike.core.message
  */
 fun Throwable.userMessageOr(fallback: String): String =
     message?.takeIf { it.isNotBlank() } ?: fallback
+
 

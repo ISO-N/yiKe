@@ -1,6 +1,6 @@
 package com.kariscode.yike.data.webconsole
 
-import com.kariscode.yike.core.dispatchers.AppDispatchers
+import com.kariscode.yike.core.domain.dispatchers.AppDispatchers
 import com.kariscode.yike.data.backup.BackupService
 import com.kariscode.yike.data.reminder.ReminderScheduler
 import com.kariscode.yike.domain.model.ThemeMode
@@ -62,3 +62,4 @@ internal class WebConsoleMaintenanceWorkspaceService(
         WebConsoleMutationPayload(message = "备份已恢复，页面数据已同步更新")
     }
 }
+

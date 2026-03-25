@@ -6,10 +6,10 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.createSavedStateHandle
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
-import com.kariscode.yike.core.message.ErrorMessages
-import com.kariscode.yike.core.message.userMessageOr
-import com.kariscode.yike.core.time.TimeProvider
-import com.kariscode.yike.core.viewmodel.launchResult
+import com.kariscode.yike.core.ui.message.ErrorMessages
+import com.kariscode.yike.core.ui.message.userMessageOr
+import com.kariscode.yike.core.domain.time.TimeProvider
+import com.kariscode.yike.core.ui.viewmodel.launchResult
 import com.kariscode.yike.domain.model.PracticeOrderMode
 import com.kariscode.yike.domain.model.PracticeSessionArgs
 import com.kariscode.yike.domain.model.QuestionContext
@@ -125,19 +125,21 @@ class PracticeSessionViewModel(
                     maximumValue = (orderedQuestions.lastIndex).coerceAtLeast(0)
                 )
                 savedStateHandle[CURRENT_INDEX_KEY] = currentIndex
-                _uiState.value = PracticeSessionUiState(
-                    isLoading = false,
-                    orderMode = args.orderMode,
-                    currentIndex = currentIndex,
-                    totalCount = orderedQuestions.size,
-                    currentQuestion = orderedQuestions.getOrNull(currentIndex),
-                    answerVisible = savedStateHandle[ANSWER_VISIBLE_KEY] ?: false,
-                    sessionSeed = savedStateHandle[SESSION_SEED_KEY],
-                    startedAtEpochMillis = sessionStartedAtEpochMillis,
-                    isCompleted = false,
-                    isEmpty = orderedQuestions.isEmpty(),
-                    errorMessage = null
-                )
+                _uiState.update { state ->
+                    state.copy(
+                        isLoading = false,
+                        orderMode = args.orderMode,
+                        currentIndex = currentIndex,
+                        totalCount = orderedQuestions.size,
+                        currentQuestion = orderedQuestions.getOrNull(currentIndex),
+                        answerVisible = savedStateHandle[ANSWER_VISIBLE_KEY] ?: false,
+                        sessionSeed = savedStateHandle[SESSION_SEED_KEY],
+                        startedAtEpochMillis = sessionStartedAtEpochMillis,
+                        isCompleted = false,
+                        isEmpty = orderedQuestions.isEmpty(),
+                        errorMessage = null
+                    )
+                }
             },
             onFailure = { throwable ->
                 _uiState.update { state ->
@@ -280,3 +282,4 @@ class PracticeSessionViewModel(
         }
     }
 }
+

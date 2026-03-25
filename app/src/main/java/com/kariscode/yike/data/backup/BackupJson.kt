@@ -1,6 +1,6 @@
 package com.kariscode.yike.data.backup
 
-import com.kariscode.yike.core.time.toInstant
+import com.kariscode.yike.core.domain.time.toInstant
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -29,3 +29,4 @@ object BackupJson {
     fun parseEpochMillis(value: String): Long =
         Instant.from(formatter.parse(value)).toEpochMilli()
 }
+

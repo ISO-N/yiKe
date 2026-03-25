@@ -1,6 +1,6 @@
 package com.kariscode.yike.feature.analytics
 
-import com.kariscode.yike.core.time.TimeConstants
+import com.kariscode.yike.core.domain.time.TimeConstants
 import com.kariscode.yike.domain.model.DeckReviewAnalyticsSnapshot
 import com.kariscode.yike.domain.model.ReviewAnalyticsSnapshot
 import com.kariscode.yike.testsupport.FakeStudyInsightsRepository
@@ -167,3 +167,4 @@ class AnalyticsViewModelTest {
         }
     }
 }
+

@@ -1,6 +1,6 @@
 package com.kariscode.yike.data.backup
 
-import com.kariscode.yike.core.time.TimeTextFormatter
+import com.kariscode.yike.core.domain.time.TimeTextFormatter
 import com.kariscode.yike.data.local.db.entity.CardEntity
 import com.kariscode.yike.data.local.db.entity.DeckEntity
 import com.kariscode.yike.data.local.db.entity.QuestionEntity
@@ -106,4 +106,5 @@ internal fun ReviewRecord.toBackup(): BackupReviewRecord = BackupReviewRecord(
     responseTimeMs = responseTimeMs,
     note = note
 )
+
 

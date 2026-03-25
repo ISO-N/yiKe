@@ -9,9 +9,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.viewmodel.compose.viewModel
-import com.kariscode.yike.app.LocalAppContainer
-import com.kariscode.yike.core.message.ErrorMessages
+import com.kariscode.yike.core.ui.message.ErrorMessages
 import com.kariscode.yike.domain.model.PracticeSessionArgs
 import com.kariscode.yike.domain.model.QuestionMasteryLevel
 import com.kariscode.yike.domain.model.QuestionStatus
@@ -23,6 +21,8 @@ import com.kariscode.yike.ui.component.YikeSecondaryButton
 import com.kariscode.yike.ui.component.YikeStateBanner
 import com.kariscode.yike.ui.component.backNavigationAction
 import com.kariscode.yike.ui.theme.LocalYikeSpacing
+import org.koin.androidx.compose.koinViewModel
+import org.koin.core.parameter.parametersOf
 
 /**
  * 搜索页把全文搜索和筛选收拢到同一处，是为了让“找到问题”和“决定怎么处理”成为同一步动作。
@@ -36,17 +36,8 @@ fun QuestionSearchScreen(
     deckIdForEditor: String?,
     modifier: Modifier = Modifier
 ) {
-    val container = LocalAppContainer.current
-    val viewModel = viewModel<QuestionSearchViewModel>(
-        factory = QuestionSearchViewModel.factory(
-            initialDeckId = initialDeckId,
-            initialCardId = initialCardId,
-            initialTag = initialTag,
-            studyInsightsRepository = container.studyInsightsRepository,
-            deckRepository = container.deckRepository,
-            cardRepository = container.cardRepository,
-            timeProvider = container.timeProvider
-        )
+    val viewModel = koinViewModel<QuestionSearchViewModel>(
+        parameters = { parametersOf(initialDeckId, initialCardId, initialTag) }
     )
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
@@ -208,3 +199,4 @@ private fun QuestionSearchPracticeEntry(
         )
     }
 }
+

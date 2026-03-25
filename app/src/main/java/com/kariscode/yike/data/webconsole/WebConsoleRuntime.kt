@@ -1,6 +1,6 @@
 package com.kariscode.yike.data.webconsole
 
-import com.kariscode.yike.core.time.TimeProvider
+import com.kariscode.yike.core.domain.time.TimeProvider
 import com.kariscode.yike.domain.model.WebConsoleAddress
 import com.kariscode.yike.domain.model.WebConsoleState
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -227,3 +227,4 @@ internal class WebConsoleRuntime(
         const val SESSION_TTL_MILLIS: Long = 30 * 60 * 1000L
     }
 }
+

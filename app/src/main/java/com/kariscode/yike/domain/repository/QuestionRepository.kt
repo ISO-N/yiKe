@@ -15,7 +15,8 @@ interface QuestionRepository {
     fun observeQuestionsByCard(cardId: String): Flow<List<Question>>
 
     /**
-     * 单对象读取用于评分提交等场景精确定位问题，避免在 UI 层缓存过期对象。
+     * 单对象读取用于评分提交等场景精确定位问题，避免在 UI 层缓存过期对象；
+     * 当问题不存在时返回 null，让调用方显式决定是报错、跳转还是跳过。
      */
     suspend fun findById(questionId: String): Question?
 
@@ -35,7 +36,8 @@ interface QuestionRepository {
     suspend fun listDueQuestions(nowEpochMillis: Long): List<Question>
 
     /**
-     * 复习队列只需要下一张卡片的路由目标，直接返回卡片 id 可以避免先拉全量问题再在内存分组。
+     * 复习队列只需要下一张卡片的路由目标，直接返回卡片 id 可以避免先拉全量问题再在内存分组；
+     * 如果当前没有到期题目则返回 null，调用方可据此切到“今日已完成”状态。
      */
     suspend fun findNextDueCardId(nowEpochMillis: Long): String?
 

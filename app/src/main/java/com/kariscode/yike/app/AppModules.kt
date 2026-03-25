@@ -1,12 +1,15 @@
 package com.kariscode.yike.app
 
 import android.app.Application
+import androidx.lifecycle.SavedStateHandle
 import androidx.room.Room
 import androidx.work.WorkManager
-import com.kariscode.yike.core.dispatchers.AppDispatchers
-import com.kariscode.yike.core.dispatchers.DefaultAppDispatchers
-import com.kariscode.yike.core.time.SystemTimeProvider
-import com.kariscode.yike.core.time.TimeProvider
+import com.kariscode.yike.BuildConfig
+import com.kariscode.yike.data.backup.BackupOperations
+import com.kariscode.yike.core.domain.dispatchers.AppDispatchers
+import com.kariscode.yike.core.domain.dispatchers.DefaultAppDispatchers
+import com.kariscode.yike.core.domain.time.SystemTimeProvider
+import com.kariscode.yike.core.domain.time.TimeProvider
 import com.kariscode.yike.data.backup.BackupService
 import com.kariscode.yike.data.backup.BackupValidator
 import com.kariscode.yike.data.editor.FileQuestionEditorDraftRepository
@@ -46,6 +49,7 @@ import com.kariscode.yike.domain.repository.QuestionRepository
 import com.kariscode.yike.domain.repository.ReviewRepository
 import com.kariscode.yike.domain.repository.StudyInsightsRepository
 import com.kariscode.yike.domain.repository.WebConsoleRepository
+import com.kariscode.yike.domain.scheduler.ReviewScheduler
 import com.kariscode.yike.domain.scheduler.ReviewSchedulerV1
 import com.kariscode.yike.domain.usecase.GetHomeOverviewUseCase
 import com.kariscode.yike.domain.usecase.GetDeckAvailableTagsUseCase
@@ -64,6 +68,23 @@ import com.kariscode.yike.domain.usecase.SubmitReviewRatingUseCase
 import com.kariscode.yike.domain.usecase.ToggleCardArchiveUseCase
 import com.kariscode.yike.domain.usecase.ToggleDeckArchiveUseCase
 import com.kariscode.yike.domain.usecase.DeleteCardUseCase
+import com.kariscode.yike.feature.analytics.AnalyticsViewModel
+import com.kariscode.yike.feature.backup.BackupRestoreViewModel
+import com.kariscode.yike.feature.card.CardListViewModel
+import com.kariscode.yike.feature.deck.DeckListViewModel
+import com.kariscode.yike.feature.editor.QuestionEditorViewModel
+import com.kariscode.yike.feature.home.HomeViewModel
+import com.kariscode.yike.feature.practice.PracticeSessionViewModel
+import com.kariscode.yike.feature.practice.PracticeSetupViewModel
+import com.kariscode.yike.feature.preview.TodayPreviewViewModel
+import com.kariscode.yike.feature.recyclebin.RecycleBinViewModel
+import com.kariscode.yike.feature.review.ReviewCardViewModel
+import com.kariscode.yike.feature.review.ReviewQueueViewModel
+import com.kariscode.yike.feature.search.QuestionSearchViewModel
+import com.kariscode.yike.feature.settings.SettingsViewModel
+import com.kariscode.yike.feature.sync.LanSyncViewModel
+import com.kariscode.yike.feature.webconsole.WebConsoleViewModel
+import org.koin.androidx.viewmodel.dsl.viewModel
 import org.koin.android.ext.koin.androidContext
 import org.koin.dsl.module
 
@@ -75,7 +96,7 @@ private val coreModule = module {
     single<Application> { androidContext() as Application }
     single<TimeProvider> { SystemTimeProvider() }
     single<AppDispatchers> { DefaultAppDispatchers() }
-    single { ReviewSchedulerV1() }
+    single<ReviewScheduler> { ReviewSchedulerV1() }
     single {
         Room.databaseBuilder(
             androidContext(),
@@ -225,6 +246,7 @@ private val serviceModule = module {
             dispatchers = get()
         )
     }
+    single<BackupOperations> { get<BackupService>() }
     single {
         LanSyncRepositoryImpl(
             context = androidContext(),
@@ -283,7 +305,7 @@ private val useCaseModule = module {
     factory { DeleteCardUseCase(cardRepository = get()) }
     factory { GetDeckCardMasterySummaryUseCase(studyInsightsRepository = get()) }
     factory { LoadReviewCardSessionUseCase(cardRepository = get(), reviewRepository = get()) }
-    factory { SubmitReviewRatingUseCase(reviewRepository = get()) }
+    factory { SubmitReviewRatingUseCase(reviewRepository = get(), nowEpochMillisProvider = get<com.kariscode.yike.core.domain.time.TimeProvider>()::nowEpochMillis) }
     factory { GetQuestionSearchMetadataUseCase(studyInsightsRepository = get(), deckRepository = get(), cardRepository = get()) }
     factory { SearchQuestionsUseCase(studyInsightsRepository = get()) }
     factory { LoadQuestionEditorContentUseCase(cardRepository = get(), questionRepository = get(), questionEditorDraftRepository = get()) }
@@ -291,7 +313,128 @@ private val useCaseModule = module {
 }
 
 /**
+ * ViewModel 统一纳入 DI 后，Screen 层就不再需要重复拼 factory，
+ * 路由参数和生命周期状态也能沿同一套注入方式持续演进。
+ */
+private val viewModelModule = module {
+    viewModel {
+        HomeViewModel(
+            getHomeOverviewUseCase = get(),
+            timeProvider = get()
+        )
+    }
+    viewModel {
+        DeckListViewModel(
+            deckRepository = get(),
+            studyInsightsRepository = get(),
+            timeProvider = get()
+        )
+    }
+    viewModel { parameters ->
+        CardListViewModel(
+            deckId = parameters.get(),
+            deckRepository = get(),
+            cardRepository = get(),
+            studyInsightsRepository = get(),
+            timeProvider = get()
+        )
+    }
+    viewModel { parameters ->
+        QuestionEditorViewModel(
+            cardId = parameters.get(),
+            deckId = parameters.get(),
+            questionEditorDraftRepository = get(),
+            loadQuestionEditorContentUseCase = get(),
+            saveQuestionEditorChangesUseCase = get(),
+            timeProvider = get()
+        )
+    }
+    viewModel {
+        ReviewQueueViewModel(
+            questionRepository = get(),
+            timeProvider = get()
+        )
+    }
+    viewModel { parameters ->
+        ReviewCardViewModel(
+            cardId = parameters.get(),
+            loadReviewCardSessionUseCase = get(),
+            submitReviewRatingUseCase = get(),
+            timeProvider = get()
+        )
+    }
+    viewModel {
+        SettingsViewModel(
+            appSettingsRepository = get(),
+            reminderScheduler = get(),
+            appVersionName = BuildConfig.VERSION_NAME
+        )
+    }
+    viewModel {
+        BackupRestoreViewModel(
+            backupService = get(),
+            appSettingsRepository = get(),
+            reminderScheduler = get()
+        )
+    }
+    viewModel {
+        RecycleBinViewModel(
+            deckRepository = get(),
+            cardRepository = get(),
+            timeProvider = get()
+        )
+    }
+    viewModel {
+        TodayPreviewViewModel(
+            studyInsightsRepository = get(),
+            timeProvider = get()
+        )
+    }
+    viewModel {
+        AnalyticsViewModel(
+            studyInsightsRepository = get(),
+            timeProvider = get()
+        )
+    }
+    viewModel { parameters ->
+        QuestionSearchViewModel(
+            initialDeckId = parameters.get(),
+            initialCardId = parameters.get(),
+            initialTag = parameters.get(),
+            getQuestionSearchMetadataUseCase = get(),
+            searchQuestionsUseCase = get(),
+            timeProvider = get()
+        )
+    }
+    viewModel { parameters ->
+        PracticeSetupViewModel(
+            initialArgs = parameters.get(),
+            practiceRepository = get()
+        )
+    }
+    viewModel { parameters ->
+        PracticeSessionViewModel(
+            args = parameters.get(),
+            practiceRepository = get(),
+            timeProvider = get(),
+            savedStateHandle = get<SavedStateHandle>()
+        )
+    }
+    viewModel {
+        LanSyncViewModel(
+            lanSyncRepository = get()
+        )
+    }
+    viewModel {
+        WebConsoleViewModel(
+            webConsoleRepository = get()
+        )
+    }
+}
+
+/**
  * 应用级 Koin modules 把数据库、仓储和用例装配收口在单点，
  * 是为了替换手写 new 链路，同时让后续继续扩展 ViewModel/UseCase 时复用同一对象图。
  */
-val yikeModules = listOf(coreModule, repositoryModule, serviceModule, useCaseModule)
+val yikeModules = listOf(coreModule, repositoryModule, serviceModule, useCaseModule, viewModelModule)
+

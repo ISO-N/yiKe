@@ -3,7 +3,7 @@ package com.kariscode.yike.feature.webconsole
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
-import com.kariscode.yike.core.viewmodel.typedViewModelFactory
+import com.kariscode.yike.core.ui.viewmodel.typedViewModelFactory
 import com.kariscode.yike.domain.model.WebConsoleState
 import com.kariscode.yike.domain.repository.WebConsoleRepository
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -68,3 +68,4 @@ class WebConsoleViewModel(
         }
     }
 }
+

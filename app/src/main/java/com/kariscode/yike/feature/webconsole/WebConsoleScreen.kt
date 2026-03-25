@@ -20,8 +20,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.viewmodel.compose.viewModel
-import com.kariscode.yike.app.LocalAppContainer
 import com.kariscode.yike.app.WebConsoleForegroundService
 import com.kariscode.yike.domain.model.WebConsoleState
 import com.kariscode.yike.navigation.YikeNavigator
@@ -38,6 +36,7 @@ import com.kariscode.yike.ui.component.backNavigationAction
 import com.kariscode.yike.ui.format.formatLocalDateTime
 import com.kariscode.yike.ui.theme.LocalYikeSpacing
 import kotlinx.coroutines.launch
+import org.koin.androidx.compose.koinViewModel
 
 /**
  * 网页后台页独立成单独流程页，是为了把“对局域网暴露服务”这种高风险能力与普通设置项隔离开。
@@ -47,14 +46,9 @@ fun WebConsoleScreen(
     navigator: YikeNavigator,
     modifier: Modifier = Modifier
 ) {
-    val container = LocalAppContainer.current
     val context = LocalContext.current
     val spacing = LocalYikeSpacing.current
-    val viewModel = viewModel<WebConsoleViewModel>(
-        factory = WebConsoleViewModel.factory(
-            webConsoleRepository = container.webConsoleRepository
-        )
-    )
+    val viewModel = koinViewModel<WebConsoleViewModel>()
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
     val coroutineScope = rememberCoroutineScope()

@@ -3,8 +3,8 @@ package com.kariscode.yike.feature.debug
 import androidx.room.Room
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
-import com.kariscode.yike.core.dispatchers.DefaultAppDispatchers
-import com.kariscode.yike.core.time.TimeProvider
+import com.kariscode.yike.core.domain.dispatchers.DefaultAppDispatchers
+import com.kariscode.yike.core.domain.time.TimeProvider
 import com.kariscode.yike.data.local.db.YikeDatabase
 import com.kariscode.yike.data.sync.LanSyncChangeRecorder
 import com.kariscode.yike.data.sync.LanSyncCrypto
@@ -163,3 +163,4 @@ private class FixedTimeProvider(
      */
     override fun nowEpochMillis(): Long = nowEpochMillis
 }
+

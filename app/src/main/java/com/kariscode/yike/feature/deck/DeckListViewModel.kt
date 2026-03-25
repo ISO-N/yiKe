@@ -3,18 +3,18 @@ package com.kariscode.yike.feature.deck
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
-import com.kariscode.yike.core.message.ErrorMessages
-import com.kariscode.yike.core.message.SuccessMessages
-import com.kariscode.yike.core.message.userMessageOr
-import com.kariscode.yike.core.time.TimeProvider
-import com.kariscode.yike.core.viewmodel.launchStateMutation
-import com.kariscode.yike.core.viewmodel.launchStateResult
-import com.kariscode.yike.core.viewmodel.typedViewModelFactory
+import com.kariscode.yike.core.ui.message.ErrorMessages
+import com.kariscode.yike.core.ui.message.SuccessMessages
+import com.kariscode.yike.core.ui.message.userMessageOr
+import com.kariscode.yike.core.domain.time.TimeProvider
+import com.kariscode.yike.core.ui.viewmodel.launchStateResult
+import com.kariscode.yike.core.ui.viewmodel.typedViewModelFactory
 import com.kariscode.yike.domain.model.DeckSummary
 import com.kariscode.yike.domain.repository.DeckRepository
 import com.kariscode.yike.domain.repository.StudyInsightsRepository
 import com.kariscode.yike.domain.scheduler.ReviewSchedulerV1
 import com.kariscode.yike.domain.usecase.DeckSaveRequest
+import com.kariscode.yike.domain.usecase.DeckSaveResult
 import com.kariscode.yike.domain.usecase.GetDeckAvailableTagsUseCase
 import com.kariscode.yike.domain.usecase.ObserveDeckSummariesUseCase
 import com.kariscode.yike.domain.usecase.SaveDeckUseCase
@@ -207,9 +207,8 @@ class DeckListViewModel(
             return
         }
 
-        launchStateMutation(
-            state = _uiState,
-            action = {
+        launchStateResult(state = _uiState) {
+            action {
                 val normalizedTags = DeckTagNormalizer.normalize(editor.tags)
                 saveDeckUseCase(
                     DeckSaveRequest(
@@ -220,20 +219,31 @@ class DeckListViewModel(
                         intervalStepCount = intervalStepCount
                     )
                 )
-            },
-            onSuccess = DeckListStateReducer::saveSucceeded,
-            onFailure = { state, _ -> DeckListStateReducer.mutationFailed(state, ErrorMessages.SAVE_FAILED) }
-        )
+            }
+            onSuccess { state, result ->
+                val successMessage = if (result is DeckSaveResult.Created) {
+                    SuccessMessages.DECK_CREATED
+                } else {
+                    SuccessMessages.DECK_UPDATED
+                }
+                DeckListStateReducer.saveSucceeded(
+                    state = state,
+                    successMessage = successMessage
+                )
+            }
+            onFailure { state, _ ->
+                DeckListStateReducer.mutationFailed(state, ErrorMessages.SAVE_FAILED)
+            }
+        }
     }
 
     /**
      * 题库标签补全单独读取，是为了让卡组标签能复用用户已经在问题层建立的分类词汇。
      */
     private fun refreshAvailableTags() {
-        launchStateResult(
-            state = _uiState,
-            action = { getDeckAvailableTagsUseCase(limit = 12) },
-            onSuccess = { state, tags ->
+        launchStateResult(state = _uiState) {
+            action { getDeckAvailableTagsUseCase(limit = 12) }
+            onSuccess { state, tags ->
                 insightTags = DeckTagNormalizer.normalize(tags)
                 DeckListStateReducer.availableTagsLoaded(
                     state = state,
@@ -242,9 +252,9 @@ class DeckListViewModel(
                         insightTags = insightTags
                     )
                 )
-            },
-            onFailure = { state, _ -> state }
-        )
+            }
+            onFailure { state, _ -> state }
+        }
     }
 
     /**
@@ -285,17 +295,20 @@ class DeckListViewModel(
      * 卡组页只保留归档入口，是为了把“暂时移出默认列表、需要时再恢复”的语义收敛成单一路径。
      */
     fun onToggleArchiveClick(item: DeckSummary) {
-        launchStateMutation(
-            state = _uiState,
-            action = {
+        launchStateResult(state = _uiState) {
+            action {
                 toggleDeckArchiveUseCase(
                     deckId = item.deck.id,
                     archived = !item.deck.archived
                 )
-            },
-            onSuccess = { state -> DeckListStateReducer.archiveToggled(state, item.deck.archived) },
-            onFailure = { state, _ -> DeckListStateReducer.mutationFailed(state, ErrorMessages.UPDATE_FAILED) }
-        )
+            }
+            onSuccess { state, _ ->
+                DeckListStateReducer.archiveToggled(state, item.deck.archived)
+            }
+            onFailure { state, _ ->
+                DeckListStateReducer.mutationFailed(state, ErrorMessages.UPDATE_FAILED)
+            }
+        }
     }
 
     /**
@@ -345,4 +358,5 @@ class DeckListViewModel(
         }
     }
 }
+
 

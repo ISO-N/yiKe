@@ -4,6 +4,8 @@ import android.app.Activity
 import android.os.Build
 import android.content.Context
 import android.content.ContextWrapper
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.tween
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.dynamicDarkColorScheme
@@ -93,21 +95,28 @@ fun YikeTheme(
         useDarkColors -> DarkColorScheme
         else -> LightColorScheme
     }
+    val themeTransitionDuration = rememberYikeDuration(YikeAnimationDurations.THEME_TRANSITION)
     YikeSystemBarAppearance(useDarkColors = useDarkColors)
-    CompositionLocalProvider(
-        LocalYikeSpacing provides YikeSpacing(),
-        LocalYikeSemanticColors provides if (useDarkColors) DarkSemanticColors else LightSemanticColors,
-        LocalYikeChromeColors provides yikeChromeColorsFor(
-            colorScheme = colorScheme,
-            isDark = useDarkColors
-        )
-    ) {
-        MaterialTheme(
-            colorScheme = colorScheme,
-            typography = Typography,
-            shapes = YikeShapes,
-            content = content
-        )
+    Crossfade(
+        targetState = colorScheme,
+        animationSpec = tween(durationMillis = themeTransitionDuration),
+        label = "yike_theme_crossfade"
+    ) { animatedColorScheme ->
+        CompositionLocalProvider(
+            LocalYikeSpacing provides YikeSpacing(),
+            LocalYikeSemanticColors provides if (useDarkColors) DarkSemanticColors else LightSemanticColors,
+            LocalYikeChromeColors provides yikeChromeColorsFor(
+                colorScheme = animatedColorScheme,
+                isDark = useDarkColors
+            )
+        ) {
+            MaterialTheme(
+                colorScheme = animatedColorScheme,
+                typography = Typography,
+                shapes = YikeShapes,
+                content = content
+            )
+        }
     }
 }
 

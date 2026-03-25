@@ -11,8 +11,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.viewmodel.compose.viewModel
-import com.kariscode.yike.app.LocalAppContainer
 import com.kariscode.yike.domain.model.PracticeSessionArgs
 import com.kariscode.yike.navigation.YikeNavigator
 import com.kariscode.yike.ui.component.CollectFlowEffect
@@ -27,6 +25,8 @@ import com.kariscode.yike.ui.component.YikeStateBanner
 import com.kariscode.yike.ui.component.YikeSurfaceCard
 import com.kariscode.yike.ui.component.backNavigationAction
 import com.kariscode.yike.ui.theme.LocalYikeSpacing
+import org.koin.androidx.compose.koinViewModel
+import org.koin.core.parameter.parametersOf
 
 /**
  * 练习会话页复用流内导航壳，是为了让用户把它理解成一次明确开始、明确结束的专注流程。
@@ -37,13 +37,8 @@ fun PracticeSessionScreen(
     navigator: YikeNavigator,
     modifier: Modifier = Modifier
 ) {
-    val container = LocalAppContainer.current
-    val viewModel = viewModel<PracticeSessionViewModel>(
-        factory = PracticeSessionViewModel.factory(
-            args = args,
-            practiceRepository = container.practiceRepository,
-            timeProvider = container.timeProvider
-        )
+    val viewModel = koinViewModel<PracticeSessionViewModel>(
+        parameters = { parametersOf(args) }
     )
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 

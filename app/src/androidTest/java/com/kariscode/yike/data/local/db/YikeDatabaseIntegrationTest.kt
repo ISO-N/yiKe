@@ -3,7 +3,7 @@ package com.kariscode.yike.data.local.db
 import androidx.room.Room
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
-import com.kariscode.yike.core.dispatchers.DefaultAppDispatchers
+import com.kariscode.yike.core.domain.dispatchers.DefaultAppDispatchers
 import com.kariscode.yike.data.local.db.entity.CardEntity
 import com.kariscode.yike.data.local.db.entity.DeckEntity
 import com.kariscode.yike.data.local.db.entity.QuestionEntity
@@ -422,3 +422,4 @@ class YikeDatabaseIntegrationTest {
         note = ""
     )
 }
+

@@ -26,8 +26,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.viewmodel.compose.viewModel
-import com.kariscode.yike.app.LocalAppContainer
 import com.kariscode.yike.domain.model.ReviewRating
 import com.kariscode.yike.navigation.YikeNavigator
 import com.kariscode.yike.ui.component.CollectFlowEffect
@@ -45,7 +43,11 @@ import com.kariscode.yike.ui.component.YikeSecondaryButton
 import com.kariscode.yike.ui.component.YikeStateBanner
 import com.kariscode.yike.ui.component.YikeSurfaceCard
 import com.kariscode.yike.ui.theme.LocalYikeSpacing
+import com.kariscode.yike.ui.theme.YikeAnimationDurations
+import com.kariscode.yike.ui.theme.rememberYikeDuration
 import com.kariscode.yike.ui.component.backNavigationAction
+import org.koin.androidx.compose.koinViewModel
+import org.koin.core.parameter.parametersOf
 
 /**
  * 复习页需要保持聚焦节奏，因此仍使用流内导航壳，并把退出动作收敛到顶部栏和返回键确认。
@@ -56,14 +58,8 @@ fun ReviewCardScreen(
     navigator: YikeNavigator,
     modifier: Modifier = Modifier
 ) {
-    val container = LocalAppContainer.current
-    val viewModel = viewModel<ReviewCardViewModel>(
-        factory = ReviewCardViewModel.factory(
-            cardId = cardId,
-            cardRepository = container.cardRepository,
-            reviewRepository = container.reviewRepository,
-            timeProvider = container.timeProvider
-        )
+    val viewModel = koinViewModel<ReviewCardViewModel>(
+        parameters = { parametersOf(cardId) }
     )
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
@@ -317,11 +313,13 @@ private fun AnswerSection(
     onRevealAnswer: () -> Unit,
     onHideAnswer: () -> Unit
 ) {
+    val enterDuration = rememberYikeDuration(YikeAnimationDurations.STANDARD)
+    val exitDuration = rememberYikeDuration(YikeAnimationDurations.FAST)
     AnimatedContent(
         targetState = answerVisible,
         transitionSpec = {
-            (fadeIn(animationSpec = tween(durationMillis = 320)) + expandVertically()) togetherWith
-                (fadeOut(animationSpec = tween(durationMillis = 180)) + shrinkVertically())
+            (fadeIn(animationSpec = tween(durationMillis = enterDuration)) + expandVertically()) togetherWith
+                (fadeOut(animationSpec = tween(durationMillis = exitDuration)) + shrinkVertically())
         },
         label = "answer_section_transition"
     ) { isAnswerVisible ->
@@ -372,10 +370,12 @@ private fun RatingSection(
     onRate: (ReviewRating) -> Unit
 ) {
     val spacing = LocalYikeSpacing.current
+    val enterDuration = rememberYikeDuration(YikeAnimationDurations.STANDARD)
+    val exitDuration = rememberYikeDuration(YikeAnimationDurations.FAST)
     AnimatedVisibility(
         visible = answerVisible,
-        enter = fadeIn(animationSpec = tween(durationMillis = 320)) + expandVertically(),
-        exit = fadeOut(animationSpec = tween(durationMillis = 180)) + shrinkVertically()
+        enter = fadeIn(animationSpec = tween(durationMillis = enterDuration)) + expandVertically(),
+        exit = fadeOut(animationSpec = tween(durationMillis = exitDuration)) + shrinkVertically()
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(spacing.md)) {
             YikeHeaderBlock(

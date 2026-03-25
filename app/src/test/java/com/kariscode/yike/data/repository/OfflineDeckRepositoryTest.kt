@@ -1,6 +1,6 @@
 package com.kariscode.yike.data.repository
 
-import com.kariscode.yike.core.dispatchers.AppDispatchers
+import com.kariscode.yike.core.domain.dispatchers.AppDispatchers
 import com.kariscode.yike.data.local.db.dao.DeckDao
 import com.kariscode.yike.data.local.db.dao.DeckSummaryRow
 import com.kariscode.yike.data.local.db.entity.DeckEntity
@@ -11,6 +11,7 @@ import com.kariscode.yike.data.sync.storageValue
 import com.kariscode.yike.domain.model.Deck
 import com.kariscode.yike.domain.model.SyncChangeOperation
 import com.kariscode.yike.domain.model.SyncEntityType
+import com.kariscode.yike.testsupport.testDeckEntity
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
@@ -64,7 +65,7 @@ class OfflineDeckRepositoryTest {
     @Test
     fun observeActiveDecks_mapsEntitiesToDomainModels() = runTest {
         fakeDao.activeDecksFlow.value = listOf(
-            createDeckEntity(id = "deck_math", name = "数学")
+            testDeckEntity(id = "deck_math", name = "数学")
         )
 
         val decks = repository.observeActiveDecks().first()
@@ -113,7 +114,7 @@ class OfflineDeckRepositoryTest {
      */
     @Test
     fun findById_existingDeck_returnsMappedDomainModel() = runTest {
-        fakeDao.storedDecks["deck_1"] = createDeckEntity(id = "deck_1", name = "算法")
+        fakeDao.storedDecks["deck_1"] = testDeckEntity(id = "deck_1", name = "算法")
 
         val deck = repository.findById("deck_1")
 
@@ -171,7 +172,7 @@ class OfflineDeckRepositoryTest {
      */
     @Test
     fun setArchived_existingDeck_recordsUpdatedDeckJournal() = runTest {
-        fakeDao.storedDecks["deck_archive"] = createDeckEntity(
+        fakeDao.storedDecks["deck_archive"] = testDeckEntity(
             id = "deck_archive",
             name = "历史",
             archived = false,
@@ -197,7 +198,7 @@ class OfflineDeckRepositoryTest {
      */
     @Test
     fun delete_recordsDeleteJournalWithCurrentDeckSummary() = runTest {
-        fakeDao.storedDecks["deck_delete"] = createDeckEntity(
+        fakeDao.storedDecks["deck_delete"] = testDeckEntity(
             id = "deck_delete",
             name = "待删除卡组",
             updatedAt = 77L
@@ -303,23 +304,5 @@ class OfflineDeckRepositoryTest {
         }
     }
 
-    /**
-     * 最小合法卡组实体构造器集中在单处，避免每条用例都重复拼装无关字段。
-     */
-    private fun createDeckEntity(
-        id: String,
-        name: String,
-        archived: Boolean = false,
-        updatedAt: Long = 1L
-    ): DeckEntity = DeckEntity(
-        id = id,
-        name = name,
-        description = "",
-        tagsJson = "[]",
-        intervalStepCount = 8,
-        archived = archived,
-        sortOrder = 0,
-        createdAt = 1L,
-        updatedAt = updatedAt
-    )
 }
+

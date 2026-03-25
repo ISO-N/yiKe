@@ -36,6 +36,8 @@ import com.kariscode.yike.feature.sync.LanSyncScreen
 import com.kariscode.yike.feature.webconsole.WebConsoleScreen
 import com.kariscode.yike.ui.component.YikePrimaryDestination
 import com.kariscode.yike.ui.component.YikePrimaryNavigationChrome
+import com.kariscode.yike.ui.theme.YikeAnimationDurations
+import com.kariscode.yike.ui.theme.rememberYikeDuration
 
 private val primaryDestinationMetadata = listOf(
     YikeDestination.HOME to YikePrimaryDestination.HOME,
@@ -61,16 +63,19 @@ fun YikeNavGraph(
     val currentBackStackEntry by navController.currentBackStackEntryAsState()
     val currentPrimaryDestination = primaryDestinationForRoute(currentBackStackEntry?.destination?.route)
     val navigator = rememberYikeNavigator(navController)
+    val primarySlideDuration = rememberYikeDuration(YikeAnimationDurations.NAVIGATION_SLIDE_PRIMARY)
+    val standardSlideDuration = rememberYikeDuration(YikeAnimationDurations.NAVIGATION_SLIDE)
+    val standardFadeDuration = rememberYikeDuration(YikeAnimationDurations.MEDIUM)
 
     Box(modifier = modifier.fillMaxSize()) {
         NavHost(
             navController = navController,
             startDestination = YikeDestination.HOME,
             modifier = Modifier.fillMaxSize(),
-            enterTransition = { appEnterTransition() },
-            exitTransition = { appExitTransition() },
-            popEnterTransition = { appPopEnterTransition() },
-            popExitTransition = { appPopExitTransition() }
+            enterTransition = { appEnterTransition(primarySlideDuration, standardSlideDuration, standardFadeDuration) },
+            exitTransition = { appExitTransition(primarySlideDuration, standardSlideDuration, standardFadeDuration) },
+            popEnterTransition = { appPopEnterTransition(primarySlideDuration, standardSlideDuration, standardFadeDuration) },
+            popExitTransition = { appPopExitTransition(primarySlideDuration, standardSlideDuration, standardFadeDuration) }
         ) {
             composable(route = YikeDestination.HOME) {
                 HomeScreen(
@@ -306,12 +311,15 @@ private fun AnimatedContentTransitionScope<NavBackStackEntry>.slideFadeExit(
  * 进入动画只在一级入口之间启用，是为了让主导航保持桌面式滑动反馈，
  * 同时避免把流内页面也误伤成同一套横滑动画。
  */
-private fun AnimatedContentTransitionScope<NavBackStackEntry>.primaryDestinationEnterTransition(): EnterTransition {
+private fun AnimatedContentTransitionScope<NavBackStackEntry>.primaryDestinationEnterTransition(
+    slideDurationMillis: Int,
+    fadeDurationMillis: Int
+): EnterTransition {
     val direction = primaryTransitionDirection() ?: return EnterTransition.None
     return slideFadeEnter(
         direction = direction,
-        slideDurationMillis = 380,
-        fadeDurationMillis = 280
+        slideDurationMillis = slideDurationMillis,
+        fadeDurationMillis = fadeDurationMillis
     )
 }
 
@@ -345,12 +353,15 @@ private fun practiceSessionNavArguments() = listOf(
  * 退出动画与进入方向保持镜像，是为了让一级入口像桌面页一样形成连续的“推开/滑入”关系，
  * 而不是前页和目标页各自独立地淡入淡出。
  */
-private fun AnimatedContentTransitionScope<NavBackStackEntry>.primaryDestinationExitTransition(): ExitTransition {
+private fun AnimatedContentTransitionScope<NavBackStackEntry>.primaryDestinationExitTransition(
+    slideDurationMillis: Int,
+    fadeDurationMillis: Int
+): ExitTransition {
     val direction = primaryTransitionDirection() ?: return ExitTransition.None
     return slideFadeExit(
         direction = direction,
-        slideDurationMillis = 380,
-        fadeDurationMillis = 280
+        slideDurationMillis = slideDurationMillis,
+        fadeDurationMillis = fadeDurationMillis
     )
 }
 
@@ -358,55 +369,83 @@ private fun AnimatedContentTransitionScope<NavBackStackEntry>.primaryDestination
  * 应用级进入动画统一先判断是否为一级入口切换，若不是则回退到流内页面的轻量横向推进，
  * 这样既保留主导航的桌面式空间感，也让编辑、预览、统计和搜索页面不再像“瞬间硬切”。
  */
-private fun AnimatedContentTransitionScope<NavBackStackEntry>.appEnterTransition(): EnterTransition {
+private fun AnimatedContentTransitionScope<NavBackStackEntry>.appEnterTransition(
+    primarySlideDuration: Int,
+    standardSlideDuration: Int,
+    standardFadeDuration: Int
+): EnterTransition {
     if (isPrimaryDestinationTransition()) {
-        return primaryDestinationEnterTransition()
+        return primaryDestinationEnterTransition(
+            slideDurationMillis = primarySlideDuration,
+            fadeDurationMillis = standardFadeDuration
+        )
     }
     return slideFadeEnter(
         direction = AnimatedContentTransitionScope.SlideDirection.Left,
-        slideDurationMillis = 300,
-        fadeDurationMillis = 220
+        slideDurationMillis = standardSlideDuration,
+        fadeDurationMillis = standardFadeDuration
     )
 }
 
 /**
  * 普通 push 场景下的退出动画采用与进入同向的轻量推开，是为了让流内页面切换更接近原生任务流节奏。
  */
-private fun AnimatedContentTransitionScope<NavBackStackEntry>.appExitTransition(): ExitTransition {
+private fun AnimatedContentTransitionScope<NavBackStackEntry>.appExitTransition(
+    primarySlideDuration: Int,
+    standardSlideDuration: Int,
+    standardFadeDuration: Int
+): ExitTransition {
     if (isPrimaryDestinationTransition()) {
-        return primaryDestinationExitTransition()
+        return primaryDestinationExitTransition(
+            slideDurationMillis = primarySlideDuration,
+            fadeDurationMillis = standardFadeDuration
+        )
     }
     return slideFadeExit(
         direction = AnimatedContentTransitionScope.SlideDirection.Left,
-        slideDurationMillis = 300,
-        fadeDurationMillis = 220
+        slideDurationMillis = standardSlideDuration,
+        fadeDurationMillis = standardFadeDuration
     )
 }
 
 /**
  * pop 进入动画与 push 方向镜像，是为了让用户在返回时获得明确的“回到上一层”空间反馈。
  */
-private fun AnimatedContentTransitionScope<NavBackStackEntry>.appPopEnterTransition(): EnterTransition {
+private fun AnimatedContentTransitionScope<NavBackStackEntry>.appPopEnterTransition(
+    primarySlideDuration: Int,
+    standardSlideDuration: Int,
+    standardFadeDuration: Int
+): EnterTransition {
     if (isPrimaryDestinationTransition()) {
-        return primaryDestinationEnterTransition()
+        return primaryDestinationEnterTransition(
+            slideDurationMillis = primarySlideDuration,
+            fadeDurationMillis = standardFadeDuration
+        )
     }
     return slideFadeEnter(
         direction = AnimatedContentTransitionScope.SlideDirection.Right,
-        slideDurationMillis = 300,
-        fadeDurationMillis = 220
+        slideDurationMillis = standardSlideDuration,
+        fadeDurationMillis = standardFadeDuration
     )
 }
 
 /**
  * pop 退出动画与 pop 进入保持镜像，是为了让返回链路不再只剩淡出，而是具有稳定层级感。
  */
-private fun AnimatedContentTransitionScope<NavBackStackEntry>.appPopExitTransition(): ExitTransition {
+private fun AnimatedContentTransitionScope<NavBackStackEntry>.appPopExitTransition(
+    primarySlideDuration: Int,
+    standardSlideDuration: Int,
+    standardFadeDuration: Int
+): ExitTransition {
     if (isPrimaryDestinationTransition()) {
-        return primaryDestinationExitTransition()
+        return primaryDestinationExitTransition(
+            slideDurationMillis = primarySlideDuration,
+            fadeDurationMillis = standardFadeDuration
+        )
     }
     return slideFadeExit(
         direction = AnimatedContentTransitionScope.SlideDirection.Right,
-        slideDurationMillis = 300,
-        fadeDurationMillis = 220
+        slideDurationMillis = standardSlideDuration,
+        fadeDurationMillis = standardFadeDuration
     )
 }

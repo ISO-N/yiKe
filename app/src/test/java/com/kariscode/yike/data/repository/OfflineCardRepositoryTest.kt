@@ -1,6 +1,6 @@
 package com.kariscode.yike.data.repository
 
-import com.kariscode.yike.core.dispatchers.AppDispatchers
+import com.kariscode.yike.core.domain.dispatchers.AppDispatchers
 import com.kariscode.yike.data.sync.FixedTimeProvider
 import com.kariscode.yike.data.sync.createTestSyncChangeRecorder
 import com.kariscode.yike.data.local.db.dao.ArchivedCardSummaryRow
@@ -9,6 +9,7 @@ import com.kariscode.yike.data.local.db.dao.CardSummaryRow
 import com.kariscode.yike.data.local.db.entity.CardEntity
 import com.kariscode.yike.data.local.db.entity.QuestionEntity
 import com.kariscode.yike.domain.model.Card
+import com.kariscode.yike.testsupport.testCardEntity
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
@@ -58,7 +59,7 @@ class OfflineCardRepositoryTest {
      */
     @Test
     fun observeActiveCards_mapsEntitiesToDomainModels() = runTest {
-        val entity = createCardEntity(id = "card_1", deckId = "deck_1")
+        val entity = testCardEntity(id = "card_1", deckId = "deck_1")
         fakeDao.activeCardsFlow.value = listOf(entity)
 
         val cards = repository.observeActiveCards("deck_1").first()
@@ -91,8 +92,8 @@ class OfflineCardRepositoryTest {
     @Test
     fun listActiveCards_mapsEntitiesToDomainModels() = runTest {
         val entities = listOf(
-            createCardEntity(id = "card_a", deckId = "deck_1"),
-            createCardEntity(id = "card_b", deckId = "deck_1")
+            testCardEntity(id = "card_a", deckId = "deck_1"),
+            testCardEntity(id = "card_b", deckId = "deck_1")
         )
         fakeDao.activeCardsList = entities
 
@@ -120,7 +121,7 @@ class OfflineCardRepositoryTest {
      */
     @Test
     fun findById_existingCard_returnsMappedDomainModel() = runTest {
-        val entity = createCardEntity(id = "card_1", deckId = "deck_1")
+        val entity = testCardEntity(id = "card_1", deckId = "deck_1")
         fakeDao.storedCards["card_1"] = entity
 
         val card = repository.findById("card_1")
@@ -218,7 +219,7 @@ class OfflineCardRepositoryTest {
      */
     @Test
     fun delete_delegatesToDaoWithCorrectId() = runTest {
-        fakeDao.storedCards["card_1"] = createCardEntity(id = "card_1", deckId = "deck_1")
+        fakeDao.storedCards["card_1"] = testCardEntity(id = "card_1", deckId = "deck_1")
 
         repository.delete("card_1")
 
@@ -277,19 +278,6 @@ class OfflineCardRepositoryTest {
         assertEquals("deck_9", summaries.first().card.deckId)
         assertEquals("英语", summaries.first().deckName)
     }
-
-    // ---- helpers ----
-
-    private fun createCardEntity(id: String, deckId: String): CardEntity = CardEntity(
-        id = id,
-        deckId = deckId,
-        title = id,
-        description = "",
-        archived = false,
-        sortOrder = 0,
-        createdAt = 1L,
-        updatedAt = 1L
-    )
 
     /**
      * FakeCardDao 记录写入操作并返回预设数据，
@@ -353,3 +341,4 @@ class OfflineCardRepositoryTest {
         }
     }
 }
+

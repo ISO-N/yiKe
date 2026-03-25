@@ -3,12 +3,12 @@ package com.kariscode.yike.feature.editor
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
-import com.kariscode.yike.core.id.EntityIds
-import com.kariscode.yike.core.message.ErrorMessages
-import com.kariscode.yike.core.message.SuccessMessages
-import com.kariscode.yike.core.viewmodel.launchResult
-import com.kariscode.yike.core.viewmodel.typedViewModelFactory
-import com.kariscode.yike.core.time.TimeProvider
+import com.kariscode.yike.core.domain.id.EntityIds
+import com.kariscode.yike.core.ui.message.ErrorMessages
+import com.kariscode.yike.core.ui.message.SuccessMessages
+import com.kariscode.yike.core.ui.viewmodel.launchResult
+import com.kariscode.yike.core.ui.viewmodel.typedViewModelFactory
+import com.kariscode.yike.core.domain.time.TimeProvider
 import com.kariscode.yike.domain.model.Card
 import com.kariscode.yike.domain.model.Question
 import com.kariscode.yike.domain.model.QuestionEditorDraftItemSnapshot
@@ -623,3 +623,4 @@ class QuestionEditorViewModel(
         }
     }
 }
+

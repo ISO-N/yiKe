@@ -1,6 +1,6 @@
 package com.kariscode.yike.domain.usecase
 
-import com.kariscode.yike.core.time.TimeProvider
+import com.kariscode.yike.core.domain.time.TimeProvider
 import com.kariscode.yike.domain.model.CardSummary
 import com.kariscode.yike.domain.repository.CardRepository
 import kotlinx.coroutines.flow.Flow
@@ -18,3 +18,4 @@ class ObserveCardSummariesUseCase(
     operator fun invoke(deckId: String): Flow<List<CardSummary>> =
         cardRepository.observeActiveCardSummaries(deckId, timeProvider.nowEpochMillis())
 }
+

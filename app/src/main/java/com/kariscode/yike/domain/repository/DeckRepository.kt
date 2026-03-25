@@ -38,7 +38,8 @@ interface DeckRepository {
 
     /**
      * 以 ID 获取单个对象是为了配合导航参数与进程重建，
-     * 页面只需要持有 ID 就能重新加载所需信息。
+     * 页面只需要持有 ID 就能重新加载所需信息；当卡组已被删除或从未存在时返回 null，
+     * 调用方可以据此决定回退导航还是展示“内容不存在”提示。
      */
     suspend fun findById(deckId: String): Deck?
 

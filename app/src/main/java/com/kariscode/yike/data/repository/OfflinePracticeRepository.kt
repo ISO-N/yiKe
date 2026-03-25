@@ -1,6 +1,6 @@
 package com.kariscode.yike.data.repository
 
-import com.kariscode.yike.core.dispatchers.AppDispatchers
+import com.kariscode.yike.core.domain.dispatchers.AppDispatchers
 import com.kariscode.yike.data.local.db.dao.QuestionDao
 import com.kariscode.yike.data.local.db.entity.QuestionEntity
 import com.kariscode.yike.data.mapper.toDomain
@@ -34,3 +34,4 @@ class OfflinePracticeRepository(
             ).map { row -> row.toDomain() }
         }
 }
+

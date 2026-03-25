@@ -75,7 +75,7 @@ class CardListViewModelMasterySummaryRefreshTest {
                 timeProvider = timeProvider
             )
             advanceUntilIdle()
-            assertEquals(1, studyInsightsRepository.searchFilters.size)
+            assertEquals(1, studyInsightsRepository.deckMasteryRequests.size)
 
             cardRepository.activeSummariesFlow.value = listOf(
                 CardSummary(
@@ -85,7 +85,7 @@ class CardListViewModelMasterySummaryRefreshTest {
                 )
             )
             advanceUntilIdle()
-            assertEquals(1, studyInsightsRepository.searchFilters.size)
+            assertEquals(1, studyInsightsRepository.deckMasteryRequests.size)
 
             cardRepository.activeSummariesFlow.value = listOf(
                 CardSummary(
@@ -95,7 +95,7 @@ class CardListViewModelMasterySummaryRefreshTest {
                 )
             )
             advanceUntilIdle()
-            assertEquals(2, studyInsightsRepository.searchFilters.size)
+            assertEquals(2, studyInsightsRepository.deckMasteryRequests.size)
         } finally {
             Dispatchers.resetMain()
         }

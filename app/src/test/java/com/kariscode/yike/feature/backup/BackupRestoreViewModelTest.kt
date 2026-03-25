@@ -7,7 +7,7 @@ import com.kariscode.yike.data.reminder.ReminderSyncScheduler
 import com.kariscode.yike.domain.model.AppSettings
 import com.kariscode.yike.domain.model.ThemeMode
 import com.kariscode.yike.domain.repository.AppSettingsRepository
-import com.kariscode.yike.core.message.SuccessMessages
+import com.kariscode.yike.core.ui.message.SuccessMessages
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
@@ -246,3 +246,4 @@ class BackupRestoreViewModelTest {
         }
     }
 }
+

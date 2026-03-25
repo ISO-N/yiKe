@@ -20,8 +20,6 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.viewmodel.compose.viewModel
-import com.kariscode.yike.app.LocalAppContainer
 import com.kariscode.yike.navigation.YikeNavigator
 import com.kariscode.yike.ui.component.CollectFlowEffect
 import com.kariscode.yike.ui.component.YikeAlertDialog
@@ -31,6 +29,7 @@ import com.kariscode.yike.ui.component.YikeFlowScaffold
 import com.kariscode.yike.ui.component.YikeHeaderBlock
 import com.kariscode.yike.ui.component.YikeLoadingBanner
 import com.kariscode.yike.ui.component.YikePrimaryButton
+import com.kariscode.yike.ui.component.YikeInlineErrorMessage
 import com.kariscode.yike.ui.component.YikeScrollableColumn
 import com.kariscode.yike.ui.component.YikeSecondaryButton
 import com.kariscode.yike.ui.component.YikeStateBanner
@@ -38,6 +37,8 @@ import com.kariscode.yike.ui.component.YikeSurfaceCard
 import com.kariscode.yike.ui.component.backNavigationAction
 import com.kariscode.yike.ui.format.formatPreviewDateTime
 import com.kariscode.yike.ui.theme.LocalYikeSpacing
+import org.koin.androidx.compose.koinViewModel
+import org.koin.core.parameter.parametersOf
 
 /**
  * 问题编辑页在正式保存之外补上本地草稿恢复，是为了把长时间编辑从“只能一次完成”放宽为“可中断后继续”。
@@ -49,16 +50,8 @@ fun QuestionEditorScreen(
     navigator: YikeNavigator,
     modifier: Modifier = Modifier
 ) {
-    val container = LocalAppContainer.current
-    val viewModel = viewModel<QuestionEditorViewModel>(
-        factory = QuestionEditorViewModel.factory(
-            cardId = cardId,
-            deckId = deckId,
-            cardRepository = container.cardRepository,
-            questionRepository = container.questionRepository,
-            questionEditorDraftRepository = container.questionEditorDraftRepository,
-            timeProvider = container.timeProvider
-        )
+    val viewModel = koinViewModel<QuestionEditorViewModel>(
+        parameters = { parametersOf(cardId, deckId) }
     )
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -432,7 +425,7 @@ private fun QuestionDraftCard(
             minLines = 3
         )
         draft.validationMessage?.let { message ->
-            Text(text = message)
+            YikeInlineErrorMessage(message = message)
         }
         Row(
             modifier = Modifier.fillMaxWidth(),

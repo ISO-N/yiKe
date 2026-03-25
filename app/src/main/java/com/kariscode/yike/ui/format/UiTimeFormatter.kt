@@ -1,9 +1,9 @@
 package com.kariscode.yike.ui.format
 
-import com.kariscode.yike.core.time.toInstant
-import com.kariscode.yike.core.time.toLocalDate
-import com.kariscode.yike.core.time.toLocalDateTime
-import com.kariscode.yike.core.time.TimeTextFormatter
+import com.kariscode.yike.core.domain.time.toInstant
+import com.kariscode.yike.core.domain.time.toLocalDate
+import com.kariscode.yike.core.domain.time.toLocalDateTime
+import com.kariscode.yike.core.domain.time.TimeTextFormatter
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
@@ -53,3 +53,4 @@ fun formatPreviewDay(epochMillis: Long, zoneId: ZoneId = ZoneId.systemDefault())
  * 提醒时间统一走共享格式化入口，是为了让设置页、提醒说明和后续可能出现的提醒摘要保持同一显示口径。
  */
 fun formatReminderTime(hour: Int, minute: Int): String = TimeTextFormatter.formatHourMinute(hour, minute)
+

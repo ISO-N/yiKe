@@ -13,8 +13,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.viewmodel.compose.viewModel
-import com.kariscode.yike.app.LocalAppContainer
 import com.kariscode.yike.domain.model.PracticeOrderMode
 import com.kariscode.yike.domain.model.PracticeSessionArgs
 import com.kariscode.yike.navigation.YikeNavigator
@@ -24,6 +22,8 @@ import com.kariscode.yike.ui.component.YikeSecondaryButton
 import com.kariscode.yike.ui.component.YikeStateBanner
 import com.kariscode.yike.ui.component.backNavigationAction
 import com.kariscode.yike.ui.theme.LocalYikeSpacing
+import org.koin.androidx.compose.koinViewModel
+import org.koin.core.parameter.parametersOf
 
 /**
  * 练习设置页单独承接范围与顺序选择，是为了让“主动巩固”与“正式复习开始”在入口语义上彻底分开。
@@ -34,12 +34,8 @@ fun PracticeSetupScreen(
     navigator: YikeNavigator,
     modifier: Modifier = Modifier
 ) {
-    val container = LocalAppContainer.current
-    val viewModel = viewModel<PracticeSetupViewModel>(
-        factory = PracticeSetupViewModel.factory(
-            initialArgs = initialArgs,
-            practiceRepository = container.practiceRepository
-        )
+    val viewModel = koinViewModel<PracticeSetupViewModel>(
+        parameters = { parametersOf(initialArgs) }
     )
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 

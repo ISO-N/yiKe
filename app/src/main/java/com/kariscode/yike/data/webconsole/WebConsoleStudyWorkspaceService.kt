@@ -1,7 +1,7 @@
 package com.kariscode.yike.data.webconsole
 
-import com.kariscode.yike.core.dispatchers.AppDispatchers
-import com.kariscode.yike.core.time.TimeProvider
+import com.kariscode.yike.core.domain.dispatchers.AppDispatchers
+import com.kariscode.yike.core.domain.time.TimeProvider
 import com.kariscode.yike.domain.model.PracticeOrderMode
 import com.kariscode.yike.domain.model.PracticeSessionArgs
 import com.kariscode.yike.domain.model.QuestionContext
@@ -230,3 +230,4 @@ internal class WebConsoleStudyWorkspaceService(
         mode.storageValue == trim().lowercase()
     } ?: throw IllegalArgumentException("练习顺序不合法")
 }
+

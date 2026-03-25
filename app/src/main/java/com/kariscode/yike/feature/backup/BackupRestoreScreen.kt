@@ -12,8 +12,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.viewmodel.compose.viewModel
-import com.kariscode.yike.app.LocalAppContainer
 import com.kariscode.yike.navigation.YikeNavigator
 import com.kariscode.yike.ui.component.CollectFlowEffect
 import com.kariscode.yike.ui.component.backNavigationAction
@@ -28,6 +26,7 @@ import com.kariscode.yike.ui.component.YikeStateBanner
 import com.kariscode.yike.ui.component.YikeSurfaceCard
 import com.kariscode.yike.ui.component.YikeWarningCard
 import com.kariscode.yike.ui.format.formatLocalDateTime
+import org.koin.androidx.compose.koinViewModel
 
 /**
  * 备份恢复页属于高风险流内页面，因此继续使用聚焦式返回路径，并把风险提示固定在页面顶部。
@@ -37,14 +36,7 @@ fun BackupRestoreScreen(
     navigator: YikeNavigator,
     modifier: Modifier = Modifier
 ) {
-    val container = LocalAppContainer.current
-    val viewModel = viewModel<BackupRestoreViewModel>(
-        factory = BackupRestoreViewModel.factory(
-            backupService = container.backupService,
-            appSettingsRepository = container.appSettingsRepository,
-            reminderScheduler = container.reminderScheduler
-        )
-    )
+    val viewModel = koinViewModel<BackupRestoreViewModel>()
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val exportLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.CreateDocument("application/json"),

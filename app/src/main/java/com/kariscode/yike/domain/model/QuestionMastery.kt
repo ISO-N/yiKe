@@ -1,5 +1,7 @@
 package com.kariscode.yike.domain.model
 
+import com.kariscode.yike.domain.scheduler.ReviewSchedulerV1
+
 /**
  * 熟练度层级集中定义，是为了让搜索筛选、今日预览和卡片摘要复用同一套语义，
  * 避免不同页面各自解释“学习中”和“已掌握”时口径漂移。
@@ -32,8 +34,10 @@ object QuestionMasteryCalculator {
      * 能比只看单一字段更稳定地区分“刚学完”和“真正掌握”。
      */
     fun snapshot(question: Question): QuestionMasterySnapshot {
-        val boundedStage = question.stageIndex.coerceIn(0, 7)
-        val baseProgress = (boundedStage + 1) / 8f
+        val maxStageIndex = ReviewSchedulerV1.DEFAULT_INTERVAL_DAYS_BY_STAGE.lastIndex
+        val stageCount = ReviewSchedulerV1.DEFAULT_INTERVAL_DAYS_BY_STAGE.size
+        val boundedStage = question.stageIndex.coerceIn(0, maxStageIndex)
+        val baseProgress = (boundedStage + 1) / stageCount.toFloat()
         val level = when {
             question.reviewCount <= 0 -> QuestionMasteryLevel.NEW
             boundedStage >= 6 && question.lapseCount == 0 -> QuestionMasteryLevel.MASTERED

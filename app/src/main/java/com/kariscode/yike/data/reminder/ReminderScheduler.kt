@@ -3,7 +3,7 @@ package com.kariscode.yike.data.reminder
 import androidx.work.ExistingWorkPolicy
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
-import com.kariscode.yike.core.time.TimeProvider
+import com.kariscode.yike.core.domain.time.TimeProvider
 import com.kariscode.yike.domain.model.AppSettings
 import com.kariscode.yike.domain.reminder.ReminderTimeCalculator
 import com.kariscode.yike.domain.repository.AppSettingsRepository
@@ -62,3 +62,4 @@ class ReminderScheduler(
         )
     }
 }
+

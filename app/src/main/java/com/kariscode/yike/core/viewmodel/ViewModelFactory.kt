@@ -1,4 +1,4 @@
-package com.kariscode.yike.core.viewmodel
+package com.kariscode.yike.core.ui.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
@@ -14,3 +14,4 @@ inline fun <reified T : ViewModel> typedViewModelFactory(
 ): ViewModelProvider.Factory = viewModelFactory {
     initializer { creator() }
 }
+

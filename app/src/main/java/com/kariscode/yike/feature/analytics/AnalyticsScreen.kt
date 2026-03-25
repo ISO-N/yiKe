@@ -8,9 +8,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.viewmodel.compose.viewModel
-import com.kariscode.yike.app.LocalAppContainer
-import com.kariscode.yike.core.message.ErrorMessages
+import com.kariscode.yike.core.ui.message.ErrorMessages
 import com.kariscode.yike.navigation.YikeNavigator
 import com.kariscode.yike.ui.component.YikeFlowScaffold
 import com.kariscode.yike.ui.component.YikePrimaryButton
@@ -19,6 +17,7 @@ import com.kariscode.yike.ui.component.YikeScrollableColumn
 import com.kariscode.yike.ui.component.YikeStateBanner
 import com.kariscode.yike.ui.component.backNavigationAction
 import com.kariscode.yike.ui.theme.LocalYikeSpacing
+import org.koin.androidx.compose.koinViewModel
 
 /**
  * 统计页独立存在，是为了遵守首页不承担复杂统计的边界，并让用户在需要时再展开详细观察。
@@ -28,13 +27,7 @@ fun AnalyticsScreen(
     navigator: YikeNavigator,
     modifier: Modifier = Modifier
 ) {
-    val container = LocalAppContainer.current
-    val viewModel = viewModel<AnalyticsViewModel>(
-        factory = AnalyticsViewModel.factory(
-            studyInsightsRepository = container.studyInsightsRepository,
-            timeProvider = container.timeProvider
-        )
-    )
+    val viewModel = koinViewModel<AnalyticsViewModel>()
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
     YikeFlowScaffold(
@@ -114,3 +107,4 @@ private fun AnalyticsContent(
         }
     }
 }
+

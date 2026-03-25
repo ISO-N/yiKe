@@ -3,18 +3,18 @@ package com.kariscode.yike.feature.card
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
-import com.kariscode.yike.core.message.ErrorMessages
-import com.kariscode.yike.core.message.SuccessMessages
-import com.kariscode.yike.core.message.userMessageOr
-import com.kariscode.yike.core.time.TimeProvider
-import com.kariscode.yike.core.viewmodel.launchStateMutation
-import com.kariscode.yike.core.viewmodel.launchStateResult
-import com.kariscode.yike.core.viewmodel.typedViewModelFactory
+import com.kariscode.yike.core.ui.message.ErrorMessages
+import com.kariscode.yike.core.ui.message.SuccessMessages
+import com.kariscode.yike.core.ui.message.userMessageOr
+import com.kariscode.yike.core.domain.time.TimeProvider
+import com.kariscode.yike.core.ui.viewmodel.launchStateResult
+import com.kariscode.yike.core.ui.viewmodel.typedViewModelFactory
 import com.kariscode.yike.domain.model.CardSummary
 import com.kariscode.yike.domain.repository.CardRepository
 import com.kariscode.yike.domain.repository.DeckRepository
 import com.kariscode.yike.domain.repository.StudyInsightsRepository
 import com.kariscode.yike.domain.usecase.CardSaveRequest
+import com.kariscode.yike.domain.usecase.CardSaveResult
 import com.kariscode.yike.domain.usecase.DeleteCardUseCase
 import com.kariscode.yike.domain.usecase.GetDeckCardMasterySummaryUseCase
 import com.kariscode.yike.domain.usecase.LoadDeckCardContextUseCase
@@ -242,9 +242,8 @@ class CardListViewModel(
             return
         }
 
-        launchStateMutation(
-            state = _uiState,
-            action = {
+        launchStateResult(state = _uiState) {
+            action {
                 saveCardUseCase(
                     CardSaveRequest(
                         cardId = editor.entityId,
@@ -253,10 +252,22 @@ class CardListViewModel(
                         description = editor.secondaryValue
                     )
                 )
-            },
-            onSuccess = CardListStateReducer::saveSucceeded,
-            onFailure = { state, _ -> CardListStateReducer.mutationFailed(state, ErrorMessages.SAVE_FAILED) }
-        )
+            }
+            onSuccess { state, result ->
+                val successMessage = if (result is CardSaveResult.Created) {
+                    SuccessMessages.CARD_CREATED
+                } else {
+                    SuccessMessages.CARD_UPDATED
+                }
+                CardListStateReducer.saveSucceeded(
+                    state = state,
+                    successMessage = successMessage
+                )
+            }
+            onFailure { state, _ ->
+                CardListStateReducer.mutationFailed(state, ErrorMessages.SAVE_FAILED)
+            }
+        }
     }
 
     /**
@@ -317,11 +328,13 @@ class CardListViewModel(
         errorMessage: String,
         action: suspend () -> Unit
     ) {
-        launchStateMutation(
-            state = _uiState,
-            action = action,
-            onFailure = { state, _ -> CardListStateReducer.mutationFailed(state, errorMessage) }
-        )
+        launchStateResult(state = _uiState) {
+            action(action)
+            onSuccess { state, _ -> state }
+            onFailure { state, _ ->
+                CardListStateReducer.mutationFailed(state, errorMessage)
+            }
+        }
     }
 
     /**
@@ -330,12 +343,11 @@ class CardListViewModel(
      */
     private fun refreshMasterySummary() {
         masterySummaryJob?.cancel()
-        masterySummaryJob = launchStateResult(
-            state = _uiState,
-            action = { getDeckCardMasterySummaryUseCase(deckId).toUiModel() },
-            onSuccess = CardListStateReducer::masteryLoaded,
-            onFailure = { state, _ -> CardListStateReducer.masteryLoadFailed(state) }
-        )
+        masterySummaryJob = launchStateResult(state = _uiState) {
+            action { getDeckCardMasterySummaryUseCase(deckId).toUiModel() }
+            onSuccess(CardListStateReducer::masteryLoaded)
+            onFailure { state, _ -> CardListStateReducer.masteryLoadFailed(state) }
+        }
     }
 
     /**
@@ -367,7 +379,7 @@ class CardListViewModel(
     /**
      * 领域摘要转换成页面模型收口在本地，是为了让展示层仍能自由演进命名而不反向污染用例层。
      */
-    private fun com.kariscode.yike.domain.usecase.DeckMasterySummarySnapshot.toUiModel(): DeckMasterySummary =
+    private fun com.kariscode.yike.domain.model.DeckMasterySummarySnapshot.toUiModel(): DeckMasterySummary =
         DeckMasterySummary(
             totalQuestions = totalQuestions,
             newCount = newCount,
@@ -397,3 +409,4 @@ class CardListViewModel(
         }
     }
 }
+

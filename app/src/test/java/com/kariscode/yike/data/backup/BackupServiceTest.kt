@@ -3,7 +3,7 @@ package com.kariscode.yike.data.backup
 import android.app.Application
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
-import com.kariscode.yike.core.dispatchers.AppDispatchers
+import com.kariscode.yike.core.domain.dispatchers.AppDispatchers
 import com.kariscode.yike.data.local.db.YikeDatabase
 import com.kariscode.yike.data.local.db.entity.CardEntity
 import com.kariscode.yike.data.local.db.entity.DeckEntity
@@ -81,7 +81,7 @@ class BackupServiceTest {
                 reviewRecordDao = database.reviewRecordDao(),
                 conflictResolver = LanSyncConflictResolver()
             ),
-            timeProvider = object : com.kariscode.yike.core.time.TimeProvider {
+            timeProvider = object : com.kariscode.yike.core.domain.time.TimeProvider {
                 override fun nowEpochMillis(): Long = 123_456L
             },
             dispatchers = object : AppDispatchers {
@@ -435,3 +435,4 @@ class BackupServiceTest {
         }
     }
 }
+

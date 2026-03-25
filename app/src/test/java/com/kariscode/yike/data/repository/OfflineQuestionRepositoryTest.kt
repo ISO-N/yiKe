@@ -1,6 +1,7 @@
 package com.kariscode.yike.data.repository
 
-import com.kariscode.yike.core.dispatchers.AppDispatchers
+import com.kariscode.yike.core.domain.dispatchers.AppDispatchers
+import com.kariscode.yike.data.local.db.dao.DeckMasterySummaryRow
 import com.kariscode.yike.data.local.db.dao.QuestionDao
 import com.kariscode.yike.data.local.db.dao.TodayReviewSummaryRow
 import com.kariscode.yike.data.local.db.dao.QuestionContextRow
@@ -9,6 +10,7 @@ import com.kariscode.yike.data.sync.FixedTimeProvider
 import com.kariscode.yike.data.sync.createTestSyncChangeRecorder
 import com.kariscode.yike.domain.model.Question
 import com.kariscode.yike.domain.model.QuestionStatus
+import com.kariscode.yike.testsupport.testQuestionEntity
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
@@ -57,7 +59,7 @@ class OfflineQuestionRepositoryTest {
      */
     @Test
     fun observeQuestionsByCard_mapsEntitiesToDomainModels() = runTest {
-        val entity = createQuestionEntity(id = "q_1", cardId = "card_1")
+        val entity = testQuestionEntity(id = "q_1", cardId = "card_1")
         fakeDao.questionsByCardFlow.value = listOf(entity)
 
         val questions = repository.observeQuestionsByCard("card_1").first()
@@ -88,8 +90,8 @@ class OfflineQuestionRepositoryTest {
     @Test
     fun observeQuestionsByCard_multipleEntities_mapsAllCorrectly() = runTest {
         fakeDao.questionsByCardFlow.value = listOf(
-            createQuestionEntity(id = "q_1", cardId = "card_1"),
-            createQuestionEntity(id = "q_2", cardId = "card_1")
+            testQuestionEntity(id = "q_1", cardId = "card_1"),
+            testQuestionEntity(id = "q_2", cardId = "card_1")
         )
 
         val questions = repository.observeQuestionsByCard("card_1").first()
@@ -107,7 +109,7 @@ class OfflineQuestionRepositoryTest {
      */
     @Test
     fun findById_existingQuestion_returnsMappedDomainModel() = runTest {
-        val entity = createQuestionEntity(id = "q_1", cardId = "card_1")
+        val entity = testQuestionEntity(id = "q_1", cardId = "card_1")
         fakeDao.storedQuestions["q_1"] = entity
 
         val question = repository.findById("q_1")
@@ -136,7 +138,7 @@ class OfflineQuestionRepositoryTest {
      */
     @Test
     fun findById_decodesTagsJsonCorrectly() = runTest {
-        val entity = createQuestionEntity(id = "q_tags", cardId = "card_1")
+        val entity = testQuestionEntity(id = "q_tags", cardId = "card_1")
             .copy(tagsJson = """["kotlin","android"]""")
         fakeDao.storedQuestions["q_tags"] = entity
 
@@ -155,8 +157,8 @@ class OfflineQuestionRepositoryTest {
     @Test
     fun listByCard_mapsEntitiesToDomainModels() = runTest {
         fakeDao.listByCardResult = listOf(
-            createQuestionEntity(id = "q_a", cardId = "card_1"),
-            createQuestionEntity(id = "q_b", cardId = "card_1")
+            testQuestionEntity(id = "q_a", cardId = "card_1"),
+            testQuestionEntity(id = "q_b", cardId = "card_1")
         )
 
         val questions = repository.listByCard("card_1")
@@ -277,8 +279,8 @@ class OfflineQuestionRepositoryTest {
     @Test
     fun listDueQuestions_mapsDueEntitiesToDomainModels() = runTest {
         fakeDao.dueQuestions = listOf(
-            createQuestionEntity(id = "q_due_1", cardId = "card_1"),
-            createQuestionEntity(id = "q_due_2", cardId = "card_2")
+            testQuestionEntity(id = "q_due_1", cardId = "card_1"),
+            testQuestionEntity(id = "q_due_2", cardId = "card_2")
         )
 
         val questions = repository.listDueQuestions(nowEpochMillis = 2_000L)
@@ -407,7 +409,7 @@ class OfflineQuestionRepositoryTest {
      */
     @Test
     fun delete_delegatesToDaoWithCorrectId() = runTest {
-        fakeDao.storedQuestions["q_1"] = createQuestionEntity(id = "q_1", cardId = "card_1")
+        fakeDao.storedQuestions["q_1"] = testQuestionEntity(id = "q_1", cardId = "card_1")
 
         repository.delete("q_1")
 
@@ -454,24 +456,6 @@ class OfflineQuestionRepositoryTest {
 
         assertEquals(listOf("q_only"), fakeDao.batchDeletedIds)
     }
-
-    // ---- helpers ----
-
-    private fun createQuestionEntity(id: String, cardId: String): QuestionEntity = QuestionEntity(
-        id = id,
-        cardId = cardId,
-        prompt = id,
-        answer = "",
-        tagsJson = "[]",
-        status = QuestionEntity.STATUS_ACTIVE,
-        stageIndex = 0,
-        dueAt = 1_000L,
-        lastReviewedAt = null,
-        reviewCount = 0,
-        lapseCount = 0,
-        createdAt = 1L,
-        updatedAt = 1L
-    )
 
     /**
      * FakeQuestionDao 记录写入操作并返回预设数据，
@@ -538,6 +522,17 @@ class OfflineQuestionRepositoryTest {
             questionIds: List<String>
         ): List<QuestionContextRow> = emptyList()
 
+        override suspend fun getDeckMasterySummary(
+            deckId: String,
+            activeStatus: String
+        ): DeckMasterySummaryRow = DeckMasterySummaryRow(
+            totalQuestions = 0,
+            newCount = 0,
+            learningCount = 0,
+            familiarCount = 0,
+            masteredCount = 0
+        )
+
         override suspend fun listDueQuestionsByCard(
             cardId: String,
             activeStatus: String,
@@ -573,6 +568,16 @@ class OfflineQuestionRepositoryTest {
 
         override suspend fun listAll(): List<QuestionEntity> = storedQuestions.values.toList()
 
+        /**
+         * 启动分批重建索引只依赖稳定分页结果，这里直接基于已存数据切片，
+         * 能让仓储测试在不引入额外状态的前提下满足最新 DAO 契约。
+         */
+        override suspend fun listPage(limit: Int, offset: Int): List<QuestionEntity> =
+            storedQuestions.values
+                .sortedBy(QuestionEntity::createdAt)
+                .drop(offset)
+                .take(limit)
+
         override suspend fun deleteById(questionId: String): Int {
             deletedIds.add(questionId)
             storedQuestions.remove(questionId)
@@ -592,3 +597,4 @@ class OfflineQuestionRepositoryTest {
         }
     }
 }
+

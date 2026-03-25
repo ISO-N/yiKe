@@ -6,15 +6,23 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.border
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.ErrorOutline
+import androidx.compose.material.icons.outlined.Inbox
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Surface
@@ -32,6 +40,8 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.kariscode.yike.ui.theme.LocalYikeSpacing
+import com.kariscode.yike.ui.theme.YikeAnimationDurations
+import com.kariscode.yike.ui.theme.rememberYikeDuration
 import kotlinx.coroutines.delay
 
 /**
@@ -42,6 +52,7 @@ fun YikeStateBanner(
     title: String,
     description: String,
     modifier: Modifier = Modifier,
+    leading: @Composable (RowScope.() -> Unit)? = null,
     trailing: @Composable (() -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit = {}
 ) {
@@ -68,16 +79,23 @@ fun YikeStateBanner(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.Top
             ) {
-                Column(
+                Row(
                     modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                    horizontalArrangement = Arrangement.spacedBy(spacing.md),
+                    verticalAlignment = Alignment.Top
                 ) {
-                    Text(text = title, style = MaterialTheme.typography.titleLarge)
-                    Text(
-                        text = description,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                    leading?.invoke(this)
+                    Column(
+                        modifier = Modifier.weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Text(text = title, style = MaterialTheme.typography.titleLarge)
+                        Text(
+                            text = description,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                 }
                 if (trailing != null) {
                     Spacer(modifier = Modifier.width(spacing.md))
@@ -148,6 +166,7 @@ private fun TimedFeedbackBanner(
     autoDismissMillis: Long
 ) {
     var visibleMessage by remember(message) { mutableStateOf(message) }
+    val animationDuration = rememberYikeDuration(YikeAnimationDurations.STANDARD)
 
     LaunchedEffect(visibleMessage) {
         if (visibleMessage != null) {
@@ -158,8 +177,8 @@ private fun TimedFeedbackBanner(
 
     AnimatedVisibility(
         visible = visibleMessage != null,
-        enter = fadeIn() + expandVertically(),
-        exit = fadeOut() + shrinkVertically()
+        enter = fadeIn(animationSpec = androidx.compose.animation.core.tween(animationDuration)) + expandVertically(),
+        exit = fadeOut(animationSpec = androidx.compose.animation.core.tween(animationDuration)) + shrinkVertically()
     ) {
         YikeStateBanner(
             title = title,
@@ -183,7 +202,7 @@ fun YikeBadge(
         modifier = modifier.semantics {
             contentDescription = text
         },
-        shape = CircleShape,
+        shape = RoundedCornerShape(percent = 50),
         color = containerColor ?: MaterialTheme.colorScheme.surfaceContainerHighest
     ) {
         Text(
@@ -193,5 +212,73 @@ fun YikeBadge(
             color = contentColor ?: MaterialTheme.colorScheme.onSurfaceVariant
         )
     }
+}
+
+/**
+ * 内联错误提示统一带上错误语义色和图标，是为了让弹窗与表单里的校验反馈不再像普通说明文字一样被忽略。
+ */
+@Composable
+fun YikeInlineErrorMessage(
+    message: String,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .background(
+                color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.42f),
+                shape = MaterialTheme.shapes.medium
+            )
+            .padding(horizontal = 12.dp, vertical = 10.dp),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            imageVector = Icons.Outlined.ErrorOutline,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.error
+        )
+        Text(
+            text = message,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onErrorContainer
+        )
+    }
+}
+
+/**
+ * 空状态插画先用统一图标位承接，是为了让各列表页在没有内容时依然保留明确视觉锚点，
+ * 不再只剩下一段孤立文字。
+ */
+@Composable
+fun YikeEmptyStateIcon(
+    modifier: Modifier = Modifier
+) {
+    Icon(
+        imageVector = Icons.Outlined.Inbox,
+        contentDescription = null,
+        modifier = modifier,
+        tint = MaterialTheme.colorScheme.primary
+    )
+}
+
+/**
+ * 骨架块抽成共享组件后，列表页和首页可以在加载时先稳定占位，
+ * 避免真实内容到达前出现跳闪或“像白屏”的空窗期。
+ */
+@Composable
+fun YikeSkeletonBlock(
+    modifier: Modifier = Modifier,
+    height: androidx.compose.ui.unit.Dp = 20.dp
+) {
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(height)
+            .background(
+                color = MaterialTheme.colorScheme.surfaceContainerHighest,
+                shape = MaterialTheme.shapes.medium
+            )
+    )
 }
 

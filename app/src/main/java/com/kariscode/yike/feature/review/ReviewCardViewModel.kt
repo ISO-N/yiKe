@@ -2,11 +2,11 @@ package com.kariscode.yike.feature.review
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
-import com.kariscode.yike.core.message.ErrorMessages
-import com.kariscode.yike.core.message.userMessageOr
-import com.kariscode.yike.core.time.TimeProvider
-import com.kariscode.yike.core.viewmodel.launchResult
-import com.kariscode.yike.core.viewmodel.typedViewModelFactory
+import com.kariscode.yike.core.ui.message.ErrorMessages
+import com.kariscode.yike.core.ui.message.userMessageOr
+import com.kariscode.yike.core.domain.time.TimeProvider
+import com.kariscode.yike.core.ui.viewmodel.launchResult
+import com.kariscode.yike.core.ui.viewmodel.typedViewModelFactory
 import com.kariscode.yike.domain.model.Question
 import com.kariscode.yike.domain.model.ReviewRating
 import com.kariscode.yike.domain.repository.CardRepository
@@ -14,6 +14,7 @@ import com.kariscode.yike.domain.repository.ReviewRepository
 import com.kariscode.yike.domain.scheduler.ReviewSchedulerV1
 import com.kariscode.yike.domain.usecase.LoadReviewCardSessionUseCase
 import com.kariscode.yike.domain.usecase.SubmitReviewRatingUseCase
+import java.time.ZoneId
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -345,7 +346,8 @@ private fun Question.toReviewQuestionUiModel(
         currentStageIndex = stageIndex,
         dueAtEpochMillis = dueAt,
         reviewedAtEpochMillis = nowEpochMillis,
-        intervalStepCount = intervalStepCount
+        intervalStepCount = intervalStepCount,
+        zoneId = ZoneId.systemDefault()
     )
     val overdueBadgeText = overdueAssessment.overdueDays
         .takeIf { overdueDays -> overdueDays > 0 }
@@ -371,7 +373,8 @@ private fun Question.toReviewQuestionUiModel(
                 rating = rating,
                 reviewedAtEpochMillis = nowEpochMillis,
                 dueAtEpochMillis = dueAt,
-                intervalStepCount = intervalStepCount
+                intervalStepCount = intervalStepCount,
+                zoneId = ZoneId.systemDefault()
             )
             ReviewRatingHintUiModel(
                 rating = rating,
@@ -409,3 +412,4 @@ private fun ReviewRating.displayLabel(): String = when (this) {
     ReviewRating.GOOD -> "基本会"
     ReviewRating.EASY -> "很轻松"
 }
+

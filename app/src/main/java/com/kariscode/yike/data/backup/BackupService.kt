@@ -3,11 +3,9 @@ package com.kariscode.yike.data.backup
 import android.app.Application
 import android.net.Uri
 import androidx.room.withTransaction
-import com.kariscode.yike.core.coroutine.parallel
-import com.kariscode.yike.core.coroutine.parallel3
-import com.kariscode.yike.core.dispatchers.AppDispatchers
-import com.kariscode.yike.core.time.TimeProvider
-import com.kariscode.yike.core.time.TimeTextFormatter
+import com.kariscode.yike.core.domain.dispatchers.AppDispatchers
+import com.kariscode.yike.core.domain.time.TimeProvider
+import com.kariscode.yike.core.domain.time.TimeTextFormatter
 import com.kariscode.yike.data.local.db.YikeDatabase
 import com.kariscode.yike.data.local.db.dao.CardDao
 import com.kariscode.yike.data.local.db.dao.DeckDao
@@ -26,6 +24,8 @@ import com.kariscode.yike.domain.model.AppSettings
 import com.kariscode.yike.domain.model.ThemeMode
 import com.kariscode.yike.domain.repository.AppSettingsRepository
 import java.io.FileNotFoundException
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
@@ -241,33 +241,24 @@ class BackupService(
 
     /**
      * 导出、恢复前快照和失败回滚都依赖同一时刻的数据视图，
-     * 因此统一并行读取可以同时收敛代码路径和等待成本。
+     * 因此统一并发读取可以同时收敛代码路径和等待成本，
+     * 并避免多层 `parallel` 解构把“谁和谁是一组”这种实现细节带进返回值结构。
      */
     private suspend fun readCurrentSnapshot(): BackupSnapshot {
-        val (settings, deckAndCard, questionAndReview) = parallel3(
-            first = { appSettingsRepository.getSettings() },
-            second = {
-                parallel(
-                    first = { deckDao.listAll() },
-                    second = { cardDao.listAll() }
-                )
-            },
-            third = {
-                parallel(
-                    first = { questionDao.listAll() },
-                    second = { reviewRecordDao.listAll() }
-                )
-            }
-        )
-        val (decks, cards) = deckAndCard
-        val (questions, reviewRecords) = questionAndReview
-        return BackupSnapshot(
-            settings = settings,
-            decks = decks,
-            cards = cards,
-            questions = questions,
-            reviewRecords = reviewRecords
-        )
+        return coroutineScope {
+            val settingsDeferred = async { appSettingsRepository.getSettings() }
+            val decksDeferred = async { deckDao.listAll() }
+            val cardsDeferred = async { cardDao.listAll() }
+            val questionsDeferred = async { questionDao.listAll() }
+            val reviewRecordsDeferred = async { reviewRecordDao.listAll() }
+            BackupSnapshot(
+                settings = settingsDeferred.await(),
+                decks = decksDeferred.await(),
+                cards = cardsDeferred.await(),
+                questions = questionsDeferred.await(),
+                reviewRecords = reviewRecordsDeferred.await()
+            )
+        }
     }
 
     /**
@@ -358,3 +349,4 @@ class BackupService(
     )
 
 }
+

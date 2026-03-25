@@ -1,6 +1,6 @@
 package com.kariscode.yike.data.webconsole
 
-import com.kariscode.yike.core.time.TimeProvider
+import com.kariscode.yike.core.domain.time.TimeProvider
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
@@ -100,3 +100,4 @@ class WebConsoleSecurityTest {
         assertFalse("8.8.8.8".isAllowedLocalNetworkHost())
     }
 }
+

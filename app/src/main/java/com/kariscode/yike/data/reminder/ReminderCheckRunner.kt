@@ -1,6 +1,6 @@
 package com.kariscode.yike.data.reminder
 
-import com.kariscode.yike.core.time.TimeProvider
+import com.kariscode.yike.core.domain.time.TimeProvider
 import com.kariscode.yike.domain.repository.AppSettingsRepository
 import com.kariscode.yike.domain.repository.QuestionRepository
 
@@ -32,3 +32,4 @@ class ReminderCheckRunner(
         reminderScheduler.syncReminder(settings)
     }
 }
+

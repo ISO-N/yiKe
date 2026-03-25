@@ -2,14 +2,14 @@ package com.kariscode.yike.feature.search
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
-import com.kariscode.yike.core.coroutine.parallel
-import com.kariscode.yike.core.message.ErrorMessages
-import com.kariscode.yike.core.message.userMessageOr
-import com.kariscode.yike.core.time.TimeProvider
-import com.kariscode.yike.core.viewmodel.launchResult
-import com.kariscode.yike.core.viewmodel.launchStateResult
-import com.kariscode.yike.core.viewmodel.restartStateResult
-import com.kariscode.yike.core.viewmodel.typedViewModelFactory
+import com.kariscode.yike.core.domain.coroutine.parallel
+import com.kariscode.yike.core.ui.message.ErrorMessages
+import com.kariscode.yike.core.ui.message.userMessageOr
+import com.kariscode.yike.core.domain.time.TimeProvider
+import com.kariscode.yike.core.ui.viewmodel.launchResult
+import com.kariscode.yike.core.ui.viewmodel.launchStateResult
+import com.kariscode.yike.core.ui.viewmodel.restartStateResult
+import com.kariscode.yike.core.ui.viewmodel.typedViewModelFactory
 import com.kariscode.yike.domain.model.QuestionMasteryLevel
 import com.kariscode.yike.domain.model.QuestionStatus
 import com.kariscode.yike.domain.repository.CardRepository
@@ -67,30 +67,31 @@ class QuestionSearchViewModel(
      * 主动刷新会同步重取标签和卡组，是为了避免内容维护后返回搜索页仍看到过期筛选项。
      */
     fun refresh() {
-        launchStateResult(
-            state = _uiState,
-            action = {
+        launchStateResult(state = _uiState) {
+            action {
                 val snapshot = _uiState.value
                 parallel(
                     first = { loadSearchMetadata(snapshot.selectedDeckId) },
                     second = { searchQuestions(snapshot) }
                 )
-            },
-            onStart = { it.copy(isLoading = true, errorMessage = null) },
-            onSuccess = { state, (metadata, results) ->
+            }
+            onStart { it.copy(isLoading = true, errorMessage = null) }
+            onSuccess { state, result ->
+                val metadata = result.first
+                val results = result.second
                 QuestionSearchStateFactory.withMetadata(
                     state = state,
                     metadata = metadata,
                     results = results
                 )
-            },
-            onFailure = { state, throwable ->
+            }
+            onFailure { state, throwable ->
                 state.copy(
                     isLoading = false,
                     errorMessage = throwable.userMessageOr(ErrorMessages.SEARCH_LOAD_FAILED)
                 )
             }
-        )
+        }
     }
 
     /**
@@ -284,3 +285,4 @@ class QuestionSearchViewModel(
         }
     }
 }
+

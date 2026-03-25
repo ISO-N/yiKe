@@ -16,10 +16,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.viewmodel.compose.viewModel
-import com.kariscode.yike.app.LocalAppContainer
-import com.kariscode.yike.core.message.ErrorMessages
+import com.kariscode.yike.core.ui.message.ErrorMessages
 import com.kariscode.yike.domain.model.DeckSummary
 import com.kariscode.yike.domain.model.PracticeSessionArgs
 import com.kariscode.yike.navigation.YikeNavigator
@@ -41,7 +40,10 @@ import com.kariscode.yike.ui.component.YikeScrollableRow
 import com.kariscode.yike.ui.component.YikeSecondaryButton
 import com.kariscode.yike.ui.component.YikeStateBanner
 import com.kariscode.yike.ui.component.YikeTextMetadataDialog
+import com.kariscode.yike.ui.component.YikeSkeletonBlock
+import com.kariscode.yike.ui.component.YikeEmptyStateIcon
 import com.kariscode.yike.ui.theme.LocalYikeSpacing
+import org.koin.androidx.compose.koinViewModel
 
 /**
  * 卡组列表属于一级入口，因此必须复用统一导航壳，
@@ -52,14 +54,7 @@ fun DeckListScreen(
     navigator: YikeNavigator,
     modifier: Modifier = Modifier
 ) {
-    val container = LocalAppContainer.current
-    val viewModel = viewModel<DeckListViewModel>(
-        factory = DeckListViewModel.factory(
-            deckRepository = container.deckRepository,
-            studyInsightsRepository = container.studyInsightsRepository,
-            timeProvider = container.timeProvider
-        )
-    )
+    val viewModel = koinViewModel<DeckListViewModel>()
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
     YikePrimaryScaffold(
@@ -126,10 +121,7 @@ private fun DeckListContent(
 
         when {
             uiState.isLoading -> {
-                YikeLoadingBanner(
-                    title = "正在加载卡组",
-                    description = "正在同步卡组和到期统计。"
-                )
+                DeckListLoadingSection()
             }
 
             uiState.errorMessage != null -> {
@@ -155,7 +147,8 @@ private fun DeckListContent(
             uiState.items.isEmpty() -> {
                 YikeStateBanner(
                     title = "还没有卡组",
-                    description = "先创建一个卡组开始整理内容。"
+                    description = "先创建一个卡组开始整理内容。",
+                    leading = { YikeEmptyStateIcon() }
                 ) {
                     YikePrimaryButton(
                         text = "创建第一个卡组",
@@ -168,7 +161,8 @@ private fun DeckListContent(
             uiState.visibleItems.isEmpty() -> {
                 YikeStateBanner(
                     title = "没有找到匹配的卡组",
-                    description = "换个关键词试试，卡组名称、说明和标签都会参与查找。"
+                    description = "换个关键词试试，卡组名称、说明和标签都会参与查找。",
+                    leading = { YikeEmptyStateIcon() }
                 ) {
                     YikeSecondaryButton(
                         text = "清空关键词",
@@ -232,6 +226,24 @@ private fun DeckListContent(
             },
             onDismiss = onDismissEditor,
             onConfirm = onConfirmSave
+        )
+    }
+}
+
+/**
+ * 卡组页加载骨架提前占位统计卡和列表行，是为了让内容到达前页面结构已经稳定，
+ * 避免真实数据回填时整体布局突然跳动。
+ */
+@Composable
+private fun DeckListLoadingSection() {
+    YikeLoadingBanner(
+        title = "正在加载卡组",
+        description = "正在同步卡组和到期统计。"
+    )
+    repeat(3) {
+        YikeSkeletonBlock(
+            modifier = Modifier.fillMaxWidth(),
+            height = if (it == 0) 104.dp else 88.dp
         )
     }
 }
@@ -394,4 +406,5 @@ private fun DeckTagRow(
         }
     }
 }
+
 

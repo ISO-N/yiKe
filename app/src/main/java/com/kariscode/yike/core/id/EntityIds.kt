@@ -1,6 +1,6 @@
-package com.kariscode.yike.core.id
+package com.kariscode.yike.core.domain.id
 
-import com.kariscode.yike.core.constant.EntityIdPrefixes
+import com.kariscode.yike.core.domain.constant.EntityIdPrefixes
 import java.util.UUID
 
 /**
@@ -33,4 +33,5 @@ object EntityIds {
      */
     fun newTempDraftId(): String = "temp_" + UUID.randomUUID().toString()
 }
+
 

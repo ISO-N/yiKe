@@ -24,8 +24,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.viewmodel.compose.viewModel
-import com.kariscode.yike.app.LocalAppContainer
 import com.kariscode.yike.domain.model.LanSyncConflictChoice
 import com.kariscode.yike.domain.model.LanSyncFailureReason
 import com.kariscode.yike.domain.model.LanSyncPeer
@@ -45,6 +43,7 @@ import com.kariscode.yike.ui.component.YikeStateBanner
 import com.kariscode.yike.ui.component.YikeWarningCard
 import com.kariscode.yike.ui.component.backNavigationAction
 import com.kariscode.yike.ui.theme.LocalYikeSpacing
+import org.koin.androidx.compose.koinViewModel
 
 /**
  * 局域网同步页独立成高风险流程页，是为了把配对、预览和冲突确认这些全局操作与普通设置项隔离开。
@@ -54,10 +53,7 @@ fun LanSyncScreen(
     navigator: YikeNavigator,
     modifier: Modifier = Modifier
 ) {
-    val container = LocalAppContainer.current
-    val viewModel = viewModel<LanSyncViewModel>(
-        factory = LanSyncViewModel.factory(lanSyncRepository = container.lanSyncRepository)
-    )
+    val viewModel = koinViewModel<LanSyncViewModel>()
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val context = androidx.compose.ui.platform.LocalContext.current
     val needsNearbyWifiPermission = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU

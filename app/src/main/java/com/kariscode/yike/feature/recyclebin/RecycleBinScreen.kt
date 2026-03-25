@@ -8,8 +8,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.viewmodel.compose.viewModel
-import com.kariscode.yike.app.LocalAppContainer
 import com.kariscode.yike.domain.model.ArchivedCardSummary
 import com.kariscode.yike.domain.model.DeckSummary
 import com.kariscode.yike.navigation.YikeNavigator
@@ -25,6 +23,7 @@ import com.kariscode.yike.ui.component.YikeSecondaryButton
 import com.kariscode.yike.ui.component.YikeStateBanner
 import com.kariscode.yike.ui.component.backNavigationAction
 import com.kariscode.yike.ui.theme.LocalYikeSpacing
+import org.koin.androidx.compose.koinViewModel
 
 /**
  * 已归档内容页独立成流内路由，是为了把“恢复归档内容”和“彻底删除”从设置页低频入口里抽离出来。
@@ -34,14 +33,7 @@ fun RecycleBinScreen(
     navigator: YikeNavigator,
     modifier: Modifier = Modifier
 ) {
-    val container = LocalAppContainer.current
-    val viewModel = viewModel<RecycleBinViewModel>(
-        factory = RecycleBinViewModel.factory(
-            deckRepository = container.deckRepository,
-            cardRepository = container.cardRepository,
-            timeProvider = container.timeProvider
-        )
-    )
+    val viewModel = koinViewModel<RecycleBinViewModel>()
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
     YikeFlowScaffold(

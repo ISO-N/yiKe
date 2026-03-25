@@ -1,7 +1,7 @@
 package com.kariscode.yike.domain.scheduler
 
-import com.kariscode.yike.core.time.toLocalDate
-import com.kariscode.yike.core.time.toStartOfDayEpochMillis
+import com.kariscode.yike.core.domain.time.toLocalDate
+import com.kariscode.yike.core.domain.time.toStartOfDayEpochMillis
 import java.time.ZoneId
 
 /**
@@ -21,4 +21,5 @@ object InitialDueAtCalculator {
         .plusDays(1)
         .toStartOfDayEpochMillis(zoneId)
 }
+
 

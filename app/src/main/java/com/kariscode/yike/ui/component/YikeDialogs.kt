@@ -102,7 +102,7 @@ fun YikeTextMetadataDialog(
                 )
                 extraContent()
                 validationMessage?.let { message ->
-                    Text(text = message)
+                    YikeInlineErrorMessage(message = message)
                 }
             }
         },
@@ -146,7 +146,7 @@ fun YikeSingleInputDialog(
                     modifier = Modifier.fillMaxWidth()
                 )
                 validationMessage?.let { message ->
-                    Text(text = message)
+                    YikeInlineErrorMessage(message = message)
                 }
             }
         },

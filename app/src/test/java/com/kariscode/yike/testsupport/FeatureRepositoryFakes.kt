@@ -1,10 +1,11 @@
 package com.kariscode.yike.testsupport
 
-import com.kariscode.yike.core.time.TimeProvider
+import com.kariscode.yike.core.domain.time.TimeProvider
 import com.kariscode.yike.domain.model.AppSettings
 import com.kariscode.yike.domain.model.ArchivedCardSummary
 import com.kariscode.yike.domain.model.Card
 import com.kariscode.yike.domain.model.CardSummary
+import com.kariscode.yike.domain.model.DeckMasterySummarySnapshot
 import com.kariscode.yike.domain.model.Deck
 import com.kariscode.yike.domain.model.DeckSummary
 import com.kariscode.yike.domain.model.QuestionEditorDraftLoadResult
@@ -264,9 +265,17 @@ open class FakeStudyInsightsRepository : StudyInsightsRepository {
         deckBreakdowns = emptyList()
     )
     var reviewTimestamps: List<Long> = emptyList()
+    var deckMasterySummary: DeckMasterySummarySnapshot = DeckMasterySummarySnapshot(
+        totalQuestions = 0,
+        newCount = 0,
+        learningCount = 0,
+        familiarCount = 0,
+        masteredCount = 0
+    )
     var searchError: Throwable? = null
     var analyticsError: Throwable? = null
     val searchFilters = mutableListOf<QuestionQueryFilters>()
+    val deckMasteryRequests = mutableListOf<String>()
     val analyticsRequests = mutableListOf<Long?>()
 
     /**
@@ -287,6 +296,14 @@ open class FakeStudyInsightsRepository : StudyInsightsRepository {
      * 标签候选直接返回预设值，足以验证搜索页的元数据刷新逻辑。
      */
     override suspend fun listAvailableTags(limit: Int): List<String> = availableTags.take(limit)
+
+    /**
+     * 卡组熟练度摘要默认回放预设值，是为了让卡片页测试聚焦状态编排而不是重复拼装题目集合。
+     */
+    override suspend fun getDeckMasterySummary(deckId: String): DeckMasterySummarySnapshot {
+        deckMasteryRequests += deckId
+        return deckMasterySummary
+    }
 
     /**
      * 统计页会记录时间范围请求，便于测试 range 切换是否真的触发了重算。
@@ -559,3 +576,4 @@ fun defaultAppSettings(): AppSettings = AppSettings(
     backupLastAt = null,
     themeMode = ThemeMode.SYSTEM
 )
+

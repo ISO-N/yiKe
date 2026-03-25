@@ -15,10 +15,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.viewmodel.compose.viewModel
-import com.kariscode.yike.app.LocalAppContainer
-import com.kariscode.yike.core.message.ErrorMessages
+import com.kariscode.yike.core.ui.message.ErrorMessages
 import com.kariscode.yike.domain.model.CardSummary
 import com.kariscode.yike.domain.model.PracticeSessionArgs
 import com.kariscode.yike.navigation.YikeNavigator
@@ -38,9 +37,13 @@ import com.kariscode.yike.ui.component.YikePrimaryButton
 import com.kariscode.yike.ui.component.YikeScrollableColumn
 import com.kariscode.yike.ui.component.YikeSecondaryButton
 import com.kariscode.yike.ui.component.YikeDangerConfirmationDialog
+import com.kariscode.yike.ui.component.YikeSkeletonBlock
 import com.kariscode.yike.ui.component.YikeStateBanner
 import com.kariscode.yike.ui.component.YikeTextMetadataDialog
+import com.kariscode.yike.ui.component.YikeEmptyStateIcon
 import com.kariscode.yike.ui.theme.LocalYikeSpacing
+import org.koin.androidx.compose.koinViewModel
+import org.koin.core.parameter.parametersOf
 
 /**
  * 卡片列表属于流内页面，因此保持聚焦式返回路径，不复用一级底部导航。
@@ -51,15 +54,8 @@ fun CardListScreen(
     navigator: YikeNavigator,
     modifier: Modifier = Modifier
 ) {
-    val container = LocalAppContainer.current
-    val viewModel = viewModel<CardListViewModel>(
-        factory = CardListViewModel.factory(
-            deckId = deckId,
-            deckRepository = container.deckRepository,
-            cardRepository = container.cardRepository,
-            studyInsightsRepository = container.studyInsightsRepository,
-            timeProvider = container.timeProvider
-        )
+    val viewModel = koinViewModel<CardListViewModel>(
+        parameters = { parametersOf(deckId) }
     )
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
@@ -139,10 +135,7 @@ private fun CardListContent(
 
         when {
             uiState.isLoading -> {
-                YikeLoadingBanner(
-                    title = "正在加载卡片",
-                    description = "稍等一下，我们会把卡片统计和今日到期数量一起准备好。"
-                )
+                CardListLoadingSection()
             }
 
             uiState.errorMessage != null -> {
@@ -168,7 +161,8 @@ private fun CardListContent(
             uiState.items.isEmpty() -> {
                 YikeStateBanner(
                     title = "还没有卡片",
-                    description = "先创建第一张卡片，再进入问题编辑把复习内容录进去。"
+                    description = "先创建第一张卡片，再进入问题编辑把复习内容录进去。",
+                    leading = { YikeEmptyStateIcon() }
                 ) {
                     YikePrimaryButton(
                         text = "新建卡片",
@@ -228,6 +222,23 @@ private fun CardListContent(
             confirmText = "删除",
             onDismiss = onDismissDelete,
             onConfirm = onConfirmDelete
+        )
+    }
+}
+
+/**
+ * 卡片页加载时先占位总览和列表，是为了让用户在等待统计查询时也能理解页面骨架正在准备什么。
+ */
+@Composable
+private fun CardListLoadingSection() {
+    YikeLoadingBanner(
+        title = "正在加载卡片",
+        description = "稍等一下，我们会把卡片统计和今日到期数量一起准备好。"
+    )
+    repeat(3) {
+        YikeSkeletonBlock(
+            modifier = Modifier.fillMaxWidth(),
+            height = if (it == 0) 120.dp else 92.dp
         )
     }
 }
@@ -416,4 +427,5 @@ private fun CardSummaryCard(
         }
     }
 }
+
 

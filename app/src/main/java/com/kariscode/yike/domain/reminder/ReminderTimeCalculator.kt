@@ -1,6 +1,6 @@
 package com.kariscode.yike.domain.reminder
 
-import com.kariscode.yike.core.time.toLocalDate
+import com.kariscode.yike.core.domain.time.toLocalDate
 import java.time.LocalTime
 import java.time.ZoneId
 
@@ -33,3 +33,4 @@ object ReminderTimeCalculator {
             .toEpochMilli()
     }
 }
+

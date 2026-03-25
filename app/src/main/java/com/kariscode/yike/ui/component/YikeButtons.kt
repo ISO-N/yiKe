@@ -18,6 +18,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.Composable
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.spring
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -36,6 +37,7 @@ import com.kariscode.yike.ui.theme.YikeBestContainer
 import com.kariscode.yike.ui.theme.YikeCriticalContainer
 import com.kariscode.yike.ui.theme.YikeSuccessContainer
 import com.kariscode.yike.ui.theme.YikeWarningContainer
+import com.kariscode.yike.ui.theme.rememberReduceMotionEnabled
 import com.kariscode.yike.ui.theme.YikeThemeTokens
 
 /**
@@ -48,6 +50,8 @@ fun YikePrimaryButton(
     modifier: Modifier = Modifier,
     enabled: Boolean = true
 ) {
+    val disabledContainerColor = MaterialTheme.colorScheme.surfaceContainerHighest
+    val disabledContentColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.72f)
     Button(
         onClick = onClick,
         modifier = modifier.heightIn(min = 48.dp),
@@ -55,7 +59,9 @@ fun YikePrimaryButton(
         shape = MaterialTheme.shapes.medium,
         colors = ButtonDefaults.buttonColors(
             containerColor = MaterialTheme.colorScheme.primary,
-            contentColor = MaterialTheme.colorScheme.onPrimary
+            contentColor = MaterialTheme.colorScheme.onPrimary,
+            disabledContainerColor = disabledContainerColor,
+            disabledContentColor = disabledContentColor
         )
     ) {
         Text(
@@ -77,13 +83,15 @@ fun YikeSecondaryButton(
     modifier: Modifier = Modifier,
     enabled: Boolean = true
 ) {
+    val disabledContentColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.72f)
     OutlinedButton(
         onClick = onClick,
         modifier = modifier.heightIn(min = 48.dp),
         enabled = enabled,
         shape = MaterialTheme.shapes.medium,
         colors = ButtonDefaults.outlinedButtonColors(
-            contentColor = MaterialTheme.colorScheme.onSurface
+            contentColor = MaterialTheme.colorScheme.onSurface,
+            disabledContentColor = disabledContentColor
         )
     ) {
         Text(
@@ -105,6 +113,8 @@ fun YikeDangerButton(
     modifier: Modifier = Modifier,
     enabled: Boolean = true
 ) {
+    val disabledContainerColor = MaterialTheme.colorScheme.surfaceContainerHighest
+    val disabledContentColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.72f)
     Button(
         onClick = onClick,
         modifier = modifier.heightIn(min = 48.dp),
@@ -112,7 +122,9 @@ fun YikeDangerButton(
         shape = MaterialTheme.shapes.medium,
         colors = ButtonDefaults.buttonColors(
             containerColor = MaterialTheme.colorScheme.errorContainer,
-            contentColor = MaterialTheme.colorScheme.onErrorContainer
+            contentColor = MaterialTheme.colorScheme.onErrorContainer,
+            disabledContainerColor = disabledContainerColor,
+            disabledContentColor = disabledContentColor
         )
     ) {
         Text(
@@ -138,12 +150,17 @@ fun YikeRatingButton(
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
+    val reduceMotionEnabled = rememberReduceMotionEnabled()
     val scale by animateFloatAsState(
         targetValue = if (enabled && isPressed) 0.97f else 1f,
-        animationSpec = spring(
-            dampingRatio = 0.7f,
-            stiffness = 650f
-        ),
+        animationSpec = if (reduceMotionEnabled) {
+            snap()
+        } else {
+            spring(
+                dampingRatio = 0.7f,
+                stiffness = 650f
+            )
+        },
         label = "rating_button_scale"
     )
     Button(

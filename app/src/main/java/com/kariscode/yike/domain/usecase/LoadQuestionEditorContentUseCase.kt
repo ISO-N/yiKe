@@ -1,6 +1,6 @@
 package com.kariscode.yike.domain.usecase
 
-import com.kariscode.yike.core.coroutine.parallel3
+import com.kariscode.yike.core.domain.coroutine.parallel3
 import com.kariscode.yike.domain.model.Card
 import com.kariscode.yike.domain.model.Question
 import com.kariscode.yike.domain.model.QuestionEditorDraftLoadResult
@@ -43,3 +43,4 @@ data class QuestionEditorContentSnapshot(
     val questions: List<Question>,
     val draftResult: QuestionEditorDraftLoadResult
 )
+

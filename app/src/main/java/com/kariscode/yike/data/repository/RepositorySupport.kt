@@ -1,6 +1,6 @@
 package com.kariscode.yike.data.repository
 
-import com.kariscode.yike.core.dispatchers.AppDispatchers
+import com.kariscode.yike.core.domain.dispatchers.AppDispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
@@ -20,7 +20,11 @@ internal suspend inline fun <T> AppDispatchers.onIo(
 internal inline fun <Source, Target> Flow<List<Source>>.mapEach(
     crossinline transform: (Source) -> Target
 ): Flow<List<Target>> = map { list ->
-    list.map(transform)
+    ArrayList<Target>(list.size).apply {
+        list.forEach { item ->
+            add(transform(item))
+        }
+    }
 }
 
 /**
@@ -30,3 +34,4 @@ internal inline fun <Source, Target> Flow<List<Source>>.mapEach(
 internal inline fun <Source, Target> Source?.mapNullable(
     crossinline transform: (Source) -> Target
 ): Target? = this?.let(transform)
+

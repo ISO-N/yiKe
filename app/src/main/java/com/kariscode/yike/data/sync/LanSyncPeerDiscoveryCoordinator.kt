@@ -1,6 +1,6 @@
 package com.kariscode.yike.data.sync
 
-import com.kariscode.yike.core.time.TimeProvider
+import com.kariscode.yike.core.domain.time.TimeProvider
 import com.kariscode.yike.data.local.db.dao.SyncPeerDao
 import com.kariscode.yike.domain.model.LanSyncPeer
 import com.kariscode.yike.domain.model.LanSyncPeerHealth
@@ -95,3 +95,4 @@ internal class LanSyncPeerDiscoveryCoordinator(
         refreshPeers(nsdService.services.value)
     }
 }
+

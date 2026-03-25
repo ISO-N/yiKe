@@ -1,8 +1,8 @@
 package com.kariscode.yike.data.webconsole
 
-import com.kariscode.yike.core.dispatchers.AppDispatchers
-import com.kariscode.yike.core.id.EntityIds
-import com.kariscode.yike.core.time.TimeProvider
+import com.kariscode.yike.core.domain.dispatchers.AppDispatchers
+import com.kariscode.yike.core.domain.id.EntityIds
+import com.kariscode.yike.core.domain.time.TimeProvider
 import com.kariscode.yike.domain.model.Card
 import com.kariscode.yike.domain.model.Deck
 import com.kariscode.yike.domain.model.Question
@@ -214,3 +214,4 @@ internal class WebConsoleContentWorkspaceService(
         )
     }
 }
+

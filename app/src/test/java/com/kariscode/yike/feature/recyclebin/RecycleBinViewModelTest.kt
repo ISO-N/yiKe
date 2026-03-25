@@ -1,6 +1,6 @@
 package com.kariscode.yike.feature.recyclebin
 
-import com.kariscode.yike.core.message.SuccessMessages
+import com.kariscode.yike.core.ui.message.SuccessMessages
 import com.kariscode.yike.domain.model.ArchivedCardSummary
 import com.kariscode.yike.domain.model.Card
 import com.kariscode.yike.domain.model.Deck
@@ -155,3 +155,4 @@ class RecycleBinViewModelTest {
         dueQuestionCount = 1
     )
 }
+

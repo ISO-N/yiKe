@@ -1,7 +1,7 @@
 package com.kariscode.yike.feature.editor
 
-import com.kariscode.yike.core.message.ErrorMessages
-import com.kariscode.yike.core.message.SuccessMessages
+import com.kariscode.yike.core.ui.message.ErrorMessages
+import com.kariscode.yike.core.ui.message.SuccessMessages
 import com.kariscode.yike.domain.model.Card
 import com.kariscode.yike.domain.model.Question
 import com.kariscode.yike.domain.model.QuestionEditorDraftItemSnapshot
@@ -416,3 +416,4 @@ class QuestionEditorViewModelTest {
         savedAt = savedAt
     )
 }
+

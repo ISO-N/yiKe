@@ -1,8 +1,8 @@
 package com.kariscode.yike.app
 
 import android.app.Application
-import com.kariscode.yike.core.dispatchers.AppDispatchers
-import com.kariscode.yike.core.time.TimeProvider
+import com.kariscode.yike.core.domain.dispatchers.AppDispatchers
+import com.kariscode.yike.core.domain.time.TimeProvider
 import com.kariscode.yike.data.backup.BackupService
 import com.kariscode.yike.data.local.db.YikeDatabase
 import com.kariscode.yike.data.reminder.NotificationHelper
@@ -25,7 +25,7 @@ import com.kariscode.yike.domain.repository.QuestionRepository
 import com.kariscode.yike.domain.repository.ReviewRepository
 import com.kariscode.yike.domain.repository.StudyInsightsRepository
 import com.kariscode.yike.domain.repository.WebConsoleRepository
-import com.kariscode.yike.domain.scheduler.ReviewSchedulerV1
+import com.kariscode.yike.domain.scheduler.ReviewScheduler
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 
@@ -38,7 +38,7 @@ class AppContainer : KoinComponent {
     val database: YikeDatabase by inject()
     val timeProvider: TimeProvider by inject()
     val dispatchers: AppDispatchers by inject()
-    val reviewScheduler: ReviewSchedulerV1 by inject()
+    val reviewScheduler: ReviewScheduler by inject()
     val appSettingsRepository: AppSettingsRepository by inject()
     val deckRepository: DeckRepository by inject()
     val cardRepository: CardRepository by inject()
@@ -60,3 +60,4 @@ class AppContainer : KoinComponent {
     val lanSyncRepository: LanSyncRepository by inject<LanSyncRepositoryImpl>()
     val webConsoleRepository: WebConsoleRepository by inject()
 }
+

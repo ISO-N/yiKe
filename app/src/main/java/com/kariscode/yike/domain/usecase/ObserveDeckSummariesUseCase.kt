@@ -1,8 +1,11 @@
 package com.kariscode.yike.domain.usecase
 
-import com.kariscode.yike.core.time.TimeProvider
+import com.kariscode.yike.core.domain.time.TimeProvider
+import com.kariscode.yike.core.domain.time.toLocalDate
+import com.kariscode.yike.core.domain.time.toStartOfDayEpochMillis
 import com.kariscode.yike.domain.model.DeckSummary
 import com.kariscode.yike.domain.repository.DeckRepository
+import java.time.ZoneId
 import kotlinx.coroutines.flow.Flow
 
 /**
@@ -14,8 +17,14 @@ class ObserveDeckSummariesUseCase(
     private val timeProvider: TimeProvider
 ) {
     /**
-     * 读取时固定使用当前时间，是为了让首页、卡组页和预览页继续共享同一套到期统计口径。
+     * 卡组摘要里的 due 统计按自然日判定已经足够，因此这里固定使用“今天零点”作为查询参数，
+     * 可以避免把不断变化的毫秒时间带进 Flow 订阅键，降低无意义的重建与困惑。
      */
     operator fun invoke(): Flow<List<DeckSummary>> =
-        deckRepository.observeActiveDeckSummaries(timeProvider.nowEpochMillis())
+        deckRepository.observeActiveDeckSummaries(
+            timeProvider.nowEpochMillis()
+                .toLocalDate(ZoneId.systemDefault())
+                .toStartOfDayEpochMillis(ZoneId.systemDefault())
+        )
 }
+

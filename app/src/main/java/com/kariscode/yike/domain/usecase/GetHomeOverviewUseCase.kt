@@ -1,6 +1,6 @@
 package com.kariscode.yike.domain.usecase
 
-import com.kariscode.yike.core.coroutine.parallel
+import com.kariscode.yike.core.domain.coroutine.parallel
 import com.kariscode.yike.domain.model.DeckSummary
 import com.kariscode.yike.domain.model.TodayReviewSummary
 import com.kariscode.yike.domain.repository.DeckRepository
@@ -43,3 +43,4 @@ data class HomeOverview(
     val summary: TodayReviewSummary,
     val recentDecks: List<DeckSummary>
 )
+

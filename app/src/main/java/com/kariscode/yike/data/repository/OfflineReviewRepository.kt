@@ -1,8 +1,8 @@
 package com.kariscode.yike.data.repository
 
 import androidx.room.withTransaction
-import com.kariscode.yike.core.dispatchers.AppDispatchers
-import com.kariscode.yike.core.id.EntityIds
+import com.kariscode.yike.core.domain.dispatchers.AppDispatchers
+import com.kariscode.yike.core.domain.id.EntityIds
 import com.kariscode.yike.data.local.db.YikeDatabase
 import com.kariscode.yike.data.local.db.dao.QuestionDao
 import com.kariscode.yike.data.local.db.dao.ReviewRecordDao
@@ -16,8 +16,10 @@ import com.kariscode.yike.domain.model.ReviewRating
 import com.kariscode.yike.domain.model.ReviewRecord
 import com.kariscode.yike.domain.model.ReviewSubmission
 import com.kariscode.yike.domain.repository.ReviewRepository
+import com.kariscode.yike.domain.scheduler.ReviewScheduler
 import com.kariscode.yike.domain.scheduler.ReviewSchedulerV1
 import kotlinx.coroutines.withContext
+import java.time.ZoneId
 
 /**
  * 复习提交流程需要同时读取当前题目、计算调度、更新题目并写入历史，
@@ -27,7 +29,7 @@ class OfflineReviewRepository(
     private val database: YikeDatabase,
     private val questionDao: QuestionDao,
     private val reviewRecordDao: ReviewRecordDao,
-    private val reviewScheduler: ReviewSchedulerV1,
+    private val reviewScheduler: ReviewScheduler,
     private val dispatchers: AppDispatchers,
     private val syncChangeRecorder: LanSyncChangeRecorder
 ) : ReviewRepository {
@@ -65,7 +67,8 @@ class OfflineReviewRepository(
                 rating = rating,
                 reviewedAtEpochMillis = reviewedAtEpochMillis,
                 dueAtEpochMillis = currentQuestion.dueAt,
-                intervalStepCount = intervalStepCount
+                intervalStepCount = intervalStepCount,
+                zoneId = ZoneId.systemDefault()
             )
 
             val updatedQuestion = currentQuestion.copy(
@@ -90,7 +93,8 @@ class OfflineReviewRepository(
                 note = ""
             )
 
-            questionDao.upsertAll(listOf(updatedQuestion.toEntity()))
+            val updatedRows = questionDao.upsertAll(listOf(updatedQuestion.toEntity()))
+            check(updatedRows.size == 1) { "评分提交未能稳定写回题目：$questionId" }
             reviewRecordDao.insert(reviewRecord.toEntity())
             syncChangeRecorder.recordQuestionUpsert(updatedQuestion)
             syncChangeRecorder.recordReviewRecordInsert(reviewRecord)
@@ -102,3 +106,4 @@ class OfflineReviewRepository(
         }
     }
 }
+

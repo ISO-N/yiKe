@@ -41,25 +41,10 @@ class QuestionSearchIndexer(
      * 覆盖式刷新只处理本次变更的题目，是为了把编辑、同步和恢复后的索引维护成本控制在最小范围。
      */
     override suspend fun refreshQuestions(questions: List<QuestionEntity>) {
-        questions.forEach { question ->
-            questionSearchTokenDao.deleteByQuestionId(question.id)
-            val tokens = QuestionSearchTokenizer.tokenize("${question.prompt} ${question.answer}")
-                .map { token -> QuestionSearchTokenEntity(questionId = question.id, token = token) }
-            if (tokens.isNotEmpty()) {
-                questionSearchTokenDao.insertAll(tokens)
-            }
-        }
-    }
-
-    /**
-     * 启动期只在索引覆盖率不足时重建，是为了兼顾老数据升级后的正确性与正常启动成本。
-     */
-    override suspend fun rebuildIfNeeded() {
-        val questions = questionDao.listAll()
-        if (questionSearchTokenDao.countIndexedQuestions() == questions.size) {
+        if (questions.isEmpty()) {
             return
         }
-        questionSearchTokenDao.clearAll()
+        questionSearchTokenDao.deleteByQuestionIds(questions.map { question -> question.id })
         val tokens = questions.flatMap { question ->
             QuestionSearchTokenizer.tokenize("${question.prompt} ${question.answer}")
                 .map { token -> QuestionSearchTokenEntity(questionId = question.id, token = token) }
@@ -68,16 +53,50 @@ class QuestionSearchIndexer(
             questionSearchTokenDao.insertAll(tokens)
         }
     }
+
+    /**
+     * 启动期只在索引覆盖率不足时重建，是为了兼顾老数据升级后的正确性与正常启动成本。
+     */
+    override suspend fun rebuildIfNeeded() {
+        val totalQuestionCount = questionDao.listAll().size
+        if (questionSearchTokenDao.countIndexedQuestions() == totalQuestionCount) {
+            return
+        }
+        questionSearchTokenDao.clearAll()
+        var offset = 0
+        while (true) {
+            val page = questionDao.listPage(limit = REBUILD_BATCH_SIZE, offset = offset)
+            if (page.isEmpty()) {
+                break
+            }
+            refreshQuestions(page)
+            offset += page.size
+        }
+    }
+
+    private companion object {
+        const val REBUILD_BATCH_SIZE: Int = 200
+    }
 }
 
 /**
  * 搜索分词规则集中在一个对象里，是为了让索引构建和查询端始终使用同一套 token 口径。
  */
 object QuestionSearchTokenizer {
+    private const val CACHE_MAX_SIZE: Int = 128
+    private val tokenizeCache = object : LinkedHashMap<String, List<String>>(CACHE_MAX_SIZE, 0.75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, List<String>>): Boolean =
+            size > CACHE_MAX_SIZE
+    }
+
     /**
      * 将字符串拆成连续的双字符 token，是为了兼顾中文词串和英文子串搜索，又不改动最终 LIKE 匹配语义。
      */
+    @Synchronized
     fun tokenize(text: String): List<String> {
+        tokenizeCache[text]?.let { cachedTokens ->
+            return cachedTokens
+        }
         val normalized = text.lowercase()
             .mapNotNull { char ->
                 when {
@@ -88,12 +107,16 @@ object QuestionSearchTokenizer {
             }
             .joinToString(separator = "")
         if (normalized.length < 2) {
-            return emptyList()
+            return emptyList<String>().also { tokens ->
+                tokenizeCache[text] = tokens
+            }
         }
         return buildList {
             normalized.windowed(size = 2, step = 1, partialWindows = false).forEach { token ->
                 add(token)
             }
-        }.distinct()
+        }.distinct().also { tokens ->
+            tokenizeCache[text] = tokens
+        }
     }
 }

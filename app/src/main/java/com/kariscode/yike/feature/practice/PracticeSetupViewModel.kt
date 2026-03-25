@@ -2,10 +2,10 @@ package com.kariscode.yike.feature.practice
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
-import com.kariscode.yike.core.message.ErrorMessages
-import com.kariscode.yike.core.message.userMessageOr
-import com.kariscode.yike.core.viewmodel.launchResult
-import com.kariscode.yike.core.viewmodel.typedViewModelFactory
+import com.kariscode.yike.core.ui.message.ErrorMessages
+import com.kariscode.yike.core.ui.message.userMessageOr
+import com.kariscode.yike.core.ui.viewmodel.launchResult
+import com.kariscode.yike.core.ui.viewmodel.typedViewModelFactory
 import com.kariscode.yike.domain.model.PracticeOrderMode
 import com.kariscode.yike.domain.model.PracticeSessionArgs
 import com.kariscode.yike.domain.model.QuestionContext
@@ -60,13 +60,15 @@ class PracticeSetupViewModel(
             },
             onSuccess = { contexts ->
                 allQuestionContexts = contexts
-                _uiState.value = buildUiState(
-                    allQuestionContexts = contexts,
-                    selectedDeckIds = _uiState.value.selectedDeckIds,
-                    selectedCardIds = _uiState.value.selectedCardIds,
-                    selectedQuestionIds = _uiState.value.selectedQuestionIds,
-                    orderMode = _uiState.value.orderMode
-                )
+                _uiState.update { state ->
+                    buildUiState(
+                        allQuestionContexts = contexts,
+                        selectedDeckIds = state.selectedDeckIds,
+                        selectedCardIds = state.selectedCardIds,
+                        selectedQuestionIds = state.selectedQuestionIds,
+                        orderMode = state.orderMode
+                    )
+                }
             },
             onFailure = { throwable ->
                 _uiState.update { state ->
@@ -146,13 +148,15 @@ class PracticeSetupViewModel(
         selectedQuestionIds: Set<String>? = _uiState.value.selectedQuestionIds,
         orderMode: PracticeOrderMode = _uiState.value.orderMode
     ) {
-        _uiState.value = buildUiState(
-            allQuestionContexts = allQuestionContexts,
-            selectedDeckIds = selectedDeckIds,
-            selectedCardIds = selectedCardIds,
-            selectedQuestionIds = selectedQuestionIds,
-            orderMode = orderMode
-        )
+        _uiState.update {
+            buildUiState(
+                allQuestionContexts = allQuestionContexts,
+                selectedDeckIds = selectedDeckIds,
+                selectedCardIds = selectedCardIds,
+                selectedQuestionIds = selectedQuestionIds,
+                orderMode = orderMode
+            )
+        }
     }
 
     /**
@@ -223,3 +227,4 @@ class PracticeSetupViewModel(
         }
     }
 }
+
