@@ -22,20 +22,6 @@ inline fun <T> ViewModel.launchResult(
 }
 
 /**
- * 很多写操作只关心“完成了”而不关心返回值，
- * 单独提供 Unit 版本是为了把各个 ViewModel 里重复的 `onSuccess = {}` 模板收口到共享入口。
- */
-inline fun ViewModel.launchMutation(
-    crossinline action: suspend () -> Unit,
-    crossinline onSuccess: () -> Unit = {},
-    crossinline onFailure: (Throwable) -> Unit = {}
-): Job = launchResult(
-    action = action,
-    onSuccess = { onSuccess() },
-    onFailure = onFailure
-)
-
-/**
  * 很多页面在启动异步任务时都会走“先更新状态，再根据结果回写状态”的骨架，
  * 因此把 action/start/success/failure 收口成声明式配置，可以减少调用点在一长串参数里来回对照位置。
  */
@@ -113,23 +99,6 @@ fun <State, T> ViewModel.launchStateResult(
             state.update { current -> spec.onFailure(current, throwable) }
         }
     )
-}
-
-/**
- * 只关心“是否完成”的写操作也经常需要配合状态机回写，
- * 单独提供 mutation 版本可以让列表页和表单页直接复用同一套成功/失败骨架。
- */
-fun <State> ViewModel.launchStateMutation(
-    state: MutableStateFlow<State>,
-    action: suspend () -> Unit,
-    onStart: (State) -> State = { it },
-    onSuccess: (State) -> State = { it },
-    onFailure: (State, Throwable) -> State
-): Job = launchStateResult(state = state) {
-    action(action)
-    onStart(onStart)
-    onSuccess { current, _ -> onSuccess(current) }
-    onFailure(onFailure)
 }
 
 /**

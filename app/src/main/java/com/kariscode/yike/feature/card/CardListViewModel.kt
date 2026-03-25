@@ -7,7 +7,6 @@ import com.kariscode.yike.core.ui.message.ErrorMessages
 import com.kariscode.yike.core.ui.message.SuccessMessages
 import com.kariscode.yike.core.ui.message.userMessageOr
 import com.kariscode.yike.core.domain.time.TimeProvider
-import com.kariscode.yike.core.ui.viewmodel.launchStateMutation
 import com.kariscode.yike.core.ui.viewmodel.launchStateResult
 import com.kariscode.yike.core.ui.viewmodel.typedViewModelFactory
 import com.kariscode.yike.domain.model.CardSummary
@@ -329,11 +328,13 @@ class CardListViewModel(
         errorMessage: String,
         action: suspend () -> Unit
     ) {
-        launchStateMutation(
-            state = _uiState,
-            action = action,
-            onFailure = { state, _ -> CardListStateReducer.mutationFailed(state, errorMessage) }
-        )
+        launchStateResult(state = _uiState) {
+            action(action)
+            onSuccess { state, _ -> state }
+            onFailure { state, _ ->
+                CardListStateReducer.mutationFailed(state, errorMessage)
+            }
+        }
     }
 
     /**

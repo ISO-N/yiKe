@@ -3,7 +3,6 @@ package com.kariscode.yike.feature.sync
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
-import com.kariscode.yike.core.ui.viewmodel.launchMutation
 import com.kariscode.yike.core.ui.viewmodel.launchResult
 import com.kariscode.yike.core.ui.viewmodel.typedViewModelFactory
 import com.kariscode.yike.domain.model.LanSyncConflictChoice
@@ -101,18 +100,22 @@ class LanSyncViewModel(
         if (_uiState.value.session.isSessionActive) {
             return
         }
-        launchMutation(action = { lanSyncRepository.startSession() })
+        launchResult(
+            action = { lanSyncRepository.startSession() },
+            onFailure = {}
+        )
     }
 
     /**
      * 主动停止会话可以让用户在同步页内就把应用恢复到完全离线状态，而不必依赖返回导航触发 onCleared。
      */
     fun onStopSession() {
-        launchMutation(
+        launchResult(
             action = { lanSyncRepository.stopSession() },
             onSuccess = {
                 _uiState.update { state -> state.clearTransientSyncState() }
-            }
+            },
+            onFailure = {}
         )
     }
 
@@ -241,11 +244,12 @@ class LanSyncViewModel(
         if (name.isBlank()) {
             return
         }
-        launchMutation(
+        launchResult(
             action = { lanSyncRepository.updateLocalDisplayName(name) },
             onSuccess = {
                 _uiState.update { it.copy(isEditingLocalName = false) }
-            }
+            },
+            onFailure = {}
         )
     }
 
@@ -265,7 +269,10 @@ class LanSyncViewModel(
      * 传输中取消统一委托给仓储，是为了由同一处处理网络请求中断和状态回滚。
      */
     fun onCancelActiveSync() {
-        launchMutation(action = { lanSyncRepository.cancelActiveSync() })
+        launchResult(
+            action = { lanSyncRepository.cancelActiveSync() },
+            onFailure = {}
+        )
     }
 
     /**
@@ -301,8 +308,9 @@ class LanSyncViewModel(
         resolutions: List<LanSyncConflictResolution>
     ) {
         _uiState.update { state -> state.clearPreviewDecisionState() }
-        launchMutation(
-            action = { lanSyncRepository.runSync(preview = preview, resolutions = resolutions) }
+        launchResult(
+            action = { lanSyncRepository.runSync(preview = preview, resolutions = resolutions) },
+            onFailure = {}
         )
     }
 

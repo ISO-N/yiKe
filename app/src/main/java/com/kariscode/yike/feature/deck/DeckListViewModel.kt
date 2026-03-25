@@ -7,7 +7,6 @@ import com.kariscode.yike.core.ui.message.ErrorMessages
 import com.kariscode.yike.core.ui.message.SuccessMessages
 import com.kariscode.yike.core.ui.message.userMessageOr
 import com.kariscode.yike.core.domain.time.TimeProvider
-import com.kariscode.yike.core.ui.viewmodel.launchStateMutation
 import com.kariscode.yike.core.ui.viewmodel.launchStateResult
 import com.kariscode.yike.core.ui.viewmodel.typedViewModelFactory
 import com.kariscode.yike.domain.model.DeckSummary
@@ -296,17 +295,20 @@ class DeckListViewModel(
      * 卡组页只保留归档入口，是为了把“暂时移出默认列表、需要时再恢复”的语义收敛成单一路径。
      */
     fun onToggleArchiveClick(item: DeckSummary) {
-        launchStateMutation(
-            state = _uiState,
-            action = {
+        launchStateResult(state = _uiState) {
+            action {
                 toggleDeckArchiveUseCase(
                     deckId = item.deck.id,
                     archived = !item.deck.archived
                 )
-            },
-            onSuccess = { state -> DeckListStateReducer.archiveToggled(state, item.deck.archived) },
-            onFailure = { state, _ -> DeckListStateReducer.mutationFailed(state, ErrorMessages.UPDATE_FAILED) }
-        )
+            }
+            onSuccess { state, _ ->
+                DeckListStateReducer.archiveToggled(state, item.deck.archived)
+            }
+            onFailure { state, _ ->
+                DeckListStateReducer.mutationFailed(state, ErrorMessages.UPDATE_FAILED)
+            }
+        }
     }
 
     /**
