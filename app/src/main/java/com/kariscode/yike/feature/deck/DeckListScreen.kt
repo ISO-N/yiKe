@@ -25,6 +25,7 @@ import com.kariscode.yike.domain.model.PracticeSessionArgs
 import com.kariscode.yike.navigation.YikeNavigator
 import com.kariscode.yike.ui.component.YikeBadge
 import com.kariscode.yike.ui.component.YikeActionDialog
+import com.kariscode.yike.ui.component.YikeDangerConfirmationDialog
 import com.kariscode.yike.ui.component.YikeDialogAction
 import com.kariscode.yike.ui.component.YikeDialogActionStyle
 import com.kariscode.yike.ui.component.YikeFab
@@ -90,6 +91,9 @@ fun DeckListScreen(
             onConfirmSave = viewModel::onConfirmSave,
             onEditDeck = viewModel::onEditDeckClick,
             onToggleArchive = viewModel::onToggleArchiveClick,
+            onDeleteDeck = viewModel::onDeleteDeckClick,
+            onDismissDelete = viewModel::onDismissDelete,
+            onConfirmDelete = viewModel::onConfirmDelete,
             modifier = modifier,
             contentPadding = padding
         )
@@ -114,6 +118,9 @@ private fun DeckListContent(
     onConfirmSave: () -> Unit,
     onEditDeck: (DeckSummary) -> Unit,
     onToggleArchive: (DeckSummary) -> Unit,
+    onDeleteDeck: (DeckSummary) -> Unit,
+    onDismissDelete: () -> Unit,
+    onConfirmDelete: () -> Unit,
     modifier: Modifier = Modifier,
     contentPadding: PaddingValues = PaddingValues()
 ) {
@@ -202,7 +209,8 @@ private fun DeckListContent(
                                 navigator.openQuestionSearch(tag = tag)
                             },
                             onEdit = { onEditDeck(item) },
-                            onArchive = { onToggleArchive(item) }
+                            onArchive = { onToggleArchive(item) },
+                            onDelete = { onDeleteDeck(item) }
                         )
                     }
                 }
@@ -238,6 +246,16 @@ private fun DeckListContent(
             },
             onDismiss = onDismissEditor,
             onConfirm = onConfirmSave
+        )
+    }
+
+    uiState.pendingDelete?.let {
+        YikeDangerConfirmationDialog(
+            title = "确认删除卡组？",
+            description = "删除会级联清理该卡组下的卡片、问题和复习记录，且无法恢复。",
+            confirmText = "删除卡组",
+            onDismiss = onDismissDelete,
+            onConfirm = onConfirmDelete
         )
     }
 }
@@ -296,7 +314,8 @@ private fun DeckSummaryCard(
     onPractice: () -> Unit,
     onOpenTagSearch: (String) -> Unit,
     onEdit: () -> Unit,
-    onArchive: () -> Unit
+    onArchive: () -> Unit,
+    onDelete: () -> Unit
 ) {
     var actionDialogVisible by remember(item.deck.id) { mutableStateOf(false) }
     YikeListItemCard(
@@ -362,18 +381,24 @@ private fun DeckSummaryCard(
                     }
                 ),
                 YikeDialogAction(
-                    text = "归档这组内容",
-                    style = YikeDialogActionStyle.DANGER,
+                    text = "归档卡组",
+                    style = YikeDialogActionStyle.SECONDARY,
                     onClick = {
                         actionDialogVisible = false
                         onArchive()
                     }
+                ),
+                YikeDialogAction(
+                    text = "删除卡组",
+                    style = YikeDialogActionStyle.DANGER,
+                    onClick = {
+                        actionDialogVisible = false
+                        onDelete()
+                    }
                 )
             ),
             dismissText = "取消"
-        ) {
-            Text("“${item.deck.name}” 的低频维护动作会集中在这里，避免列表首屏被按钮挤满。")
-        }
+        )
     }
 }
 

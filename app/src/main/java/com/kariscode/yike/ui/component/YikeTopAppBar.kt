@@ -89,12 +89,12 @@ data class NavigationAction(
 
 /**
  * 统一返回动作的图标与语义，是为了让各页面共享一致的顶部返回体验，
- * 同时保留可访问的描述文本而不是退化成单个汉字按钮。
+ * 同时默认收敛成更轻的纯图标入口，避免“返回上级”这类文案在紧凑顶栏里显得过重。
  */
 fun backNavigationAction(
     onClick: () -> Unit,
     contentDescription: String = "返回",
-    label: String? = "返回上级"
+    label: String? = null
 ): NavigationAction = NavigationAction(
     contentDescription = contentDescription,
     label = label,

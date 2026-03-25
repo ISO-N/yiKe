@@ -81,7 +81,7 @@ fun SettingsScreen(
     YikePrimaryScaffold(
         currentDestination = YikePrimaryDestination.SETTINGS,
         title = "设置",
-        subtitle = "提醒、已归档内容和备份都在这里。"
+        subtitle = "管理提醒时间、数据备份、设备同步和已归档内容。"
     ) { padding ->
         SettingsContent(
             uiState = uiState,
@@ -287,18 +287,20 @@ private fun ReminderSettingsSection(
 
     SettingsSectionHeader(
         title = "数据管理",
-        description = "备份、同步、网页后台和归档恢复都会跳到独立流程页，统一归在数据工具组里更容易定位。"
+        description = "需要备份数据、连接其他设备，或整理旧内容时，都从这里进入对应页面。"
     )
+
+    val toolEntryContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh
 
     YikeListItemCard(
         title = "备份与恢复",
-        summary = uiState.lastBackupAt?.let { formatLocalDateTime(it) } ?: "暂无备份记录",
-        supporting = "导出 JSON 或恢复本地备份。",
-        containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.42f),
-        badge = { NavigationEntryBadge() }
+        summary = uiState.lastBackupAt?.let { "最近备份：${formatLocalDateTime(it)}" } ?: "还没有本地备份",
+        supporting = "导出完整数据到文件，或从备份文件恢复到当前设备。",
+        containerColor = toolEntryContainerColor,
+        badge = { NavigationEntryBadge(text = "备份恢复") }
     ) {
         YikeSecondaryButton(
-            text = "进入备份页",
+            text = "管理备份",
             onClick = onOpenBackupRestore,
             modifier = Modifier.fillMaxWidth()
         )
@@ -306,13 +308,13 @@ private fun ReminderSettingsSection(
 
     YikeListItemCard(
         title = "局域网同步",
-        summary = "发现同一 Wi-Fi 下的设备",
-        supporting = "支持设备配对、同步预览与冲突确认。",
-        containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.42f),
-        badge = { NavigationEntryBadge() }
+        summary = "和同一 Wi‑Fi 下的另一台设备互传数据",
+        supporting = "先配对设备，再预览同步内容并确认冲突。",
+        containerColor = toolEntryContainerColor,
+        badge = { NavigationEntryBadge(text = "设备同步") }
     ) {
         YikeSecondaryButton(
-            text = "进入同步页",
+            text = "开始同步",
             onClick = onOpenLanSync,
             modifier = Modifier.fillMaxWidth()
         )
@@ -320,13 +322,13 @@ private fun ReminderSettingsSection(
 
     YikeListItemCard(
         title = "网页后台",
-        summary = "对电脑和手机浏览器开放后台页面",
-        supporting = "启动后会显示 IP、端口和一次性访问码。",
-        containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.42f),
-        badge = { NavigationEntryBadge() }
+        summary = "让电脑或平板通过浏览器访问你的内容",
+        supporting = "开启后会提供局域网地址和一次性访问码。",
+        containerColor = toolEntryContainerColor,
+        badge = { NavigationEntryBadge(text = "网页访问") }
     ) {
         YikeSecondaryButton(
-            text = "进入网页后台页",
+            text = "打开网页后台",
             onClick = onOpenWebConsole,
             modifier = Modifier.fillMaxWidth()
         )
@@ -334,13 +336,13 @@ private fun ReminderSettingsSection(
 
     YikeListItemCard(
         title = "已归档内容",
-        summary = "集中恢复或清理归档数据",
-        supporting = "先归档，再按需恢复或彻底删除。",
-        containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.42f),
-        badge = { NavigationEntryBadge() }
+        summary = "恢复暂时收起的内容，或彻底清理旧数据",
+        supporting = "适合集中整理暂时不用、但又不想立刻删除的内容。",
+        containerColor = toolEntryContainerColor,
+        badge = { NavigationEntryBadge(text = "归档整理") }
     ) {
         YikeSecondaryButton(
-            text = "查看已归档内容",
+            text = "整理已归档内容",
             onClick = onOpenRecycleBin,
             modifier = Modifier.fillMaxWidth()
         )
@@ -385,12 +387,13 @@ private fun SettingsSectionHeader(
 }
 
 /**
- * 跳转类入口统一带上“工具页”徽标，是为了让用户在扫读设置页时一眼区分“立即切换”和“进入子流程”。
+ * 跳转类入口改成具体能力标签，是为了让用户在扫读设置页时立刻知道将进入哪一类处理流程，
+ * 避免“工具页”这种抽象描述增加理解成本。
  */
 @Composable
-private fun NavigationEntryBadge() {
+private fun NavigationEntryBadge(text: String) {
     YikeBadge(
-        text = "工具页",
+        text = text,
         containerColor = MaterialTheme.colorScheme.secondaryContainer,
         contentColor = MaterialTheme.colorScheme.onSecondaryContainer
     )

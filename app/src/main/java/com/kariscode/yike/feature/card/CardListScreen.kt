@@ -447,11 +447,9 @@ private fun CardSummaryCard(
                         onDelete()
                     }
                 )
-            )
-        ) {
-            Text("“${item.card.title}” 的低频动作会集中在这里，避免卡片列表首屏信息过载。")
-            Text("也可以直接长按卡片，快速打开同一组操作。")
-        }
+            ),
+            dismissText = "取消"
+        )
     }
 }
 

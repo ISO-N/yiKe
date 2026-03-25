@@ -44,6 +44,7 @@ internal object DeckListStateReducer {
         editor: DeckMetadataDraft
     ): DeckListUiState = state.copy(
         editor = editor,
+        pendingDelete = null,
         message = null,
         errorMessage = null
     )
@@ -75,6 +76,7 @@ internal object DeckListStateReducer {
         successMessage: String
     ): DeckListUiState = state.copy(
         editor = null,
+        pendingDelete = null,
         message = successMessage,
         errorMessage = null
     )
@@ -105,7 +107,37 @@ internal object DeckListStateReducer {
         state: DeckListUiState,
         archived: Boolean
     ): DeckListUiState = state.copy(
+        pendingDelete = null,
         message = if (archived) SuccessMessages.UNARCHIVED else SuccessMessages.ARCHIVED,
+        errorMessage = null
+    )
+
+    /**
+     * 删除确认态单独入栈到状态里，是为了让弹窗展示与真正删除动作之间保留可测试的明确中间层。
+     */
+    fun showDeleteConfirmation(
+        state: DeckListUiState,
+        item: DeckSummary
+    ): DeckListUiState = state.copy(
+        pendingDelete = item,
+        message = null,
+        errorMessage = null
+    )
+
+    /**
+     * 关闭删除确认时只清理高风险分支，是为了避免误伤列表页其他正在展示的成功反馈。
+     */
+    fun dismissDelete(state: DeckListUiState): DeckListUiState = state.copy(
+        pendingDelete = null,
+        errorMessage = null
+    )
+
+    /**
+     * 删除成功后统一清理确认态并提示成功，是为了让用户明确知道本次高风险操作已经生效。
+     */
+    fun deleteSucceeded(state: DeckListUiState): DeckListUiState = state.copy(
+        pendingDelete = null,
+        message = SuccessMessages.DELETED,
         errorMessage = null
     )
 }

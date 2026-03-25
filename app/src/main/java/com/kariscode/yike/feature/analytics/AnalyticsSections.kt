@@ -24,6 +24,11 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -120,6 +125,8 @@ internal fun AnalyticsHeatmapSection(
     val weeks = heatmapCells.chunked(7)
     val cellSize = 10.dp
     val cellGap = 3.dp
+    val heatmapScrollState = rememberScrollState()
+    var hasAlignedToLatest by remember(weeks.size) { mutableStateOf(false) }
 
     YikeSurfaceCard {
         Row(
@@ -140,9 +147,16 @@ internal fun AnalyticsHeatmapSection(
             return@YikeSurfaceCard
         }
 
+        LaunchedEffect(weeks.size, heatmapScrollState.maxValue) {
+            if (!hasAlignedToLatest && heatmapScrollState.maxValue > 0) {
+                heatmapScrollState.scrollTo(heatmapScrollState.maxValue)
+                hasAlignedToLatest = true
+            }
+        }
+
         Row(
             modifier = Modifier
-                .horizontalScroll(rememberScrollState())
+                .horizontalScroll(heatmapScrollState)
                 .padding(top = spacing.sm),
             horizontalArrangement = Arrangement.spacedBy(cellGap)
         ) {
@@ -321,74 +335,100 @@ internal fun AnalyticsForgettingCurveSection(
             return@YikeSurfaceCard
         }
 
-        Canvas(
+        val sortedItems = items.sortedBy(AnalyticsStageAgainUiModel::stageIndex)
+        Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(160.dp)
-                .padding(top = spacing.sm)
+                .padding(top = spacing.sm),
+            verticalAlignment = Alignment.Bottom
         ) {
-            val paddingLeft = 20.dp.toPx()
-            val paddingRight = 10.dp.toPx()
-            val paddingTop = 12.dp.toPx()
-            val paddingBottom = 18.dp.toPx()
-            val plotWidth = size.width - paddingLeft - paddingRight
-            val plotHeight = size.height - paddingTop - paddingBottom
-            if (plotWidth <= 0f || plotHeight <= 0f) return@Canvas
-
-            // 横纵轴
-            drawLine(
-                color = axisColor,
-                start = Offset(paddingLeft, paddingTop),
-                end = Offset(paddingLeft, paddingTop + plotHeight),
-                strokeWidth = 2.dp.toPx()
+            AnalyticsChartYAxis(
+                labels = listOf("100%", "50%", "0%"),
+                modifier = Modifier
+                    .width(40.dp)
+                    .height(168.dp)
             )
-            drawLine(
-                color = axisColor,
-                start = Offset(paddingLeft, paddingTop + plotHeight),
-                end = Offset(paddingLeft + plotWidth, paddingTop + plotHeight),
-                strokeWidth = 2.dp.toPx()
-            )
+            Spacer(modifier = Modifier.width(spacing.sm))
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(spacing.xs)
+            ) {
+                Canvas(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(168.dp)
+                ) {
+                    val paddingTop = 12.dp.toPx()
+                    val paddingRight = 10.dp.toPx()
+                    val paddingBottom = 14.dp.toPx()
+                    val plotWidth = size.width - paddingRight
+                    val plotHeight = size.height - paddingTop - paddingBottom
+                    if (plotWidth <= 0f || plotHeight <= 0f) return@Canvas
 
-            // 参考网格: 0%, 50%, 100%
-            listOf(0f, 0.5f, 1f).forEach { ratio ->
-                val y = paddingTop + plotHeight * (1f - ratio)
-                drawLine(
-                    color = gridColor,
-                    start = Offset(paddingLeft, y),
-                    end = Offset(paddingLeft + plotWidth, y),
-                    strokeWidth = 1.dp.toPx()
-                )
-            }
+                    val originX = 0f
+                    val originY = paddingTop + plotHeight
 
-            val maxStage = items.maxOfOrNull(AnalyticsStageAgainUiModel::stageIndex) ?: 0
-            val stageCount = (maxStage + 1).coerceAtLeast(1)
-            val stepX = if (stageCount <= 1) 0f else plotWidth / (stageCount - 1).toFloat()
+                    drawLine(
+                        color = axisColor,
+                        start = Offset(originX, paddingTop),
+                        end = Offset(originX, originY),
+                        strokeWidth = 2.dp.toPx()
+                    )
+                    drawLine(
+                        color = axisColor,
+                        start = Offset(originX, originY),
+                        end = Offset(plotWidth, originY),
+                        strokeWidth = 2.dp.toPx()
+                    )
 
-            val points = items
-                .sortedBy(AnalyticsStageAgainUiModel::stageIndex)
-                .map { item ->
-                    val x = paddingLeft + item.stageIndex * stepX
-                    val y = paddingTop + plotHeight * (1f - item.againRatio.coerceIn(0f, 1f))
-                    Offset(x, y)
+                    listOf(0f, 0.5f, 1f).forEach { ratio ->
+                        val y = paddingTop + plotHeight * (1f - ratio)
+                        drawLine(
+                            color = gridColor,
+                            start = Offset(originX, y),
+                            end = Offset(plotWidth, y),
+                            strokeWidth = 1.dp.toPx()
+                        )
+                    }
+
+                    val pointCount = sortedItems.size.coerceAtLeast(1)
+                    val stepX = if (pointCount <= 1) 0f else plotWidth / (pointCount - 1).toFloat()
+                    val points = sortedItems.mapIndexed { index, item ->
+                        val x = if (pointCount <= 1) plotWidth / 2f else index * stepX
+                        val y = paddingTop + plotHeight * (1f - item.againRatio.coerceIn(0f, 1f))
+                        Offset(x, y)
+                    }
+
+                    points.forEach { point ->
+                        drawLine(
+                            color = axisColor,
+                            start = Offset(point.x, originY),
+                            end = Offset(point.x, originY + 4.dp.toPx()),
+                            strokeWidth = 1.dp.toPx()
+                        )
+                    }
+
+                    for (index in 0 until points.lastIndex) {
+                        drawLine(
+                            color = lineColor,
+                            start = points[index],
+                            end = points[index + 1],
+                            strokeWidth = 3.dp.toPx(),
+                            cap = StrokeCap.Round
+                        )
+                    }
+
+                    points.forEach { point ->
+                        drawCircle(
+                            color = lineColor,
+                            radius = 4.dp.toPx(),
+                            center = point
+                        )
+                    }
                 }
 
-            // 折线
-            for (index in 0 until points.lastIndex) {
-                drawLine(
-                    color = lineColor,
-                    start = points[index],
-                    end = points[index + 1],
-                    strokeWidth = 3.dp.toPx(),
-                    cap = StrokeCap.Round
-                )
-            }
-
-            // 点
-            points.forEach { point ->
-                drawCircle(
-                    color = lineColor,
-                    radius = 4.dp.toPx(),
-                    center = point
+                AnalyticsChartBottomLabels(
+                    labels = sortedItems.map { item -> "S${item.stageIndex}" }
                 )
             }
         }
@@ -438,61 +478,84 @@ internal fun AnalyticsDueForecastSection(
         val axisColor = MaterialTheme.colorScheme.outlineVariant
         val gridColor = MaterialTheme.colorScheme.surfaceVariant
 
-        Canvas(
+        Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(140.dp)
-                .padding(top = spacing.sm)
+                .padding(top = spacing.sm),
+            verticalAlignment = Alignment.Bottom
         ) {
-            val paddingTop = 8.dp.toPx()
-            val paddingBottom = 22.dp.toPx()
-            val paddingHorizontal = 8.dp.toPx()
-            val plotWidth = size.width - paddingHorizontal * 2
-            val plotHeight = size.height - paddingTop - paddingBottom
-            if (plotWidth <= 0f || plotHeight <= 0f) return@Canvas
-
-            // 参考线
-            drawLine(
-                color = gridColor,
-                start = Offset(paddingHorizontal, paddingTop + plotHeight * 0.5f),
-                end = Offset(paddingHorizontal + plotWidth, paddingTop + plotHeight * 0.5f),
-                strokeWidth = 1.dp.toPx()
+            AnalyticsChartYAxis(
+                labels = listOf(max.toString(), (max / 2).toString(), "0"),
+                modifier = Modifier
+                    .width(40.dp)
+                    .height(148.dp)
             )
-            drawLine(
-                color = axisColor,
-                start = Offset(paddingHorizontal, paddingTop + plotHeight),
-                end = Offset(paddingHorizontal + plotWidth, paddingTop + plotHeight),
-                strokeWidth = 2.dp.toPx()
-            )
+            Spacer(modifier = Modifier.width(spacing.sm))
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(spacing.xs)
+            ) {
+                Canvas(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(148.dp)
+                ) {
+                    val paddingTop = 8.dp.toPx()
+                    val paddingBottom = 16.dp.toPx()
+                    val plotWidth = size.width
+                    val plotHeight = size.height - paddingTop - paddingBottom
+                    if (plotWidth <= 0f || plotHeight <= 0f) return@Canvas
 
-            val barCount = items.size.coerceAtLeast(1)
-            val gap = 6.dp.toPx()
-            val barWidth = ((plotWidth - gap * (barCount - 1)) / barCount).coerceAtLeast(2.dp.toPx())
+                    val originX = 0f
+                    val originY = paddingTop + plotHeight
+                    val middleY = paddingTop + plotHeight * 0.5f
 
-            items.forEachIndexed { index, item ->
-                val x = paddingHorizontal + index * (barWidth + gap)
-                val heightRatio = item.dueCount.toFloat() / max.toFloat()
-                val barHeight = plotHeight * heightRatio.coerceIn(0f, 1f)
-                val top = paddingTop + (plotHeight - barHeight)
-                drawRoundRect(
-                    color = barColor,
-                    topLeft = Offset(x, top),
-                    size = Size(barWidth, barHeight),
-                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(10.dp.toPx(), 10.dp.toPx())
-                )
-            }
-        }
+                    drawLine(
+                        color = axisColor,
+                        start = Offset(originX, paddingTop),
+                        end = Offset(originX, originY),
+                        strokeWidth = 2.dp.toPx()
+                    )
+                    drawLine(
+                        color = gridColor,
+                        start = Offset(originX, middleY),
+                        end = Offset(plotWidth, middleY),
+                        strokeWidth = 1.dp.toPx()
+                    )
+                    drawLine(
+                        color = axisColor,
+                        start = Offset(originX, originY),
+                        end = Offset(plotWidth, originY),
+                        strokeWidth = 2.dp.toPx()
+                    )
 
-        Row(
-            modifier = Modifier.padding(top = spacing.xs),
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            items.forEach { item ->
-                Text(
-                    text = item.label,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = labelColor
-                )
+                    val barCount = items.size.coerceAtLeast(1)
+                    val slotWidth = plotWidth / barCount.toFloat()
+                    val gap = 6.dp.toPx().coerceAtMost(slotWidth * 0.28f)
+                    val barWidth = (slotWidth - gap).coerceAtLeast(8.dp.toPx())
+
+                    items.forEachIndexed { index, item ->
+                        val centerX = slotWidth * index + slotWidth / 2f
+                        val x = centerX - barWidth / 2f
+                        val heightRatio = item.dueCount.toFloat() / max.toFloat()
+                        val barHeight = plotHeight * heightRatio.coerceIn(0f, 1f)
+                        val top = paddingTop + (plotHeight - barHeight)
+                        drawRoundRect(
+                            color = barColor,
+                            topLeft = Offset(x, top),
+                            size = Size(barWidth, barHeight),
+                            cornerRadius = androidx.compose.ui.geometry.CornerRadius(10.dp.toPx(), 10.dp.toPx())
+                        )
+                        drawLine(
+                            color = axisColor,
+                            start = Offset(centerX, originY),
+                            end = Offset(centerX, originY + 4.dp.toPx()),
+                            strokeWidth = 1.dp.toPx()
+                        )
+                    }
+                }
+
+                AnalyticsChartBottomLabels(labels = items.map(AnalyticsDueForecastUiModel::label))
             }
         }
 
@@ -502,6 +565,58 @@ internal fun AnalyticsDueForecastSection(
             style = MaterialTheme.typography.bodySmall,
             color = labelColor
         )
+    }
+}
+
+/**
+ * 图表纵轴标签独立到布局层，是为了避免把文字也塞进 Canvas 后因为内边距不足被裁掉，
+ * 同时让不同图表共享同一套稳定的左侧读数区域。
+ */
+@Composable
+private fun AnalyticsChartYAxis(
+    labels: List<String>,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier,
+        verticalArrangement = Arrangement.SpaceBetween,
+        horizontalAlignment = Alignment.End
+    ) {
+        labels.forEach { label ->
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
+/**
+ * 横轴标签统一用等宽槽位排布，是为了让日期和 stage 标签与柱子/折线点保持一一对齐，
+ * 避免数据一多就出现“标签挤在一起但图形不对应”的阅读落差。
+ */
+@Composable
+private fun AnalyticsChartBottomLabels(
+    labels: List<String>,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        labels.forEach { label ->
+            Box(
+                modifier = Modifier.weight(1f),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
     }
 }
 

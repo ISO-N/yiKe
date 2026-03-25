@@ -12,6 +12,7 @@ import com.kariscode.yike.core.ui.viewmodel.typedViewModelFactory
 import com.kariscode.yike.domain.model.DeckSummary
 import com.kariscode.yike.domain.repository.DeckRepository
 import com.kariscode.yike.domain.repository.StudyInsightsRepository
+import com.kariscode.yike.domain.usecase.DeleteDeckUseCase
 import com.kariscode.yike.domain.scheduler.ReviewSchedulerV1
 import com.kariscode.yike.domain.usecase.DeckSaveRequest
 import com.kariscode.yike.domain.usecase.DeckSaveResult
@@ -38,6 +39,7 @@ data class DeckListUiState(
     val visibleItems: List<DeckSummary>,
     val availableTags: List<String>,
     val editor: DeckMetadataDraft?,
+    val pendingDelete: DeckSummary?,
     val message: String?,
     val errorMessage: String?
 )
@@ -57,7 +59,9 @@ class DeckListViewModel(
     private val saveDeckUseCase: SaveDeckUseCase =
         SaveDeckUseCase(deckRepository = deckRepository, timeProvider = timeProvider),
     private val toggleDeckArchiveUseCase: ToggleDeckArchiveUseCase =
-        ToggleDeckArchiveUseCase(deckRepository = deckRepository, timeProvider = timeProvider)
+        ToggleDeckArchiveUseCase(deckRepository = deckRepository, timeProvider = timeProvider),
+    private val deleteDeckUseCase: DeleteDeckUseCase =
+        DeleteDeckUseCase(deckRepository = deckRepository)
 ) : ViewModel() {
     /**
      * 卡组聚合流在失败后需要可重启，因此单独保存订阅任务，供“重试”明确取消并重新拉起。
@@ -74,6 +78,7 @@ class DeckListViewModel(
             visibleItems = emptyList(),
             availableTags = emptyList(),
             editor = null,
+            pendingDelete = null,
             message = null,
             errorMessage = null
         )
@@ -300,7 +305,8 @@ class DeckListViewModel(
     }
 
     /**
-     * 卡组页只保留归档入口，是为了把“暂时移出默认列表、需要时再恢复”的语义收敛成单一路径。
+     * 归档入口单独保留在 ViewModel，是为了把“暂时移出默认列表、需要时再恢复”的语义
+     * 与真正删除的高风险链路明确拆开，避免 UI 侧混用两种后果完全不同的动作。
      */
     fun onToggleArchiveClick(item: DeckSummary) {
         launchStateResult(state = _uiState) {
@@ -315,6 +321,36 @@ class DeckListViewModel(
             }
             onFailure { state, _ ->
                 DeckListStateReducer.mutationFailed(state, ErrorMessages.UPDATE_FAILED)
+            }
+        }
+    }
+
+    /**
+     * 删除需要先进入确认态，是为了把不可逆操作从“更多操作”弹窗里再做一次明确拦截，
+     * 降低用户在列表维护时误触造成整组内容丢失的概率。
+     */
+    fun onDeleteDeckClick(item: DeckSummary) {
+        _uiState.update { state -> DeckListStateReducer.showDeleteConfirmation(state, item) }
+    }
+
+    /**
+     * 退出删除确认态后恢复普通浏览状态，是为了让用户在犹豫时能无损返回列表继续查看其他卡组。
+     */
+    fun onDismissDelete() {
+        _uiState.update(DeckListStateReducer::dismissDelete)
+    }
+
+    /**
+     * 删除卡组会依赖数据库级联约束一并清理下层卡片与题目，
+     * 因此确认后统一走用例入口，避免不同页面对清理边界产生不同理解。
+     */
+    fun onConfirmDelete() {
+        val pending = _uiState.value.pendingDelete ?: return
+        launchStateResult(state = _uiState) {
+            action { deleteDeckUseCase(pending.deck.id) }
+            onSuccess { state, _ -> DeckListStateReducer.deleteSucceeded(state) }
+            onFailure { state, _ ->
+                DeckListStateReducer.mutationFailed(state, ErrorMessages.DELETE_FAILED)
             }
         }
     }

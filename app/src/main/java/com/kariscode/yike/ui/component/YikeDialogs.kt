@@ -197,8 +197,8 @@ fun YikeActionDialog(
     onDismiss: () -> Unit,
     actions: List<YikeDialogAction>,
     modifier: Modifier = Modifier,
-    dismissText: String = "关闭",
-    content: @Composable ColumnScope.() -> Unit
+    dismissText: String = "取消",
+    content: @Composable ColumnScope.() -> Unit = {}
 ) {
     val spacing = LocalYikeSpacing.current
     YikeAlertDialog(
@@ -236,10 +236,13 @@ fun YikeActionDialog(
                         )
                     }
                 }
+                YikeSecondaryButton(
+                    text = dismissText,
+                    onClick = onDismiss,
+                    modifier = Modifier.fillMaxWidth()
+                )
             }
         },
-        dismissButton = {
-            YikeSecondaryButton(text = dismissText, onClick = onDismiss)
-        }
+        dismissButton = null
     )
 }
