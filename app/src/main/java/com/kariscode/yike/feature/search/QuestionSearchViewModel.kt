@@ -73,7 +73,7 @@ class QuestionSearchViewModel(
                     second = { searchQuestions(snapshot) }
                 )
             }
-            onStart { it.copy(isLoading = true, errorMessage = null) }
+            onStart(QuestionSearchStateFactory::withLoading)
             onSuccess { state, result ->
                 val metadata = result.first
                 val results = result.second
@@ -84,8 +84,8 @@ class QuestionSearchViewModel(
                 )
             }
             onFailure { state, throwable ->
-                state.copy(
-                    isLoading = false,
+                QuestionSearchStateFactory.withRefreshFailed(
+                    state = state,
                     errorMessage = throwable.userMessageOr(ErrorMessages.SEARCH_LOAD_FAILED)
                 )
             }
@@ -165,18 +165,7 @@ class QuestionSearchViewModel(
      * 一键清空保留“进行中”默认状态，是为了把搜索快速拉回最常用的题库工作流。
      */
     fun onClearFilters() {
-        updateSearchFilters {
-            it.copy(
-                keyword = "",
-                selectedTag = null,
-                selectedStatus = QuestionStatus.ACTIVE,
-                selectedDeckId = null,
-                selectedCardId = null,
-                selectedMasteryLevel = null,
-                cardOptions = emptyList(),
-                errorMessage = null
-            )
-        }
+        updateSearchFilters(QuestionSearchStateFactory::clearedFilters)
     }
 
     /**
@@ -188,18 +177,11 @@ class QuestionSearchViewModel(
             state = _uiState,
             previousJob = searchJob,
             action = { searchQuestions(snapshot) },
-            onStart = { it.copy(isLoading = true, errorMessage = null) },
-            onSuccess = { state, results ->
-                state.copy(
-                    isLoading = false,
-                    results = results,
-                    errorMessage = null
-                )
-            },
+            onStart = QuestionSearchStateFactory::withLoading,
+            onSuccess = QuestionSearchStateFactory::withSearchSucceeded,
             onFailure = { state, throwable ->
-                state.copy(
-                    isLoading = false,
-                    results = emptyList(),
+                QuestionSearchStateFactory.withSearchFailed(
+                    state = state,
                     errorMessage = throwable.userMessageOr(ErrorMessages.SEARCH_FAILED)
                 )
             }

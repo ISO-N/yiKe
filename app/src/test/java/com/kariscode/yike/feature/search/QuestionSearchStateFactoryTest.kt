@@ -63,6 +63,57 @@ class QuestionSearchStateFactoryTest {
     }
 
     /**
+     * 一键清空应回到活动题默认筛选，但保留由其他来源回写的结果集合，
+     * 这样 ViewModel 在触发下一轮搜索前仍能维持一份结构完整的状态快照。
+     */
+    @Test
+    fun clearedFilters_restoresDefaultFilterState() {
+        val state = baseState(
+            selectedCardId = "card_1",
+            results = listOf(result(questionId = "q1", deckId = "deck_1", cardId = "card_1"))
+        ).copy(
+            keyword = "极限",
+            selectedTag = "高频",
+            selectedStatus = null,
+            selectedMasteryLevel = com.kariscode.yike.domain.model.QuestionMasteryLevel.FAMILIAR,
+            cardOptions = listOf(SearchCardOption(id = "card_1", title = "极限")),
+            errorMessage = "旧错误"
+        )
+
+        val cleared = QuestionSearchStateFactory.clearedFilters(state)
+
+        assertEquals("", cleared.keyword)
+        assertNull(cleared.selectedTag)
+        assertEquals(QuestionStatus.ACTIVE, cleared.selectedStatus)
+        assertNull(cleared.selectedDeckId)
+        assertNull(cleared.selectedCardId)
+        assertNull(cleared.selectedMasteryLevel)
+        assertEquals(emptyList<SearchCardOption>(), cleared.cardOptions)
+        assertNull(cleared.errorMessage)
+        assertEquals(state.results, cleared.results)
+    }
+
+    /**
+     * 搜索失败后必须清空旧结果，是为了避免界面继续展示和当前筛选不一致的历史命中项。
+     */
+    @Test
+    fun withSearchFailed_clearsResultsAndStopsLoading() {
+        val state = baseState(
+            selectedCardId = null,
+            results = listOf(result(questionId = "q1", deckId = "deck_1", cardId = "card_1"))
+        ).copy(isLoading = true)
+
+        val failed = QuestionSearchStateFactory.withSearchFailed(
+            state = state,
+            errorMessage = "搜索失败"
+        )
+
+        assertEquals(false, failed.isLoading)
+        assertEquals(emptyList<QuestionSearchResultUiModel>(), failed.results)
+        assertEquals("搜索失败", failed.errorMessage)
+    }
+
+    /**
      * 整批结果导出到练习参数时必须去重 cardId，但保留题目顺序，
      * 这样练习设置页既能拿到最小范围，又不会丢掉搜索结果当前的题目列表顺序。
      */

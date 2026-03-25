@@ -20,6 +20,14 @@ internal data class SearchMetadata(
  */
 internal object QuestionSearchStateFactory {
     /**
+     * 搜索或刷新开始时统一清理旧错误，是为了让页面在新一轮查询过程中只表达当前状态而不夹带旧失败信息。
+     */
+    fun withLoading(state: QuestionSearchUiState): QuestionSearchUiState = state.copy(
+        isLoading = true,
+        errorMessage = null
+    )
+
+    /**
      * 搜索条件由状态快照直接导出，是为了让新增筛选字段时只改一个映射入口，避免搜索与刷新口径漂移。
      */
     fun toQueryFilters(state: QuestionSearchUiState): QuestionQueryFilters = QuestionQueryFilters(
@@ -68,6 +76,20 @@ internal object QuestionSearchStateFactory {
     )
 
     /**
+     * 一键清空统一回到默认筛选，是为了把“活动题 + 无其他条件”这条高频工作流固定成单一入口。
+     */
+    fun clearedFilters(state: QuestionSearchUiState): QuestionSearchUiState = state.copy(
+        keyword = "",
+        selectedTag = null,
+        selectedStatus = QuestionStatus.ACTIVE,
+        selectedDeckId = null,
+        selectedCardId = null,
+        selectedMasteryLevel = null,
+        cardOptions = emptyList(),
+        errorMessage = null
+    )
+
+    /**
      * 搜索结果在工厂里统一映射熟练度与 due 状态，是为了让 ViewModel 只负责拿快照而不是逐条拼 UI 模型。
      */
     fun buildResults(
@@ -80,6 +102,41 @@ internal object QuestionSearchStateFactory {
             isDue = context.question.status == QuestionStatus.ACTIVE && context.question.dueAt <= nowEpochMillis
         )
     }
+
+    /**
+     * 刷新成功后的搜索结果统一回写，是为了让实时搜索与手动刷新共享同一套“完成查询”状态模板。
+     */
+    fun withSearchSucceeded(
+        state: QuestionSearchUiState,
+        results: List<QuestionSearchResultUiModel>
+    ): QuestionSearchUiState = state.copy(
+        isLoading = false,
+        results = results,
+        errorMessage = null
+    )
+
+    /**
+     * 搜索失败时统一清空旧结果，是为了避免页面在新查询失败后继续展示已经失效的旧命中项。
+     */
+    fun withSearchFailed(
+        state: QuestionSearchUiState,
+        errorMessage: String
+    ): QuestionSearchUiState = state.copy(
+        isLoading = false,
+        results = emptyList(),
+        errorMessage = errorMessage
+    )
+
+    /**
+     * 元数据刷新失败时保留现有结果但结束加载，是为了让用户仍能基于当前可见结果继续调整查询条件。
+     */
+    fun withRefreshFailed(
+        state: QuestionSearchUiState,
+        errorMessage: String
+    ): QuestionSearchUiState = state.copy(
+        isLoading = false,
+        errorMessage = errorMessage
+    )
 
     /**
      * 搜索页把当前结果带去练习时统一导出参数，是为了让“整批结果练习”的 deck/card/question 口径只维护一处。
