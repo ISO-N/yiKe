@@ -70,9 +70,12 @@ internal object DeckListStateReducer {
     /**
      * 保存成功后统一关闭编辑器并提示成功，是为了让卡组编辑反馈与其他列表页保持一致。
      */
-    fun saveSucceeded(state: DeckListUiState): DeckListUiState = state.copy(
+    fun saveSucceeded(
+        state: DeckListUiState,
+        successMessage: String
+    ): DeckListUiState = state.copy(
         editor = null,
-        message = SuccessMessages.SAVED,
+        message = successMessage,
         errorMessage = null
     )
 

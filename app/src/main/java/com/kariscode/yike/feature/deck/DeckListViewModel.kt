@@ -15,6 +15,7 @@ import com.kariscode.yike.domain.repository.DeckRepository
 import com.kariscode.yike.domain.repository.StudyInsightsRepository
 import com.kariscode.yike.domain.scheduler.ReviewSchedulerV1
 import com.kariscode.yike.domain.usecase.DeckSaveRequest
+import com.kariscode.yike.domain.usecase.DeckSaveResult
 import com.kariscode.yike.domain.usecase.GetDeckAvailableTagsUseCase
 import com.kariscode.yike.domain.usecase.ObserveDeckSummariesUseCase
 import com.kariscode.yike.domain.usecase.SaveDeckUseCase
@@ -207,9 +208,8 @@ class DeckListViewModel(
             return
         }
 
-        launchStateMutation(
-            state = _uiState,
-            action = {
+        launchStateResult(state = _uiState) {
+            action {
                 val normalizedTags = DeckTagNormalizer.normalize(editor.tags)
                 saveDeckUseCase(
                     DeckSaveRequest(
@@ -220,10 +220,22 @@ class DeckListViewModel(
                         intervalStepCount = intervalStepCount
                     )
                 )
-            },
-            onSuccess = DeckListStateReducer::saveSucceeded,
-            onFailure = { state, _ -> DeckListStateReducer.mutationFailed(state, ErrorMessages.SAVE_FAILED) }
-        )
+            }
+            onSuccess { state, result ->
+                val successMessage = if (result is DeckSaveResult.Created) {
+                    SuccessMessages.DECK_CREATED
+                } else {
+                    SuccessMessages.DECK_UPDATED
+                }
+                DeckListStateReducer.saveSucceeded(
+                    state = state,
+                    successMessage = successMessage
+                )
+            }
+            onFailure { state, _ ->
+                DeckListStateReducer.mutationFailed(state, ErrorMessages.SAVE_FAILED)
+            }
+        }
     }
 
     /**

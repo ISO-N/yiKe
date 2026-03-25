@@ -49,6 +49,10 @@ object ErrorMessages {
  */
 object SuccessMessages {
     const val SAVED = "已保存"
+    const val CARD_CREATED = "卡片已创建"
+    const val CARD_UPDATED = "卡片已更新"
+    const val DECK_CREATED = "卡组已创建"
+    const val DECK_UPDATED = "卡组已更新"
     const val DRAFT_SAVED = "草稿已保存到本机"
     const val DRAFT_RESTORED = "已恢复上次草稿"
     const val DRAFT_CORRUPTED_RESET = "草稿异常，已恢复正式内容"

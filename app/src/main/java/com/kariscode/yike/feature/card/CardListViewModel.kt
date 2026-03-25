@@ -15,6 +15,7 @@ import com.kariscode.yike.domain.repository.CardRepository
 import com.kariscode.yike.domain.repository.DeckRepository
 import com.kariscode.yike.domain.repository.StudyInsightsRepository
 import com.kariscode.yike.domain.usecase.CardSaveRequest
+import com.kariscode.yike.domain.usecase.CardSaveResult
 import com.kariscode.yike.domain.usecase.DeleteCardUseCase
 import com.kariscode.yike.domain.usecase.GetDeckCardMasterySummaryUseCase
 import com.kariscode.yike.domain.usecase.LoadDeckCardContextUseCase
@@ -242,9 +243,8 @@ class CardListViewModel(
             return
         }
 
-        launchStateMutation(
-            state = _uiState,
-            action = {
+        launchStateResult(state = _uiState) {
+            action {
                 saveCardUseCase(
                     CardSaveRequest(
                         cardId = editor.entityId,
@@ -253,10 +253,22 @@ class CardListViewModel(
                         description = editor.secondaryValue
                     )
                 )
-            },
-            onSuccess = CardListStateReducer::saveSucceeded,
-            onFailure = { state, _ -> CardListStateReducer.mutationFailed(state, ErrorMessages.SAVE_FAILED) }
-        )
+            }
+            onSuccess { state, result ->
+                val successMessage = if (result is CardSaveResult.Created) {
+                    SuccessMessages.CARD_CREATED
+                } else {
+                    SuccessMessages.CARD_UPDATED
+                }
+                CardListStateReducer.saveSucceeded(
+                    state = state,
+                    successMessage = successMessage
+                )
+            }
+            onFailure { state, _ ->
+                CardListStateReducer.mutationFailed(state, ErrorMessages.SAVE_FAILED)
+            }
+        }
     }
 
     /**

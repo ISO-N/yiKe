@@ -13,24 +13,40 @@ class SaveDeckUseCase(
     private val timeProvider: TimeProvider
 ) {
     /**
-     * 保存时统一补齐主键和时间语义，是为了保证新建与编辑都沿用同一套落库规则。
+     * 保存时统一补齐主键和时间语义，并在编辑时保留创建时间、排序和归档状态，
+     * 是为了让“更新元信息”不会意外把既有卡组生命周期重新写成一次新建。
      */
-    suspend operator fun invoke(request: DeckSaveRequest) {
+    suspend operator fun invoke(request: DeckSaveRequest): DeckSaveResult {
         val now = timeProvider.nowEpochMillis()
-        deckRepository.upsert(
-            Deck(
-                id = request.deckId ?: EntityIds.newDeckId(),
-                name = request.name,
-                description = request.description,
-                tags = request.tags,
-                intervalStepCount = request.intervalStepCount,
-                archived = false,
-                sortOrder = 0,
-                createdAt = now,
-                updatedAt = now
-            )
+        val existingDeck = request.deckId?.let { deckId ->
+            deckRepository.findById(deckId)
+        }
+        val savedDeck = Deck(
+            id = existingDeck?.id ?: EntityIds.newDeckId(),
+            name = request.name,
+            description = request.description,
+            tags = request.tags,
+            intervalStepCount = request.intervalStepCount,
+            archived = existingDeck?.archived ?: false,
+            sortOrder = existingDeck?.sortOrder ?: 0,
+            createdAt = existingDeck?.createdAt ?: now,
+            updatedAt = now
         )
+        deckRepository.upsert(savedDeck)
+        return if (existingDeck == null) {
+            DeckSaveResult.Created(savedDeck)
+        } else {
+            DeckSaveResult.Updated(savedDeck)
+        }
     }
+}
+
+/**
+ * 卡组保存结果显式建模后，页面和日志都可以直接依赖语义结果而不是通过空 id 猜测发生了什么。
+ */
+sealed interface DeckSaveResult {
+    data class Created(val deck: Deck) : DeckSaveResult
+    data class Updated(val deck: Deck) : DeckSaveResult
 }
 
 /**
