@@ -167,45 +167,23 @@ class PracticeSetupViewModel(
         selectedQuestionIds: Set<String>?,
         orderMode: PracticeOrderMode
     ): PracticeSetupUiState {
-        val deckOptions = buildDeckOptions(
+        val projection = buildPracticeSelectionProjection(
             allQuestionContexts = allQuestionContexts,
-            selectedDeckIds = selectedDeckIds
+            selectedDeckIds = selectedDeckIds,
+            selectedCardIds = selectedCardIds,
+            selectedQuestionIds = selectedQuestionIds
         )
-        val deckScopedContexts = allQuestionContexts.filterBySelectedDecks(selectedDeckIds)
-        val cardOptions = buildCardOptions(
-            questionContexts = deckScopedContexts,
-            selectedCardIds = selectedCardIds
-        )
-        val validCardIds = cardOptions.map { option -> option.cardId }.toSet()
-        val normalizedCardIds = selectedCardIds.intersect(validCardIds)
-        val questionScopedContexts = deckScopedContexts.filterBySelectedCards(normalizedCardIds)
-        val availableQuestionIds = questionScopedContexts.map { context -> context.question.id }.toSet()
-        val normalizedQuestionIds = selectedQuestionIds
-            ?.intersect(availableQuestionIds)
-            ?.normalizeQuestionSelection(availableQuestionIds)
-        val questionOptions = questionScopedContexts.map { context ->
-            PracticeQuestionOptionUiModel(
-                questionId = context.question.id,
-                cardId = context.question.cardId,
-                deckName = context.deckName,
-                cardTitle = context.cardTitle,
-                prompt = context.question.prompt,
-                answerPreview = context.question.answer.ifBlank { "无答案" }.take(48),
-                isSelected = normalizedQuestionIds?.contains(context.question.id) ?: true
-            )
-        }
-        val effectiveQuestionCount = normalizedQuestionIds?.size ?: questionOptions.size
 
         return PracticeSetupUiState(
             isLoading = false,
-            deckOptions = deckOptions,
-            cardOptions = cardOptions,
-            questionOptions = questionOptions,
-            selectedDeckIds = selectedDeckIds.intersect(deckOptions.map { option -> option.deckId }.toSet()),
-            selectedCardIds = normalizedCardIds,
-            selectedQuestionIds = normalizedQuestionIds,
+            deckOptions = projection.deckOptions,
+            cardOptions = projection.cardOptions,
+            questionOptions = projection.questionOptions,
+            selectedDeckIds = projection.selectedDeckIds,
+            selectedCardIds = projection.selectedCardIds,
+            selectedQuestionIds = projection.selectedQuestionIds,
             orderMode = orderMode,
-            effectiveQuestionCount = effectiveQuestionCount,
+            effectiveQuestionCount = projection.effectiveQuestionCount,
             errorMessage = null
         )
     }

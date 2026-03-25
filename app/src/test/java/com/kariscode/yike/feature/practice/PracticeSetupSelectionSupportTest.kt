@@ -37,6 +37,29 @@ class PracticeSetupSelectionSupportTest {
     }
 
     /**
+     * 范围投影必须同时清理失效 deck/card/question 选择，
+     * 这样 ViewModel 在内容变化后重建状态时不会继续保留界面上已经不存在的旧范围。
+     */
+    @Test
+    fun buildPracticeSelectionProjection_normalizesInvalidSelectionsAndQuestionCount() {
+        val projection = buildPracticeSelectionProjection(
+            allQuestionContexts = listOf(
+                questionContext(questionId = "q1", deckId = "deck_1", deckName = "数学", cardId = "card_1"),
+                questionContext(questionId = "q2", deckId = "deck_1", deckName = "数学", cardId = "card_2")
+            ),
+            selectedDeckIds = setOf("deck_1", "deck_missing"),
+            selectedCardIds = setOf("card_2", "card_missing"),
+            selectedQuestionIds = setOf("q2", "q_missing")
+        )
+
+        assertEquals(setOf("deck_1"), projection.selectedDeckIds)
+        assertEquals(setOf("card_2"), projection.selectedCardIds)
+        assertNull(projection.selectedQuestionIds)
+        assertEquals(1, projection.effectiveQuestionCount)
+        assertEquals(listOf("q2"), projection.questionOptions.map { it.questionId })
+    }
+
+    /**
      * 题目层手选若覆盖当前全集，就应回退成 `null`，
      * 这样状态可以明确区分“用户真的缩小了范围”和“当前范围等价于全选”。
      */

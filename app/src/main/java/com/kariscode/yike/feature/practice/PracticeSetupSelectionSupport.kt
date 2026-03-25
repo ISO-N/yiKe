@@ -14,6 +14,20 @@ private data class DeckOptionSnapshot(
 )
 
 /**
+ * 练习范围投影把 deck/card/question 三层候选与归一化后的选择集中打包，
+ * 是为了让 ViewModel 只消费“一轮范围计算的结果”，而不再手动拼接多份中间集合。
+ */
+internal data class PracticeSelectionProjection(
+    val deckOptions: List<PracticeDeckOptionUiModel>,
+    val cardOptions: List<PracticeCardOptionUiModel>,
+    val questionOptions: List<PracticeQuestionOptionUiModel>,
+    val selectedDeckIds: Set<String>,
+    val selectedCardIds: Set<String>,
+    val selectedQuestionIds: Set<String>?,
+    val effectiveQuestionCount: Int
+)
+
+/**
  * deck 过滤先于 card 与 question 生效，是为了让“选择若干卡组”天然成为下层候选的父范围。
  */
 fun List<QuestionContext>.filterBySelectedDecks(selectedDeckIds: Set<String>): List<QuestionContext> {
@@ -93,6 +107,53 @@ fun MutableSet<String>.applyToggle(id: String): Set<String> {
         remove(id)
     }
     return toSet()
+}
+
+/**
+ * deck/card/question 三层范围统一在纯函数里投影，是为了把合法性校验、全选回退和候选重建固定成单一口径。
+ */
+internal fun buildPracticeSelectionProjection(
+    allQuestionContexts: List<QuestionContext>,
+    selectedDeckIds: Set<String>,
+    selectedCardIds: Set<String>,
+    selectedQuestionIds: Set<String>?
+): PracticeSelectionProjection {
+    val deckOptions = buildDeckOptions(
+        allQuestionContexts = allQuestionContexts,
+        selectedDeckIds = selectedDeckIds
+    )
+    val normalizedDeckIds = selectedDeckIds.intersect(deckOptions.mapTo(LinkedHashSet()) { it.deckId })
+    val deckScopedContexts = allQuestionContexts.filterBySelectedDecks(normalizedDeckIds)
+    val cardOptions = buildCardOptions(
+        questionContexts = deckScopedContexts,
+        selectedCardIds = selectedCardIds
+    )
+    val normalizedCardIds = selectedCardIds.intersect(cardOptions.mapTo(LinkedHashSet()) { it.cardId })
+    val questionScopedContexts = deckScopedContexts.filterBySelectedCards(normalizedCardIds)
+    val availableQuestionIds = questionScopedContexts.mapTo(LinkedHashSet()) { it.question.id }
+    val normalizedQuestionIds = selectedQuestionIds
+        ?.intersect(availableQuestionIds)
+        ?.normalizeQuestionSelection(availableQuestionIds)
+    val questionOptions = questionScopedContexts.map { context ->
+        PracticeQuestionOptionUiModel(
+            questionId = context.question.id,
+            cardId = context.question.cardId,
+            deckName = context.deckName,
+            cardTitle = context.cardTitle,
+            prompt = context.question.prompt,
+            answerPreview = context.question.answer.ifBlank { "无答案" }.take(48),
+            isSelected = normalizedQuestionIds?.contains(context.question.id) ?: true
+        )
+    }
+    return PracticeSelectionProjection(
+        deckOptions = deckOptions,
+        cardOptions = cardOptions,
+        questionOptions = questionOptions,
+        selectedDeckIds = normalizedDeckIds,
+        selectedCardIds = normalizedCardIds,
+        selectedQuestionIds = normalizedQuestionIds,
+        effectiveQuestionCount = normalizedQuestionIds?.size ?: questionOptions.size
+    )
 }
 
 /**
