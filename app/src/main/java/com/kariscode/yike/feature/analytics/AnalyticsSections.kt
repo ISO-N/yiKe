@@ -21,6 +21,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import com.kariscode.yike.domain.model.StreakAchievement
+import com.kariscode.yike.domain.model.StreakAchievementUnlock
 import com.kariscode.yike.ui.component.YikeBadge
 import com.kariscode.yike.ui.component.YikeHeroCard
 import com.kariscode.yike.ui.component.YikeMetricCard
@@ -88,6 +90,50 @@ internal fun AnalyticsMetricSection(
                 value = uiState.totalReviews.toString(),
                 label = "完成题量",
                 modifier = Modifier.weight(1f)
+            )
+        }
+    }
+}
+
+/**
+ * 成就次级区承接首页以外的成就展示，是为了让首页 Hero 继续保持“最高徽章 + streak”的聚焦叙事，
+ * 同时仍给用户一个可回顾全部进度的稳定入口。
+ */
+@Composable
+internal fun AnalyticsAchievementSection(
+    streakAchievementUnlocks: List<StreakAchievementUnlock>
+) {
+    val achievements = streakAchievementUnlocks
+        .mapNotNull { unlock -> StreakAchievement.fromId(unlock.achievementId) }
+        .distinctBy { it.id }
+        .sortedByDescending { it.requiredDays }
+
+    YikeSurfaceCard {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(text = "成就进度", style = MaterialTheme.typography.titleLarge)
+            YikeBadge(text = "${achievements.size}/${StreakAchievement.entries.size}")
+        }
+
+        if (achievements.isEmpty()) {
+            Text(
+                text = "连续学习 3 天即可解锁第一枚徽章，进度会跟随备份与同步一起保存。",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        } else {
+            Row(horizontalArrangement = Arrangement.spacedBy(LocalYikeSpacing.current.sm)) {
+                achievements.forEach { achievement ->
+                    YikeBadge(text = achievement.title)
+                }
+            }
+            Text(
+                text = "首页只展示最高徽章，其余解锁徽章统一收纳在这里，避免主视觉变成信息墙。",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
     }

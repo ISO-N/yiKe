@@ -11,7 +11,9 @@ import com.kariscode.yike.core.domain.time.TimeProvider
 import com.kariscode.yike.core.domain.time.calculateStudyStreakDays
 import com.kariscode.yike.core.ui.viewmodel.restartStateResult
 import com.kariscode.yike.core.ui.viewmodel.typedViewModelFactory
+import com.kariscode.yike.domain.model.StreakAchievementUnlock
 import com.kariscode.yike.domain.model.ReviewAnalyticsSnapshot
+import com.kariscode.yike.domain.repository.AppSettingsRepository
 import com.kariscode.yike.domain.repository.StudyInsightsRepository
 import java.time.ZoneId
 import kotlinx.coroutines.Job
@@ -59,6 +61,7 @@ data class AnalyticsUiState(
     val isLoading: Boolean,
     val selectedRange: AnalyticsRange,
     val streakDays: Int,
+    val streakAchievementUnlocks: List<StreakAchievementUnlock>,
     val totalReviews: Int,
     val averageResponseSeconds: Int,
     val forgettingRatePercent: Int,
@@ -74,6 +77,7 @@ data class AnalyticsUiState(
  */
 class AnalyticsViewModel(
     private val studyInsightsRepository: StudyInsightsRepository,
+    private val appSettingsRepository: AppSettingsRepository,
     private val timeProvider: TimeProvider,
     private val zoneId: ZoneId = ZoneId.systemDefault()
 ) : ViewModel() {
@@ -87,6 +91,7 @@ class AnalyticsViewModel(
             isLoading = true,
             selectedRange = AnalyticsRange.LAST_7_DAYS,
             streakDays = 0,
+            streakAchievementUnlocks = emptyList(),
             totalReviews = 0,
             averageResponseSeconds = 0,
             forgettingRatePercent = 0,
@@ -103,6 +108,17 @@ class AnalyticsViewModel(
          * 首次进入默认展示最近 7 天，是为了先回答用户最关心的“这周状态怎么样”。
          */
         refresh()
+
+        /**
+         * 成就记录来自设置仓储并可能由同步/恢复回放更新，因此持续订阅可让统计页次级区域实时反映进度。
+         */
+        viewModelScope.launch {
+            appSettingsRepository.observeSettings().collect { settings ->
+                _uiState.update { state ->
+                    state.copy(streakAchievementUnlocks = settings.streakAchievementUnlocks)
+                }
+            }
+        }
     }
 
     /**
@@ -213,10 +229,12 @@ class AnalyticsViewModel(
          */
         fun factory(
             studyInsightsRepository: StudyInsightsRepository,
+            appSettingsRepository: AppSettingsRepository,
             timeProvider: TimeProvider
         ): ViewModelProvider.Factory = typedViewModelFactory {
             AnalyticsViewModel(
                 studyInsightsRepository = studyInsightsRepository,
+                appSettingsRepository = appSettingsRepository,
                 timeProvider = timeProvider
             )
         }

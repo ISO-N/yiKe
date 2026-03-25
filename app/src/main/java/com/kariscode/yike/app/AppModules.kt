@@ -320,6 +320,8 @@ private val viewModelModule = module {
     viewModel {
         HomeViewModel(
             getHomeOverviewUseCase = get(),
+            studyInsightsRepository = get(),
+            appSettingsRepository = get(),
             timeProvider = get()
         )
     }
@@ -393,6 +395,7 @@ private val viewModelModule = module {
     viewModel {
         AnalyticsViewModel(
             studyInsightsRepository = get(),
+            appSettingsRepository = get(),
             timeProvider = get()
         )
     }

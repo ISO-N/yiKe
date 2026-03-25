@@ -42,6 +42,8 @@ object HomeStateFactory {
         ),
         recentDecks = emptyList(),
         contentMode = HomeContentMode.CONTENT_EMPTY,
+        streakDays = 0,
+        highestAchievement = null,
         errorMessage = errorMessage
     )
 

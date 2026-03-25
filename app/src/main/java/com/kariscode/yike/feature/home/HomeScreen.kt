@@ -15,6 +15,7 @@ import com.kariscode.yike.BuildConfig
 import com.kariscode.yike.core.ui.message.ErrorMessages
 import com.kariscode.yike.domain.model.DeckSummary
 import com.kariscode.yike.domain.model.PracticeSessionArgs
+import com.kariscode.yike.domain.model.StreakAchievement
 import com.kariscode.yike.navigation.YikeNavigator
 import com.kariscode.yike.ui.component.YikeBadge
 import com.kariscode.yike.ui.component.YikeHeaderBlock
@@ -30,6 +31,7 @@ import com.kariscode.yike.ui.component.YikePullToRefresh
 import com.kariscode.yike.ui.component.YikeScrollableColumn
 import com.kariscode.yike.ui.component.YikeSecondaryButton
 import com.kariscode.yike.ui.component.YikeShimmerBlock
+import com.kariscode.yike.ui.component.YikeStreakFlame
 import com.kariscode.yike.ui.component.YikeStateBanner
 import com.kariscode.yike.ui.component.YikeEmptyStateIcon
 import com.kariscode.yike.ui.theme.LocalYikeSpacing
@@ -116,6 +118,8 @@ fun HomeContent(
                 else -> {
                     HomeHeroSection(
                         contentMode = uiState.contentMode,
+                        streakDays = uiState.streakDays,
+                        highestAchievement = uiState.highestAchievement,
                         dueCards = uiState.summary.dueCardCount,
                         dueQuestions = uiState.summary.dueQuestionCount,
                         navigator = navigator
@@ -149,24 +153,29 @@ fun HomeContent(
 @Composable
 private fun HomeHeroSection(
     contentMode: HomeContentMode,
+    streakDays: Int,
+    highestAchievement: StreakAchievement?,
     dueCards: Int,
     dueQuestions: Int,
     navigator: YikeNavigator
 ) {
     val spacing = LocalYikeSpacing.current
     YikeHeroCard(
-        eyebrow = "今日复习",
-        title = when (contentMode) {
-            HomeContentMode.REVIEW_READY -> "$dueQuestions 个问题待复习"
-            HomeContentMode.REVIEW_CLEARED -> "今天的复习已经清空"
-            HomeContentMode.CONTENT_EMPTY -> "先创建第一组学习内容"
-        },
-        description = when (contentMode) {
-            HomeContentMode.REVIEW_READY -> "从最早到期的卡片开始，优先把今天的复习闭环做完。"
-            HomeContentMode.REVIEW_CLEARED -> "今天已经没有到期题目，可以回看今日预览，或继续补充卡组内容。"
-            HomeContentMode.CONTENT_EMPTY -> "目前还没有可进入复习流的内容，先创建卡组和卡片再开始积累。"
-        }
+        eyebrow = "连续学习",
+        title = if (streakDays > 0) "连续学习 $streakDays 天" else "从今天开始建立连续节奏",
+        description = highestAchievement?.let { achievement ->
+            "最高成就：${achievement.title}（${achievement.requiredDays} 天）"
+        } ?: "连续学习 3 天可解锁「${StreakAchievement.FIRST_SPARK.title}」。"
     ) {
+        Row(horizontalArrangement = Arrangement.spacedBy(spacing.md), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+            YikeStreakFlame(streakDays = streakDays)
+            Column(verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
+                YikeBadge(text = if (streakDays > 0) "${streakDays} 天连学" else "尚未形成连续学习")
+                highestAchievement?.let { achievement ->
+                    YikeBadge(text = "最高徽章：${achievement.title}")
+                }
+            }
+        }
         Row(horizontalArrangement = Arrangement.spacedBy(spacing.md)) {
             YikeMetricCard(
                 value = dueCards.toString(),
