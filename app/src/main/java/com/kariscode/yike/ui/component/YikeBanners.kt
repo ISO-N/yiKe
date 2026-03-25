@@ -14,6 +14,12 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.ErrorOutline
 import androidx.compose.material.icons.outlined.Inbox
@@ -25,11 +31,16 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.kariscode.yike.ui.theme.LocalYikeSpacing
+import com.kariscode.yike.ui.theme.rememberYikeDuration
 
 /**
  * 状态区块统一承载加载、空、成功和错误提示，避免各页面用不同文案层级表达相同状态。
@@ -210,3 +221,62 @@ fun YikeSkeletonBlock(
     )
 }
 
+/**
+ * Shimmer 骨架块用渐变扫光替代静态占位，是为了在加载时间稍长时仍给出“正在准备内容”的动势反馈，
+ * 同时保持页面布局在真实内容回填前稳定不跳动。
+ */
+@Composable
+fun YikeShimmerBlock(
+    modifier: Modifier = Modifier,
+    height: androidx.compose.ui.unit.Dp = 20.dp
+) {
+    val durationMillis = rememberYikeDuration(1_000)
+    val shape = MaterialTheme.shapes.medium
+    val baseColor = MaterialTheme.colorScheme.surfaceContainerHighest
+    val highlightColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.18f)
+
+    if (durationMillis == 0) {
+        YikeSkeletonBlock(
+            modifier = modifier,
+            height = height
+        )
+        return
+    }
+
+    val transition = rememberInfiniteTransition(label = "yike_shimmer")
+    val progress = transition.animateFloat(
+        initialValue = -1f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = durationMillis, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "yike_shimmer_progress"
+    )
+
+    val colors = listOf(
+        baseColor.copy(alpha = 0.9f),
+        highlightColor,
+        baseColor.copy(alpha = 0.9f)
+    )
+
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(height)
+            .clip(shape)
+            .background(color = baseColor)
+            .drawWithCache {
+                val width = size.width.takeIf { it > 0f } ?: 1f
+                val startX = progress.value * width
+                val brush = Brush.linearGradient(
+                    colors = colors,
+                    start = Offset(x = startX, y = 0f),
+                    end = Offset(x = startX + width, y = 0f)
+                )
+                onDrawBehind {
+                    drawRect(brush = brush)
+                }
+            }
+    )
+}
