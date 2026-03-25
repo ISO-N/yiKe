@@ -67,30 +67,31 @@ class QuestionSearchViewModel(
      * 主动刷新会同步重取标签和卡组，是为了避免内容维护后返回搜索页仍看到过期筛选项。
      */
     fun refresh() {
-        launchStateResult(
-            state = _uiState,
-            action = {
+        launchStateResult(state = _uiState) {
+            action {
                 val snapshot = _uiState.value
                 parallel(
                     first = { loadSearchMetadata(snapshot.selectedDeckId) },
                     second = { searchQuestions(snapshot) }
                 )
-            },
-            onStart = { it.copy(isLoading = true, errorMessage = null) },
-            onSuccess = { state, (metadata, results) ->
+            }
+            onStart { it.copy(isLoading = true, errorMessage = null) }
+            onSuccess { state, result ->
+                val metadata = result.first
+                val results = result.second
                 QuestionSearchStateFactory.withMetadata(
                     state = state,
                     metadata = metadata,
                     results = results
                 )
-            },
-            onFailure = { state, throwable ->
+            }
+            onFailure { state, throwable ->
                 state.copy(
                     isLoading = false,
                     errorMessage = throwable.userMessageOr(ErrorMessages.SEARCH_LOAD_FAILED)
                 )
             }
-        )
+        }
     }
 
     /**

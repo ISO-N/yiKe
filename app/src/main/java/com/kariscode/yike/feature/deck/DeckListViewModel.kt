@@ -230,10 +230,9 @@ class DeckListViewModel(
      * 题库标签补全单独读取，是为了让卡组标签能复用用户已经在问题层建立的分类词汇。
      */
     private fun refreshAvailableTags() {
-        launchStateResult(
-            state = _uiState,
-            action = { getDeckAvailableTagsUseCase(limit = 12) },
-            onSuccess = { state, tags ->
+        launchStateResult(state = _uiState) {
+            action { getDeckAvailableTagsUseCase(limit = 12) }
+            onSuccess { state, tags ->
                 insightTags = DeckTagNormalizer.normalize(tags)
                 DeckListStateReducer.availableTagsLoaded(
                     state = state,
@@ -242,9 +241,9 @@ class DeckListViewModel(
                         insightTags = insightTags
                     )
                 )
-            },
-            onFailure = { state, _ -> state }
-        )
+            }
+            onFailure { state, _ -> state }
+        }
     }
 
     /**

@@ -330,12 +330,11 @@ class CardListViewModel(
      */
     private fun refreshMasterySummary() {
         masterySummaryJob?.cancel()
-        masterySummaryJob = launchStateResult(
-            state = _uiState,
-            action = { getDeckCardMasterySummaryUseCase(deckId).toUiModel() },
-            onSuccess = CardListStateReducer::masteryLoaded,
-            onFailure = { state, _ -> CardListStateReducer.masteryLoadFailed(state) }
-        )
+        masterySummaryJob = launchStateResult(state = _uiState) {
+            action { getDeckCardMasterySummaryUseCase(deckId).toUiModel() }
+            onSuccess(CardListStateReducer::masteryLoaded)
+            onFailure { state, _ -> CardListStateReducer.masteryLoadFailed(state) }
+        }
     }
 
     /**
