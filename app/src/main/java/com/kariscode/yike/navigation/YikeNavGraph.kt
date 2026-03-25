@@ -118,7 +118,27 @@ fun YikeNavGraph(
                 val deckId = entry.requireStringArg(NavArguments.DECK_ID)
                 CardListScreen(
                     deckId = deckId,
-                    navigator = navigator
+                    navigator = navigator,
+                    openCreateCardOnStart = false
+                )
+            }
+
+            composable(
+                route = YikeDestination.CARD_LIST_ROUTE,
+                arguments = listOf(
+                    navArgument(NavArguments.DECK_ID) { type = NavType.StringType },
+                    navArgument(NavArguments.CREATE_CARD) {
+                        type = NavType.BoolType
+                        defaultValue = false
+                    }
+                )
+            ) { entry ->
+                val deckId = entry.requireStringArg(NavArguments.DECK_ID)
+                val openCreateCard = entry.arguments?.getBoolean(NavArguments.CREATE_CARD) ?: false
+                CardListScreen(
+                    deckId = deckId,
+                    navigator = navigator,
+                    openCreateCardOnStart = openCreateCard
                 )
             }
 

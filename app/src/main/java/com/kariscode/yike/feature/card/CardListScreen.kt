@@ -13,7 +13,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.dp
@@ -54,12 +56,25 @@ import org.koin.core.parameter.parametersOf
 fun CardListScreen(
     deckId: String,
     navigator: YikeNavigator,
+    openCreateCardOnStart: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     val viewModel = koinViewModel<CardListViewModel>(
         parameters = { parametersOf(deckId) }
     )
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    var hasAutoOpenedCreateCard by rememberSaveable { mutableStateOf(false) }
+
+    /**
+     * Shortcuts/Widget 可能会要求在进入卡片列表后立刻打开“新建卡片”弹窗；
+     * 这里用一次性标记守住“只触发一次”的语义，避免重组或状态刷新反复弹窗。
+     */
+    LaunchedEffect(openCreateCardOnStart) {
+        if (openCreateCardOnStart && !hasAutoOpenedCreateCard) {
+            viewModel.onCreateCardClick()
+            hasAutoOpenedCreateCard = true
+        }
+    }
 
     YikeOperationSnackbarEffect(
         successMessage = uiState.message,

@@ -14,6 +14,7 @@ import com.kariscode.yike.domain.model.ThemeMode
 import com.kariscode.yike.navigation.YikeAppLinks
 import com.kariscode.yike.navigation.YikeDestination
 import com.kariscode.yike.navigation.YikeNavGraph
+import androidx.navigation.NavHostController
 import com.kariscode.yike.ui.theme.LocalYikeAdaptiveLayout
 import com.kariscode.yike.ui.theme.YikeTheme
 import com.kariscode.yike.ui.theme.yikeAdaptiveLayoutFor
@@ -49,7 +50,7 @@ fun YikeApp(
             YikeLaunchIntentEffect(
                 container = container,
                 launchIntent = launchIntent,
-                onOpenReviewQueue = { navController.navigate(YikeDestination.REVIEW_QUEUE) }
+                navController = navController
             )
             YikeNavGraph(
                 navController = navController,
@@ -67,12 +68,26 @@ fun YikeApp(
 private fun YikeLaunchIntentEffect(
     container: AppContainer,
     launchIntent: Intent?,
-    onOpenReviewQueue: () -> Unit
+    navController: NavHostController
 ) {
     LaunchedEffect(launchIntent) {
         val uri = launchIntent?.data ?: return@LaunchedEffect
         if (YikeAppLinks.isShortcutReview(uri)) {
-            onOpenReviewQueue()
+            navController.navigate(YikeDestination.REVIEW_QUEUE)
+            return@LaunchedEffect
+        }
+        if (YikeAppLinks.isShortcutNewCard(uri)) {
+            val now = container.timeProvider.nowEpochMillis()
+            val recentDeckId = container.deckRepository
+                .listRecentActiveDeckSummaries(nowEpochMillis = now, limit = 1)
+                .firstOrNull()
+                ?.deck
+                ?.id
+            if (recentDeckId == null) {
+                navController.navigate(YikeDestination.DECK_LIST)
+                return@LaunchedEffect
+            }
+            navController.navigate(YikeDestination.cardList(deckId = recentDeckId, createCard = true))
         }
     }
 }
