@@ -176,6 +176,21 @@ class SettingsViewModel(
     }
 
     /**
+     * Snackbar 负责展示一次性成功提示，因此展示后需要清理 message，
+     * 以免配置变更或重新进入页面时重复弹出同一条反馈。
+     */
+    fun consumeMessage() {
+        _uiState.update { it.copy(message = null) }
+    }
+
+    /**
+     * 错误提示同样属于一次性反馈，展示后清理可以避免用户在恢复后仍被旧错误反复打断。
+     */
+    fun consumeErrorMessage() {
+        _uiState.update { it.copy(errorMessage = null) }
+    }
+
+    /**
      * 开关写入与提醒重建封装成一个入口，是为了保证成功与失败反馈都围绕同一条业务路径。
      */
     private fun persistReminderEnabled(enabled: Boolean, showPermissionWarning: Boolean) {

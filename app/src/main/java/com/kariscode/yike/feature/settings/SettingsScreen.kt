@@ -32,7 +32,7 @@ import com.kariscode.yike.navigation.YikeNavigator
 import com.kariscode.yike.ui.component.CollectFlowEffect
 import com.kariscode.yike.ui.component.YikeBadge
 import com.kariscode.yike.ui.component.YikeListItemCard
-import com.kariscode.yike.ui.component.YikeOperationFeedback
+import com.kariscode.yike.ui.component.YikeOperationSnackbarEffect
 import com.kariscode.yike.ui.component.YikePrimaryButton
 import com.kariscode.yike.ui.component.YikePrimaryDestination
 import com.kariscode.yike.ui.component.YikePrimaryScaffold
@@ -98,6 +98,8 @@ fun SettingsScreen(
             onOpenLanSync = viewModel::onLanSyncClick,
             onOpenWebConsole = viewModel::onWebConsoleClick,
             onOpenRecycleBin = navigator::openRecycleBin,
+            onConsumeMessage = viewModel::consumeMessage,
+            onConsumeErrorMessage = viewModel::consumeErrorMessage,
             modifier = modifier,
             contentPadding = padding
         )
@@ -130,6 +132,8 @@ private fun SettingsContent(
     onOpenLanSync: () -> Unit,
     onOpenWebConsole: () -> Unit,
     onOpenRecycleBin: () -> Unit,
+    onConsumeMessage: () -> Unit,
+    onConsumeErrorMessage: () -> Unit,
     modifier: Modifier = Modifier,
     contentPadding: PaddingValues = PaddingValues()
 ) {
@@ -153,11 +157,11 @@ private fun SettingsContent(
         )
         SettingsOverviewSection()
 
-        YikeOperationFeedback(
+        YikeOperationSnackbarEffect(
             successMessage = uiState.message,
             errorMessage = uiState.errorMessage,
-            successTitle = "设置已更新",
-            errorTitle = "设置更新失败"
+            onSuccessConsumed = onConsumeMessage,
+            onErrorConsumed = onConsumeErrorMessage
         )
 
         ReminderSettingsSection(

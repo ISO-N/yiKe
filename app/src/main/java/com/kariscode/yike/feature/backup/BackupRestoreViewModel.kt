@@ -87,6 +87,21 @@ class BackupRestoreViewModel(
     }
 
     /**
+     * Snackbar 展示完成功提示后清理 message，
+     * 避免页面旋转或返回再进入时重复弹出导出/恢复结果。
+     */
+    fun consumeMessage() {
+        _uiState.update { it.copy(message = null) }
+    }
+
+    /**
+     * 失败提示同样属于一次性反馈，展示后清理能防止后续重试成功却仍被旧错误反复打断。
+     */
+    fun consumeErrorMessage() {
+        _uiState.update { it.copy(errorMessage = null) }
+    }
+
+    /**
      * 导出入口只负责触发系统文件创建器，
      * 真正写文件要等用户明确选择保存位置后再执行。
      */

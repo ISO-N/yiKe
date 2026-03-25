@@ -18,7 +18,7 @@ import com.kariscode.yike.ui.component.backNavigationAction
 import com.kariscode.yike.ui.component.YikeBadge
 import com.kariscode.yike.ui.component.YikeDangerConfirmationDialog
 import com.kariscode.yike.ui.component.YikeFlowScaffold
-import com.kariscode.yike.ui.component.YikeOperationFeedback
+import com.kariscode.yike.ui.component.YikeOperationSnackbarEffect
 import com.kariscode.yike.ui.component.YikePrimaryButton
 import com.kariscode.yike.ui.component.YikeScrollableColumn
 import com.kariscode.yike.ui.component.YikeSecondaryButton
@@ -53,6 +53,13 @@ fun BackupRestoreScreen(
             BackupRestoreEffect.LaunchImport -> importLauncher.launch(arrayOf("application/json"))
         }
     }
+
+    YikeOperationSnackbarEffect(
+        successMessage = uiState.message,
+        errorMessage = uiState.errorMessage,
+        onSuccessConsumed = viewModel::consumeMessage,
+        onErrorConsumed = viewModel::consumeErrorMessage
+    )
 
     YikeFlowScaffold(
         title = "备份与恢复",
@@ -141,11 +148,6 @@ fun BackupRestoreContent(
                 enabled = !uiState.isExporting && !uiState.isImporting
             )
         }
-
-        YikeOperationFeedback(
-            successMessage = uiState.message,
-            errorMessage = uiState.errorMessage
-        )
     }
 }
 
