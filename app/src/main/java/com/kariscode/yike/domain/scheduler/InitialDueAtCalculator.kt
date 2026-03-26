@@ -1,5 +1,6 @@
 package com.kariscode.yike.domain.scheduler
 
+import com.kariscode.yike.core.domain.time.DefaultZoneId
 import com.kariscode.yike.core.domain.time.toLocalDate
 import com.kariscode.yike.core.domain.time.toStartOfDayEpochMillis
 import java.time.ZoneId
@@ -15,7 +16,7 @@ object InitialDueAtCalculator {
      */
     fun compute(
         nowEpochMillis: Long,
-        zoneId: ZoneId = ZoneId.systemDefault()
+        zoneId: ZoneId = DefaultZoneId.current
     ): Long = nowEpochMillis
         .toLocalDate(zoneId)
         .plusDays(1)

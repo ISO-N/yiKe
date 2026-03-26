@@ -1,6 +1,7 @@
 package com.kariscode.yike.feature.review
 
 import androidx.lifecycle.ViewModel
+import com.kariscode.yike.core.domain.time.DefaultZoneId
 import com.kariscode.yike.core.domain.time.TimeProvider
 import com.kariscode.yike.core.ui.message.ErrorMessages
 import com.kariscode.yike.core.ui.message.userMessageOr
@@ -12,7 +13,6 @@ import com.kariscode.yike.domain.repository.ReviewRepository
 import com.kariscode.yike.domain.scheduler.ReviewSchedulerV1
 import com.kariscode.yike.domain.usecase.LoadReviewCardSessionUseCase
 import com.kariscode.yike.domain.usecase.SubmitReviewRatingUseCase
-import java.time.ZoneId
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -322,7 +322,7 @@ private fun Question.toReviewQuestionUiModel(
         dueAtEpochMillis = dueAt,
         reviewedAtEpochMillis = nowEpochMillis,
         intervalStepCount = intervalStepCount,
-        zoneId = ZoneId.systemDefault()
+        zoneId = DefaultZoneId.current
     )
     val overdueBadgeText = overdueAssessment.overdueDays
         .takeIf { overdueDays -> overdueDays > 0 }
@@ -349,7 +349,7 @@ private fun Question.toReviewQuestionUiModel(
                 reviewedAtEpochMillis = nowEpochMillis,
                 dueAtEpochMillis = dueAt,
                 intervalStepCount = intervalStepCount,
-                zoneId = ZoneId.systemDefault()
+                zoneId = DefaultZoneId.current
             )
             ReviewRatingHintUiModel(
                 rating = rating,

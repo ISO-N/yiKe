@@ -3,11 +3,11 @@ package com.kariscode.yike.data.reminder
 import androidx.work.ExistingWorkPolicy
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
+import com.kariscode.yike.core.domain.time.DefaultZoneId
 import com.kariscode.yike.core.domain.time.TimeProvider
 import com.kariscode.yike.domain.model.AppSettings
 import com.kariscode.yike.domain.reminder.ReminderTimeCalculator
 import com.kariscode.yike.domain.repository.AppSettingsRepository
-import java.time.ZoneId
 import java.util.concurrent.TimeUnit
 
 /**
@@ -47,7 +47,7 @@ class ReminderScheduler(
             nowEpochMillis = now,
             reminderHour = settings.dailyReminderHour,
             reminderMinute = settings.dailyReminderMinute,
-            zoneId = ZoneId.systemDefault()
+            zoneId = DefaultZoneId.current
         )
         val initialDelay = (triggerAt - now).coerceAtLeast(0L)
         val request = OneTimeWorkRequestBuilder<ReminderCheckWorker>()

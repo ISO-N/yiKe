@@ -3,6 +3,7 @@ package com.kariscode.yike.ui.format
 import com.kariscode.yike.core.domain.time.toInstant
 import com.kariscode.yike.core.domain.time.toLocalDate
 import com.kariscode.yike.core.domain.time.toLocalDateTime
+import com.kariscode.yike.core.domain.time.DefaultZoneId
 import com.kariscode.yike.core.domain.time.TimeTextFormatter
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -11,7 +12,7 @@ import java.time.format.DateTimeFormatter
  * 页面展示时间统一走同一 formatter，是为了让设置页与备份页对"本地时间"的表达保持一致，
  * 后续若要改展示格式时也只需要调整一个位置。
  */
-fun formatLocalDateTime(epochMillis: Long, zoneId: ZoneId = ZoneId.systemDefault()): String =
+fun formatLocalDateTime(epochMillis: Long, zoneId: ZoneId = DefaultZoneId.current): String =
     epochMillis
         .toLocalDateTime(zoneId)
         .toString()
@@ -35,7 +36,7 @@ object UiDateTimeFormatters {
  * 预览类时间统一格式化到月日时分，是为了让搜索结果、今日预览和后续复习入口对“本地到期时间”保持同一口径，
  * 避免页面各自重复写 `Instant -> ZoneId -> Formatter` 的模板。
  */
-fun formatPreviewDateTime(epochMillis: Long, zoneId: ZoneId = ZoneId.systemDefault()): String =
+fun formatPreviewDateTime(epochMillis: Long, zoneId: ZoneId = DefaultZoneId.current): String =
     epochMillis
         .toInstant()
         .atZone(zoneId)
@@ -44,7 +45,7 @@ fun formatPreviewDateTime(epochMillis: Long, zoneId: ZoneId = ZoneId.systemDefau
 /**
  * 到期日期统一格式化为月日文本，是为了让自然日调度在所有入口都表达成“哪一天该复习”，而不是实现细节上的零点。
  */
-fun formatPreviewDay(epochMillis: Long, zoneId: ZoneId = ZoneId.systemDefault()): String =
+fun formatPreviewDay(epochMillis: Long, zoneId: ZoneId = DefaultZoneId.current): String =
     epochMillis
         .toLocalDate(zoneId)
         .format(UiDateTimeFormatters.PREVIEW_DAY)

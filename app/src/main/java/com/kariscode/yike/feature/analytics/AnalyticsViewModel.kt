@@ -7,6 +7,7 @@ import com.kariscode.yike.core.ui.message.ErrorMessages
 import com.kariscode.yike.core.ui.message.userMessageOr
 import com.kariscode.yike.core.domain.time.TimeConstants
 import com.kariscode.yike.core.domain.time.TimeProvider
+import com.kariscode.yike.core.domain.time.DefaultZoneId
 import com.kariscode.yike.core.domain.time.calculateStudyStreakDays
 import com.kariscode.yike.core.ui.viewmodel.restartStateResult
 import com.kariscode.yike.domain.model.StreakAchievementUnlock
@@ -110,7 +111,7 @@ class AnalyticsViewModel(
     private val studyInsightsRepository: StudyInsightsRepository,
     private val appSettingsRepository: AppSettingsRepository,
     private val timeProvider: TimeProvider,
-    private val zoneId: ZoneId = ZoneId.systemDefault()
+    private val zoneId: ZoneId = DefaultZoneId.current
 ) : ViewModel() {
     /**
      * 刷新任务单独持有引用，是为了在用户快速切换统计范围时取消旧查询，避免陈旧结果回写。

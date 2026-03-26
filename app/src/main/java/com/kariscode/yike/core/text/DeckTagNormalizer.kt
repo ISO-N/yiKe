@@ -1,22 +1,21 @@
-package com.kariscode.yike.feature.deck
+package com.kariscode.yike.core.text
 
+import com.kariscode.yike.core.string.normalizeSpaces
 import com.kariscode.yike.domain.model.DeckSummary
 
 /**
- * 标签清洗与候选合并抽成纯 helper，是为了让卡组编辑、补全和未来检索入口共享同一套口径，
- * 而不是把字符串规则散落在 ViewModel 的不同分支里。
+ * 标签清洗与候选合并抽到 core/text，是为了让“同样的标签输入”在不同入口保持一致的归一化口径，
+ * 避免后续搜索/补全出现肉眼相同却存成多份的噪声。
  */
-internal object DeckTagNormalizer {
+object DeckTagNormalizer {
     /**
-     * 标签在保存前统一清洗空白和大小写重复，是为了避免后续搜索与补全出现肉眼相同却存成两份的噪声。
+     * 保存前统一清洗空白与大小写重复，是为了避免“Tag / tag /  Tag ”这类视觉相同但语义重复的输入污染候选集合。
      */
     fun normalize(tags: List<String>): List<String> {
         val normalizedTags = mutableListOf<String>()
         val deduplicatedKeys = linkedSetOf<String>()
         tags.forEach { rawTag ->
-            val normalizedTag = rawTag
-                .trim()
-                .replace(Regex("\\s+"), " ")
+            val normalizedTag = rawTag.normalizeSpaces()
             if (normalizedTag.isBlank()) {
                 return@forEach
             }
@@ -28,7 +27,7 @@ internal object DeckTagNormalizer {
     }
 
     /**
-     * 卡组列表与题库洞察都可能贡献候选标签，因此合并逻辑统一收口后才能保证弹窗与列表筛选看到一致集合。
+     * 列表与洞察都可能贡献候选标签，统一合并后再排序，是为了让弹窗与筛选看到的是同一套稳定集合。
      */
     fun mergeAvailableTags(
         items: List<DeckSummary>,
@@ -37,3 +36,4 @@ internal object DeckTagNormalizer {
         insightTags + items.flatMap { summary -> summary.deck.tags }
     ).sortedBy { tag -> tag.lowercase() }
 }
+

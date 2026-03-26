@@ -1,11 +1,11 @@
 package com.kariscode.yike.domain.usecase
 
 import com.kariscode.yike.core.domain.time.TimeProvider
+import com.kariscode.yike.core.domain.time.DefaultZoneId
 import com.kariscode.yike.core.domain.time.toLocalDate
 import com.kariscode.yike.core.domain.time.toStartOfDayEpochMillis
 import com.kariscode.yike.domain.model.DeckSummary
 import com.kariscode.yike.domain.repository.DeckRepository
-import java.time.ZoneId
 import kotlinx.coroutines.flow.Flow
 
 /**
@@ -23,8 +23,8 @@ class ObserveDeckSummariesUseCase(
     operator fun invoke(): Flow<List<DeckSummary>> =
         deckRepository.observeActiveDeckSummaries(
             timeProvider.nowEpochMillis()
-                .toLocalDate(ZoneId.systemDefault())
-                .toStartOfDayEpochMillis(ZoneId.systemDefault())
+                .toLocalDate(DefaultZoneId.current)
+                .toStartOfDayEpochMillis(DefaultZoneId.current)
         )
 }
 

@@ -3,6 +3,7 @@ package com.kariscode.yike.data.export
 import android.app.Application
 import android.net.Uri
 import com.kariscode.yike.core.domain.dispatchers.AppDispatchers
+import com.kariscode.yike.core.domain.time.DefaultZoneId
 import com.kariscode.yike.core.domain.time.toLocalDate
 import com.kariscode.yike.data.local.db.dao.QuestionDao
 import com.kariscode.yike.data.mapper.decodeTags
@@ -20,7 +21,7 @@ class CsvExporter(
     private val application: Application,
     private val questionDao: QuestionDao,
     private val dispatchers: AppDispatchers,
-    private val zoneId: ZoneId = ZoneId.systemDefault()
+    private val zoneId: ZoneId = DefaultZoneId.current
 ) {
     /**
      * 导出入口以 Uri 作为目标，是为了复用 SAF 的权限模型，

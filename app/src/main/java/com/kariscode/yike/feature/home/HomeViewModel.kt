@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import com.kariscode.yike.core.ui.message.ErrorMessages
 import com.kariscode.yike.core.ui.message.userMessageOr
 import com.kariscode.yike.core.domain.time.TimeProvider
+import com.kariscode.yike.core.domain.time.DefaultZoneId
 import com.kariscode.yike.core.domain.time.calculateStudyStreakDays
 import com.kariscode.yike.core.ui.viewmodel.launchResult
 import com.kariscode.yike.domain.model.DeckSummary
@@ -57,7 +58,7 @@ class HomeViewModel(
     private val studyInsightsRepository: StudyInsightsRepository,
     private val appSettingsRepository: AppSettingsRepository,
     private val timeProvider: TimeProvider,
-    private val zoneId: ZoneId = ZoneId.systemDefault()
+    private val zoneId: ZoneId = DefaultZoneId.current
 ) : ViewModel() {
     /**
      * 刷新需要把“概览 + streak + 最高徽章”组合成一份一致结果，

@@ -3,6 +3,7 @@ package com.kariscode.yike.data.repository
 import androidx.room.withTransaction
 import com.kariscode.yike.core.domain.dispatchers.AppDispatchers
 import com.kariscode.yike.core.domain.id.EntityIds
+import com.kariscode.yike.core.domain.time.DefaultZoneId
 import com.kariscode.yike.data.local.db.YikeDatabase
 import com.kariscode.yike.data.local.db.dao.QuestionDao
 import com.kariscode.yike.data.local.db.dao.ReviewRecordDao
@@ -19,7 +20,6 @@ import com.kariscode.yike.domain.repository.ReviewRepository
 import com.kariscode.yike.domain.scheduler.ReviewScheduler
 import com.kariscode.yike.domain.scheduler.ReviewSchedulerV1
 import kotlinx.coroutines.withContext
-import java.time.ZoneId
 
 /**
  * 复习提交流程需要同时读取当前题目、计算调度、更新题目并写入历史，
@@ -68,7 +68,7 @@ class OfflineReviewRepository(
                 reviewedAtEpochMillis = reviewedAtEpochMillis,
                 dueAtEpochMillis = currentQuestion.dueAt,
                 intervalStepCount = intervalStepCount,
-                zoneId = ZoneId.systemDefault()
+                zoneId = DefaultZoneId.current
             )
 
             val updatedQuestion = currentQuestion.copy(

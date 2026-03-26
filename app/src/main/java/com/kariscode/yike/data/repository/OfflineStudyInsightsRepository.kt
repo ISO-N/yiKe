@@ -1,6 +1,7 @@
 package com.kariscode.yike.data.repository
 
 import com.kariscode.yike.core.domain.dispatchers.AppDispatchers
+import com.kariscode.yike.core.string.trimToNull
 import com.kariscode.yike.data.local.db.dao.QuestionDao
 import com.kariscode.yike.data.local.db.dao.QuestionContextRow
 import com.kariscode.yike.data.local.db.dao.QuestionSearchTokenDao
@@ -33,7 +34,7 @@ class OfflineStudyInsightsRepository(
      */
     override suspend fun searchQuestionContexts(filters: QuestionQueryFilters): List<QuestionContext> =
         dispatchers.onIo {
-            val keyword = filters.keyword.trim().ifBlank { null }
+            val keyword = filters.keyword.trimToNull()
             val keywordTokens = QuestionSearchTokenizer.tokenize(keyword.orEmpty())
             val candidateQuestionIds = resolveCandidateQuestionIds(
                 keyword = keyword,
@@ -44,7 +45,7 @@ class OfflineStudyInsightsRepository(
             }
             loadQuestionContextRows(
                 keyword = keyword,
-                tagKeyword = filters.tag?.trim()?.ifBlank { null },
+                tagKeyword = filters.tag?.trimToNull(),
                 status = filters.status?.storageValue,
                 deckId = filters.deckId,
                 cardId = filters.cardId,

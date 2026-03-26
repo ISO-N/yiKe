@@ -9,7 +9,7 @@ import java.time.ZoneId
 fun calculateStudyStreakDays(
     reviewTimestamps: List<Long>,
     nowEpochMillis: Long,
-    zoneId: ZoneId = ZoneId.systemDefault()
+    zoneId: ZoneId = DefaultZoneId.current
 ): Int {
     val reviewedDates = reviewTimestamps
         .map { timestamp -> timestamp.toLocalDate(zoneId) }
