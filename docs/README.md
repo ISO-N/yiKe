@@ -77,10 +77,13 @@ docs/
 | `navigation-and-screen-state.md` | 定义路由、页面状态和关键事件 |
 | `notification-and-reminder.md` | 定义每日提醒能力与 Android 落地方案 |
 | `storage-and-backup.md` | 定义本地存储、JSON 备份与恢复策略 |
+| `lan-sync-v2-protocol.md` | 说明局域网同步 V2 的架构图、主链路与冲突规则 |
+| `lan-sync-v2-http-api.md` | 说明局域网同步 V2 的 HTTP 端点与协议载荷结构 |
 | `testing-strategy-v1.md` | 定义测试层次、最低验收与重点场景 |
 | `testing-coverage-report.md` | 记录当前测试门禁覆盖、真实空白与回归入口 |
 | `manual-acceptance-v0-1.md` | 首版设备手动验收清单 |
 | `error-handling-and-empty-states.md` | 统一错误状态、空状态与交互文案 |
+| `dependency-injection-evaluation.md` | 评估依赖注入方案（Koin vs Hilt）与迁移触发条件 |
 
 ## 3.4 项目文档 `project/`
 

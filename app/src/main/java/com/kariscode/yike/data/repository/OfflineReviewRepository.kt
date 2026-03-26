@@ -43,7 +43,7 @@ class OfflineReviewRepository(
                 cardId = cardId,
                 activeStatus = QuestionEntity.STATUS_ACTIVE,
                 nowEpochMillis = nowEpochMillis
-            ).map { entity -> entity.toDomain() }
+            ).mapEach { entity -> entity.toDomain() }
         }
 
     /**

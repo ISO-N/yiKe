@@ -2,8 +2,8 @@ package com.kariscode.yike.feature.card
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.compose.runtime.Immutable
 import com.kariscode.yike.core.ui.message.ErrorMessages
-import com.kariscode.yike.core.ui.message.SuccessMessages
 import com.kariscode.yike.core.ui.message.userMessageOr
 import com.kariscode.yike.core.domain.time.TimeProvider
 import com.kariscode.yike.core.ui.viewmodel.launchStateResult
@@ -11,8 +11,6 @@ import com.kariscode.yike.domain.model.CardSummary
 import com.kariscode.yike.domain.repository.CardRepository
 import com.kariscode.yike.domain.repository.DeckRepository
 import com.kariscode.yike.domain.repository.StudyInsightsRepository
-import com.kariscode.yike.domain.usecase.CardSaveRequest
-import com.kariscode.yike.domain.usecase.CardSaveResult
 import com.kariscode.yike.domain.usecase.DeleteCardUseCase
 import com.kariscode.yike.domain.usecase.GetDeckCardMasterySummaryUseCase
 import com.kariscode.yike.domain.usecase.LoadDeckCardContextUseCase
@@ -33,6 +31,7 @@ import kotlinx.coroutines.launch
 /**
  * 熟练度摘要集中在卡片页状态里，是为了让卡组层先暴露“整体薄弱分布”，再让用户进入具体卡片。
  */
+@Immutable
 data class DeckMasterySummary(
     val totalQuestions: Int,
     val newCount: Int,
@@ -92,11 +91,6 @@ class CardListViewModel(
     private var deckMetadataJob: Job? = null
     private var cardSummariesJob: Job? = null
 
-    /**
-     * 熟练度摘要用独立 Job 收口，是为了在列表连续发射时只保留最后一次统计，避免无意义叠加查询。
-     */
-    private var masterySummaryJob: Job? = null
-    private var lastMasterySummarySignature: String? = null
     private var loadingTracker = CardListLoadingTracker()
 
     private val _uiState = MutableStateFlow(
@@ -113,6 +107,22 @@ class CardListViewModel(
         )
     )
     val uiState: StateFlow<CardListUiState> = _uiState.asStateFlow()
+
+    /**
+     * 编辑器 delegate 依赖状态流和 ViewModel 的启动器，
+     * 通过组合而不是继承拆分职责，可以避免把状态机拆成多个 ViewModel 后引入额外生命周期复杂度。
+     */
+    private val editorDelegate = CardEditorDelegate(
+        deckId = deckId,
+        saveCardUseCase = saveCardUseCase,
+        state = _uiState,
+        viewModel = this
+    )
+
+    /**
+     * 熟练度摘要刷新与签名缓存属于“衍生数据的去抖策略”，抽成 delegate 可以避免主流程被辅助逻辑淹没。
+     */
+    private val masterySummaryDelegate = MasterySummaryDelegate()
 
     init {
         refresh()
@@ -131,6 +141,7 @@ class CardListViewModel(
      */
     fun refresh() {
         loadingTracker = CardListLoadingTracker()
+        masterySummaryDelegate.reset()
         _uiState.update { state ->
             state.copy(
                 isLoading = true,
@@ -195,7 +206,9 @@ class CardListViewModel(
                         loadingTracker = loadingTracker
                     )
                 }
-                maybeRefreshMasterySummary(items)
+                masterySummaryDelegate.onItemsChanged(items) {
+                    launchMasterySummaryRefresh()
+                }
             }
     }
 
@@ -203,84 +216,42 @@ class CardListViewModel(
      * 新建卡片先打开空草稿，便于复用同一套保存校验逻辑。
      */
     fun onCreateCardClick() {
-        openEditor(TextMetadataDraft(entityId = null, primaryValue = "", secondaryValue = ""))
+        editorDelegate.onCreateCardClick()
     }
 
     /**
      * 编辑卡片时把现有字段写入草稿，避免 UI 自己维护副本导致更新错位。
      */
     fun onEditCardClick(item: CardSummary) {
-        openEditor(
-            TextMetadataDraft(
-                entityId = item.card.id,
-                primaryValue = item.card.title,
-                secondaryValue = item.card.description
-            )
-        )
+        editorDelegate.onEditCardClick(item)
     }
 
     /**
      * 标题属于必填字段，因此每次输入变更都需要清理上次校验提示以避免误导。
      */
     fun onDraftTitleChange(value: String) {
-        updateEditor { it.updatePrimaryValue(value) }
+        editorDelegate.onDraftTitleChange(value)
     }
 
     /**
      * 描述不参与必填校验，但仍需进入草稿以确保保存读取到一致状态。
      */
     fun onDraftDescriptionChange(value: String) {
-        updateEditor { it.updateSecondaryValue(value) }
+        editorDelegate.onDraftDescriptionChange(value)
     }
 
     /**
      * 关闭编辑器直接丢弃草稿，明确“未保存不落库”的交互语义。
      */
     fun onDismissEditor() {
-        _uiState.update(CardListStateReducer::dismissEditor)
+        editorDelegate.onDismissEditor()
     }
 
     /**
      * 保存时统一注入 ID 与时间戳，避免上层在多个入口创建卡片时产生不同的时间语义。
      */
     fun onConfirmSave() {
-        val editor = _uiState.value.editor ?: return
-        val trimmedTitle = editor.primaryValue.trim()
-        if (trimmedTitle.isBlank()) {
-            _uiState.update { state ->
-                CardListStateReducer.updateEditor(state) {
-                    it.withValidationMessage(ErrorMessages.TITLE_REQUIRED)
-                }
-            }
-            return
-        }
-
-        launchStateResult(state = _uiState) {
-            action {
-                saveCardUseCase(
-                    CardSaveRequest(
-                        cardId = editor.entityId,
-                        deckId = deckId,
-                        title = trimmedTitle,
-                        description = editor.secondaryValue
-                    )
-                )
-            }
-            onSuccess { state, result ->
-                val successMessage = if (result is CardSaveResult.Created) {
-                    SuccessMessages.CARD_CREATED
-                } else {
-                    SuccessMessages.CARD_UPDATED
-                }
-                CardListStateReducer.saveSucceeded(
-                    state = state,
-                    successMessage = successMessage
-                )
-            }
-            onFailure { state, _ ->
-                CardListStateReducer.mutationFailed(state, ErrorMessages.SAVE_FAILED)
-            }
-        }
+        editorDelegate.onConfirmSave()
     }
 
     /**
@@ -323,20 +294,6 @@ class CardListViewModel(
     }
 
     /**
-     * 打开编辑器时统一清空旧反馈，是为了让创建和编辑都从同一个干净状态开始。
-     */
-    private fun openEditor(editor: TextMetadataDraft) {
-        _uiState.update { state -> CardListStateReducer.openEditor(state, editor) }
-    }
-
-    /**
-     * 草稿更新收口后，标题与描述的输入路径就不需要各自重复 editor 判空模板。
-     */
-    private fun updateEditor(transform: (TextMetadataDraft) -> TextMetadataDraft) {
-        _uiState.update { state -> CardListStateReducer.updateEditor(state, transform) }
-    }
-
-    /**
      * 列表页写操作统一经由同一成功/失败编排入口，是为了把仓储副作用与状态回写边界固定下来，
      * 避免删除等分支继续把 `_uiState.update(...)` 混进实际业务 action。
      */
@@ -356,40 +313,13 @@ class CardListViewModel(
 
     /**
      * 熟练度摘要基于真实问题集合即时计算，是为了遵守”不写回数据库，只按字段推导”的 P0 约束。
-     * 计算下沉到纯组装器后，ViewModel 只保留查询触发与结果回写职责。
+     * 启动器返回 Job 交由 delegate 管理取消，是为了保证在列表频繁发射时只保留最后一轮统计。
      */
-    private fun refreshMasterySummary() {
-        masterySummaryJob?.cancel()
-        masterySummaryJob = launchStateResult(state = _uiState) {
+    private fun launchMasterySummaryRefresh(): Job =
+        launchStateResult(state = _uiState) {
             action { getDeckCardMasterySummaryUseCase(deckId).toUiModel() }
             onSuccess(CardListStateReducer::masteryLoaded)
             onFailure { state, _ -> CardListStateReducer.masteryLoadFailed(state) }
-        }
-    }
-
-    /**
-     * 熟练度统计依赖问题集合而不是卡片展示文案，
-     * 因此只有“会影响问题集合与复习态”的签名变化时才重算，
-     * 这样既能避免仅编辑卡片标题时触发无意义检索，也能确保复习评分后摘要不会卡在旧分布。
-     */
-    private fun maybeRefreshMasterySummary(items: List<CardSummary>) {
-        val currentSignature = buildMasterySummarySignature(items)
-        if (currentSignature == lastMasterySummarySignature) {
-            return
-        }
-        lastMasterySummarySignature = currentSignature
-        refreshMasterySummary()
-    }
-
-    /**
-     * 签名只保留会影响熟练度统计的字段，是为了把“是否需要重算”判断保持轻量且可解释。
-     *
-     * `dueQuestionCount` 必须包含在内，是为了让复习评分导致 dueAt 前移/后移时能触发重算，
-     * 否则“题目数量不变但熟练度分布已变化”的场景会卡住摘要。
-     */
-    private fun buildMasterySummarySignature(items: List<CardSummary>): String = items
-        .joinToString(separator = "|") { summary ->
-            "${summary.card.id}:${summary.questionCount}:${summary.dueQuestionCount}"
         }
 
     /**

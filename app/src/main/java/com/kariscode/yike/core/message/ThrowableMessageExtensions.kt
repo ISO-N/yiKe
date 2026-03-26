@@ -6,6 +6,8 @@ package com.kariscode.yike.core.ui.message
  * 让各个 ViewModel 只表达“我希望用户看到什么兜底信息”，而不反复维护同一段空值判断。
  */
 fun Throwable.userMessageOr(fallback: String): String =
-    message?.takeIf { it.isNotBlank() } ?: fallback
+    message?.takeIf { it.isNotBlank() }
+        ?: cause?.message?.takeIf { it.isNotBlank() }
+        ?: fallback
 
 

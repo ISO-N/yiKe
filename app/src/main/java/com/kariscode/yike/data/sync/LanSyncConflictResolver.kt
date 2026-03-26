@@ -20,29 +20,41 @@ class LanSyncConflictResolver {
     ): List<LanSyncConflictItem> {
         val localByKey = latestMutableChanges(localChanges)
         val remoteByKey = latestMutableChanges(remoteChanges)
-        return localByKey.keys.intersect(remoteByKey.keys).mapNotNull { key ->
-            val local = localByKey.getValue(key)
-            val remote = remoteByKey.getValue(key)
+        val smallerIsLocal = localByKey.size <= remoteByKey.size
+        val smaller = if (smallerIsLocal) localByKey else remoteByKey
+        val larger = if (smallerIsLocal) remoteByKey else localByKey
+
+        val conflicts = ArrayList<LanSyncConflictItem>(smaller.size.coerceAtMost(larger.size))
+        smaller.forEach { (key, oneSide) ->
+            val otherSide = larger[key] ?: return@forEach
+            val local = if (smallerIsLocal) oneSide else otherSide
+            val remote = if (smallerIsLocal) otherSide else oneSide
+
             val bothDelete = local.operation == SyncChangeOperation.DELETE.name &&
                 remote.operation == SyncChangeOperation.DELETE.name
             val samePayload = local.payloadHash == remote.payloadHash && local.operation == remote.operation
             if (bothDelete || samePayload) {
-                return@mapNotNull null
+                return@forEach
             }
+
             val reason = when {
                 local.operation == SyncChangeOperation.DELETE.name || remote.operation == SyncChangeOperation.DELETE.name ->
                     "一端删除了该对象，另一端仍有修改"
                 else -> "两端都修改了同一对象"
             }
-            LanSyncConflictItem(
-                entityType = SyncEntityType.valueOf(local.entityType),
-                entityId = local.entityId,
-                summary = local.summary.ifBlank { remote.summary },
-                localSummary = local.summary,
-                remoteSummary = remote.summary,
-                reason = reason
+            conflicts.add(
+                LanSyncConflictItem(
+                    entityType = SyncEntityType.valueOf(local.entityType),
+                    entityId = local.entityId,
+                    summary = local.summary.ifBlank { remote.summary },
+                    localSummary = local.summary,
+                    remoteSummary = remote.summary,
+                    reason = reason
+                )
             )
-        }.sortedBy { conflict -> "${conflict.entityType.name}:${conflict.summary}" }
+        }
+
+        return conflicts.sortedBy { conflict -> "${conflict.entityType.name}:${conflict.summary}" }
     }
 
     /**

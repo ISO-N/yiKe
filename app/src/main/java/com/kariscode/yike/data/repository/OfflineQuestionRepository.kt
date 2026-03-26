@@ -49,8 +49,9 @@ class OfflineQuestionRepository(
      * 一次性读取编辑页所需问题快照时直接走同步查询，可以减少不必要的 Flow 建立与首次收集成本。
      */
     override suspend fun listByCard(cardId: String): List<Question> = dispatchers.onIo {
-        questionDao.listByCard(cardId)
-            .map { entity -> entity.toDomain() }
+        questionDao.listByCard(cardId).mapEach { entity ->
+            entity.toDomain()
+        }
     }
 
     /**
@@ -72,7 +73,7 @@ class OfflineQuestionRepository(
      */
     override suspend fun listDueQuestions(nowEpochMillis: Long): List<Question> = dispatchers.onIo {
         questionDao.listDueQuestions(activeStatus = QuestionEntity.STATUS_ACTIVE, nowEpochMillis = nowEpochMillis)
-            .map { entity -> entity.toDomain() }
+            .mapEach { entity -> entity.toDomain() }
     }
 
     /**
@@ -134,18 +135,12 @@ class OfflineQuestionRepository(
             )
         }
         val fallbackModifiedAt = timeProvider.nowEpochMillis()
-        questionIds.forEach { questionId ->
-            RepositorySyncSupport.recordDeleteFromSnapshot<Question>(
-                syncChangeRecorder = syncChangeRecorder,
-                entityType = SyncEntityType.QUESTION,
-                entityId = questionId,
-                current = null,
-                fallbackSummary = questionId,
-                fallbackModifiedAt = fallbackModifiedAt,
-                summaryOf = { model -> model.prompt.take(48) },
-                modifiedAtOf = { model -> model.updatedAt }
-            )
-        }
+        RepositorySyncSupport.recordBatchDelete(
+            syncChangeRecorder = syncChangeRecorder,
+            entityType = SyncEntityType.QUESTION,
+            entityIds = questionIds,
+            fallbackModifiedAt = fallbackModifiedAt
+        )
         Unit
     }
 }

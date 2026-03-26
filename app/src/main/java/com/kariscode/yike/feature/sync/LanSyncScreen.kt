@@ -151,7 +151,7 @@ fun LanSyncScreen(
  * 是为了让用户先理解自己是谁、当前是否在线，再决定和谁同步。
  */
 @Composable
-private fun LanSyncContent(
+internal fun LanSyncContent(
     uiState: LanSyncUiState,
     hasNearbyWifiPermission: Boolean,
     onRequestPermission: () -> Unit,
@@ -395,7 +395,7 @@ private fun PreviewDialog(
  * 冲突弹窗把每个对象的决议显式列出来，是为了避免“默认保留哪一边”变成用户看不见的隐式规则。
  */
 @Composable
-private fun ConflictDialog(
+internal fun ConflictDialog(
     uiState: LanSyncUiState,
     onChoiceChange: (String, LanSyncConflictChoice) -> Unit,
     onDismiss: () -> Unit,

@@ -59,22 +59,22 @@ internal val DarkSemanticColors = YikeSemanticColors(
 )
 
 internal val LightChromeColors = YikeChromeColors(
-    screenGlow = YikePrimaryContainer.copy(alpha = 0.52f),
-    heroGradientStart = YikePrimaryContainer.copy(alpha = 0.72f),
+    screenGlow = YikePrimaryContainer.copy(alpha = YikeChromeAlphaConstants.LIGHT_SCREEN_GLOW),
+    heroGradientStart = YikePrimaryContainer.copy(alpha = YikeChromeAlphaConstants.LIGHT_HERO_GRADIENT_START),
     heroGradientEnd = YikeSurface,
-    navigationContainer = YikeSurface.copy(alpha = 0.96f),
-    navigationBorder = YikeOutlineVariant.copy(alpha = 0.75f),
-    navigationSelectedContainer = YikePrimary.copy(alpha = 0.12f),
+    navigationContainer = YikeSurface.copy(alpha = YikeChromeAlphaConstants.LIGHT_NAVIGATION_CONTAINER),
+    navigationBorder = YikeOutlineVariant.copy(alpha = YikeChromeAlphaConstants.LIGHT_NAVIGATION_BORDER),
+    navigationSelectedContainer = YikePrimary.copy(alpha = YikeChromeAlphaConstants.LIGHT_NAVIGATION_SELECTED_CONTAINER),
     navigationSelectedContent = YikePrimary
 )
 
 internal val DarkChromeColors = YikeChromeColors(
-    screenGlow = YikePrimaryDark.copy(alpha = 0.18f),
-    heroGradientStart = YikePrimaryContainerDark.copy(alpha = 0.68f),
+    screenGlow = YikePrimaryDark.copy(alpha = YikeChromeAlphaConstants.DARK_SCREEN_GLOW),
+    heroGradientStart = YikePrimaryContainerDark.copy(alpha = YikeChromeAlphaConstants.DARK_HERO_GRADIENT_START),
     heroGradientEnd = YikeSurfaceDark,
-    navigationContainer = YikeSurfaceContainerDark.copy(alpha = 0.96f),
-    navigationBorder = YikeOutlineVariantDark.copy(alpha = 0.92f),
-    navigationSelectedContainer = YikePrimaryDark.copy(alpha = 0.22f),
+    navigationContainer = YikeSurfaceContainerDark.copy(alpha = YikeChromeAlphaConstants.DARK_NAVIGATION_CONTAINER),
+    navigationBorder = YikeOutlineVariantDark.copy(alpha = YikeChromeAlphaConstants.DARK_NAVIGATION_BORDER),
+    navigationSelectedContainer = YikePrimaryDark.copy(alpha = YikeChromeAlphaConstants.DARK_NAVIGATION_SELECTED_CONTAINER),
     navigationSelectedContent = YikePrimaryDark
 )
 
@@ -86,12 +86,22 @@ internal fun yikeChromeColorsFor(
     colorScheme: ColorScheme,
     isDark: Boolean
 ): YikeChromeColors = YikeChromeColors(
-    screenGlow = colorScheme.primary.copy(alpha = if (isDark) 0.18f else 0.24f),
-    heroGradientStart = colorScheme.primaryContainer.copy(alpha = if (isDark) 0.68f else 0.72f),
+    screenGlow = colorScheme.primary.copy(
+        alpha = if (isDark) YikeChromeAlphaConstants.DYNAMIC_DARK_SCREEN_GLOW else YikeChromeAlphaConstants.DYNAMIC_LIGHT_SCREEN_GLOW
+    ),
+    heroGradientStart = colorScheme.primaryContainer.copy(
+        alpha = if (isDark) YikeChromeAlphaConstants.DYNAMIC_DARK_HERO_GRADIENT_START else YikeChromeAlphaConstants.DYNAMIC_LIGHT_HERO_GRADIENT_START
+    ),
     heroGradientEnd = colorScheme.surface,
-    navigationContainer = colorScheme.surface.copy(alpha = if (isDark) 0.94f else 0.96f),
-    navigationBorder = colorScheme.outlineVariant.copy(alpha = if (isDark) 0.92f else 0.75f),
-    navigationSelectedContainer = colorScheme.primary.copy(alpha = if (isDark) 0.22f else 0.12f),
+    navigationContainer = colorScheme.surface.copy(
+        alpha = if (isDark) YikeChromeAlphaConstants.DYNAMIC_DARK_NAVIGATION_CONTAINER else YikeChromeAlphaConstants.DYNAMIC_LIGHT_NAVIGATION_CONTAINER
+    ),
+    navigationBorder = colorScheme.outlineVariant.copy(
+        alpha = if (isDark) YikeChromeAlphaConstants.DYNAMIC_DARK_NAVIGATION_BORDER else YikeChromeAlphaConstants.DYNAMIC_LIGHT_NAVIGATION_BORDER
+    ),
+    navigationSelectedContainer = colorScheme.primary.copy(
+        alpha = if (isDark) YikeChromeAlphaConstants.DYNAMIC_DARK_NAVIGATION_SELECTED_CONTAINER else YikeChromeAlphaConstants.DYNAMIC_LIGHT_NAVIGATION_SELECTED_CONTAINER
+    ),
     navigationSelectedContent = colorScheme.primary
 )
 

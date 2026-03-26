@@ -28,6 +28,19 @@ internal inline fun <Source, Target> Flow<List<Source>>.mapEach(
 }
 
 /**
+ * DAO 同步查询的返回值往往是 List<Entity>，而仓储层必须立即映射成领域模型；
+ * 用与 Flow 版本一致的 `mapEach` 命名收口，是为了让“映射是一种口径约束”这一事实更显性，
+ * 并在批量映射时避免 Kotlin `map` 额外的迭代器与扩容开销。
+ */
+internal inline fun <Source, Target> List<Source>.mapEach(
+    transform: (Source) -> Target
+): List<Target> = ArrayList<Target>(size).apply {
+    for (item in this@mapEach) {
+        add(transform(item))
+    }
+}
+
+/**
  * 单对象查询经常需要在仓储层把可空 DAO 结果转换为可空领域模型，
  * 统一收口后可以避免每个实现都各自重写一遍 `?.let(...)` 模板。
  */

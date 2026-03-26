@@ -81,12 +81,7 @@ class LanSyncViewModel(
          */
         viewModelScope.launch {
             lanSyncRepository.observeSessionState().collect { session ->
-                _uiState.update { state ->
-                    state.copy(
-                        session = session,
-                        localNameInput = if (state.isEditingLocalName) state.localNameInput else session.localProfile.displayName
-                    )
-                }
+                _uiState.update { state -> LanSyncStateReducer.sessionUpdated(state, session) }
             }
         }
     }
@@ -96,20 +91,14 @@ class LanSyncViewModel(
      * 可以避免配置变更或重组后重复弹出“同步完成”等成功反馈。
      */
     fun consumeSessionMessage() {
-        _uiState.update { state ->
-            val nextSession = state.session.copy(message = null)
-            state.copy(session = nextSession)
-        }
+        _uiState.update(LanSyncStateReducer::consumeSessionMessage)
     }
 
     /**
      * 同步失败也属于一次性反馈，展示后清理本地副本能避免后续流程推进时反复提示旧失败。
      */
     fun consumeSessionFailure() {
-        _uiState.update { state ->
-            val nextSession = state.session.copy(activeFailure = null)
-            state.copy(session = nextSession)
-        }
+        _uiState.update(LanSyncStateReducer::consumeSessionFailure)
     }
 
     /**
@@ -132,7 +121,7 @@ class LanSyncViewModel(
         launchResult(
             action = { lanSyncRepository.stopSession() },
             onSuccess = {
-                _uiState.update { state -> state.clearTransientSyncState() }
+                _uiState.update(LanSyncStateReducer::clearTransientSyncState)
             },
             onFailure = {}
         )
@@ -143,12 +132,7 @@ class LanSyncViewModel(
      */
     fun onPeerClick(peer: LanSyncPeer) {
         if (peer.trustState == LanSyncTrustState.UNTRUSTED) {
-            _uiState.update {
-                it.copy(
-                    pendingPairingPeer = peer,
-                    pairingCodeInput = ""
-                )
-            }
+            _uiState.update { state -> LanSyncStateReducer.beginPairing(state, peer) }
             return
         }
         buildPreview(peer = peer, pairingCode = null)
@@ -158,7 +142,7 @@ class LanSyncViewModel(
      * 配对码输入留在 ViewModel 中，是为了让配置变更或旋转后不丢失用户正在输入的授权信息。
      */
     fun onPairingCodeChange(value: String) {
-        _uiState.update { it.copy(pairingCodeInput = value.filter(Char::isDigit).take(6)) }
+        _uiState.update { state -> LanSyncStateReducer.pairingCodeChanged(state, value) }
     }
 
     /**
@@ -173,7 +157,7 @@ class LanSyncViewModel(
      * 关闭配对弹窗时只清理授权输入，是为了让设备列表和后台发现状态保持不受影响。
      */
     fun onDismissPairing() {
-        _uiState.update { state -> state.clearPairingState() }
+        _uiState.update(LanSyncStateReducer::dismissPairing)
     }
 
     /**
@@ -185,22 +169,14 @@ class LanSyncViewModel(
             runSync(preview = preview, resolutions = emptyList())
             return
         }
-        val defaultChoices = preview.conflicts.associate { conflict ->
-            "${conflict.entityType.name}:${conflict.entityId}" to LanSyncConflictChoice.KEEP_REMOTE
-        }
-        _uiState.update {
-            it.copy(
-                showConflictDialog = true,
-                conflictChoices = defaultChoices
-            )
-        }
+        _uiState.update { state -> LanSyncStateReducer.showConflictDialog(state, preview) }
     }
 
     /**
      * 预览关闭时只清空当前待确认内容，是为了让会话本身继续存活并可立即重新选择设备。
      */
     fun onDismissPreview() {
-        _uiState.update { state -> state.clearPreviewDecisionState() }
+        _uiState.update(LanSyncStateReducer::dismissPreview)
     }
 
     /**
@@ -208,7 +184,7 @@ class LanSyncViewModel(
      */
     fun onConflictChoiceChange(entityKey: String, choice: LanSyncConflictChoice) {
         _uiState.update { state ->
-            state.copy(conflictChoices = state.conflictChoices + (entityKey to choice))
+            LanSyncStateReducer.conflictChoiceChanged(state, entityKey, choice)
         }
     }
 
@@ -225,7 +201,7 @@ class LanSyncViewModel(
                     ?: LanSyncConflictChoice.KEEP_REMOTE
             )
         }
-        _uiState.update { it.copy(showConflictDialog = false) }
+        _uiState.update(LanSyncStateReducer::conflictsConfirmed)
         runSync(preview = preview, resolutions = resolutions)
     }
 
@@ -233,26 +209,21 @@ class LanSyncViewModel(
      * 冲突弹窗关闭只退回预览态，是为了让用户能重新阅读本次同步规模后再决定是否执行。
      */
     fun onDismissConflicts() {
-        _uiState.update { state -> state.clearPreviewDecisionState(keepPreview = true) }
+        _uiState.update(LanSyncStateReducer::dismissConflicts)
     }
 
     /**
      * 本机设备名编辑通过独立弹窗承载，是为了避免主页面列表刷新时直接打断文本输入。
      */
     fun onEditLocalName() {
-        _uiState.update {
-            it.copy(
-                isEditingLocalName = true,
-                localNameInput = it.session.localProfile.displayName
-            )
-        }
+        _uiState.update(LanSyncStateReducer::editLocalName)
     }
 
     /**
      * 文本输入留在本地状态，是为了让用户在确认保存前可以多次修改而不触发频繁持久化。
      */
     fun onLocalNameInputChange(value: String) {
-        _uiState.update { it.copy(localNameInput = value) }
+        _uiState.update { state -> LanSyncStateReducer.localNameInputChanged(state, value) }
     }
 
     /**
@@ -266,7 +237,7 @@ class LanSyncViewModel(
         launchResult(
             action = { lanSyncRepository.updateLocalDisplayName(name) },
             onSuccess = {
-                _uiState.update { it.copy(isEditingLocalName = false) }
+                _uiState.update(LanSyncStateReducer::localNameSaved)
             },
             onFailure = {}
         )
@@ -276,12 +247,7 @@ class LanSyncViewModel(
      * 取消设备名编辑时保留仓储中的真实名字，是为了避免未保存草稿误覆盖会话状态。
      */
     fun onDismissLocalNameEditor() {
-        _uiState.update {
-            it.copy(
-                isEditingLocalName = false,
-                localNameInput = it.session.localProfile.displayName
-            )
-        }
+        _uiState.update(LanSyncStateReducer::dismissLocalNameEditor)
     }
 
     /**
@@ -312,7 +278,7 @@ class LanSyncViewModel(
             action = { lanSyncRepository.prepareSync(peer = peer, pairingCode = pairingCode) },
             onSuccess = { preview ->
                 _uiState.update {
-                    it.clearTransientSyncState().copy(pendingPreview = preview)
+                    LanSyncStateReducer.previewPrepared(it, preview)
                 }
             },
             onFailure = {}
@@ -326,39 +292,12 @@ class LanSyncViewModel(
         preview: LanSyncPreview,
         resolutions: List<LanSyncConflictResolution>
     ) {
-        _uiState.update { state -> state.clearPreviewDecisionState() }
+        _uiState.update(LanSyncStateReducer::dismissPreview)
         launchResult(
             action = { lanSyncRepository.runSync(preview = preview, resolutions = resolutions) },
             onFailure = {}
         )
     }
-
-    /**
-     * 配对输入与待配对设备总是成对消失，收口成状态 helper 后可以避免多个入口反复复制同一组字段模板。
-     */
-    private fun LanSyncUiState.clearPairingState(): LanSyncUiState = copy(
-        pendingPairingPeer = null,
-        pairingCodeInput = ""
-    )
-
-    /**
-     * 预览和冲突决议属于同一阶段的临时 UI 状态，
-     * 集中清理可以避免结束同步流后残留上一次的冲突选择。
-     */
-    private fun LanSyncUiState.clearPreviewDecisionState(
-        keepPreview: Boolean = false
-    ): LanSyncUiState = copy(
-        pendingPreview = if (keepPreview) pendingPreview else null,
-        showConflictDialog = false,
-        conflictChoices = emptyMap()
-    )
-
-    /**
-     * 停止会话或拿到新预览时都需要回到干净的同步临时态，
-     * 抽成单点后可以明确表达“把上一次的配对和预览痕迹一起清掉”这一意图。
-     */
-    private fun LanSyncUiState.clearTransientSyncState(): LanSyncUiState =
-        clearPairingState().clearPreviewDecisionState()
 
 }
 

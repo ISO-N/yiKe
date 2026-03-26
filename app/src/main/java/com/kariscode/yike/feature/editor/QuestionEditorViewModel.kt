@@ -93,7 +93,7 @@ class QuestionEditorViewModel(
      */
     fun onTitleChange(value: String) {
         updateDirtyState { state ->
-            state.copy(title = value)
+            QuestionEditorStateReducer.titleChanged(state, value)
         }
     }
 
@@ -102,7 +102,7 @@ class QuestionEditorViewModel(
      */
     fun onDescriptionChange(value: String) {
         updateDirtyState { state ->
-            state.copy(description = value)
+            QuestionEditorStateReducer.descriptionChanged(state, value)
         }
     }
 
@@ -111,15 +111,14 @@ class QuestionEditorViewModel(
      */
     fun onAddQuestionClick() {
         val tempId = EntityIds.newTempDraftId()
+        val newDraft = QuestionDraft(
+            id = tempId,
+            prompt = "",
+            answer = "",
+            isNew = true
+        )
         updateDirtyState { state ->
-            state.copy(
-                questions = state.questions + QuestionDraft(
-                    id = tempId,
-                    prompt = "",
-                    answer = "",
-                    isNew = true
-                )
-            )
+            QuestionEditorStateReducer.questionAdded(state, newDraft)
         }
     }
 
@@ -150,9 +149,7 @@ class QuestionEditorViewModel(
             deletedQuestionIds.add(questionId)
         }
         updateDirtyState { state ->
-            state.copy(
-                questions = state.questions.filterNot { draft -> draft.id == questionId }
-            )
+            QuestionEditorStateReducer.questionDeleted(state, questionId)
         }
     }
 
@@ -419,11 +416,7 @@ class QuestionEditorViewModel(
         transform: (QuestionDraft) -> QuestionDraft
     ) {
         updateDirtyState { state ->
-            state.copy(
-                questions = state.questions.map { draft ->
-                    if (draft.id == questionId) transform(draft) else draft
-                }
-            )
+            QuestionEditorStateReducer.questionUpdated(state, questionId, transform)
         }
     }
 
@@ -436,7 +429,7 @@ class QuestionEditorViewModel(
         }
         draftSaveJob?.cancel()
         draftSaveJob = viewModelScope.launch {
-            delay(AUTO_SAVE_DELAY_MILLIS)
+            delay(QuestionEditorConstants.AUTO_SAVE_DELAY_MILLIS)
             persistCurrentDraft(showSuccessMessage = false, navigateAfterSaving = false)
         }
     }
@@ -586,8 +579,5 @@ class QuestionEditorViewModel(
         validationMessage = null
     )
 
-    companion object {
-        private const val AUTO_SAVE_DELAY_MILLIS = 1_500L
-    }
 }
 

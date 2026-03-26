@@ -42,4 +42,25 @@ internal object RepositorySyncSupport {
             modifiedAt = current?.let(modifiedAtOf) ?: fallbackModifiedAt
         )
     }
+
+    /**
+     * 批量删除通常发生在“上层已经决定这批 ID 就该消失”的场景（例如编辑页批量删除、整卡片清空问题等），
+     * 此时仓储往往并不需要（也不应该）为了生成 tombstone 再额外读取实体快照；
+     * 因此提供批量入口让调用方只传一次 entityType 与统一的 modifiedAt，避免循环重复填充 `current = null`。
+     */
+    suspend fun recordBatchDelete(
+        syncChangeRecorder: LanSyncChangeRecorder,
+        entityType: SyncEntityType,
+        entityIds: Collection<String>,
+        fallbackModifiedAt: Long
+    ) {
+        entityIds.forEach { entityId ->
+            syncChangeRecorder.recordDelete(
+                entityType = entityType,
+                entityId = entityId,
+                summary = entityId,
+                modifiedAt = fallbackModifiedAt
+            )
+        }
+    }
 }
