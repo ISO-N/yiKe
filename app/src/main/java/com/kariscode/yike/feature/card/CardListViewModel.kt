@@ -381,7 +381,6 @@ class CardListViewModel(
      * 否则“题目数量不变但熟练度分布已变化”的场景会卡住摘要。
      */
     private fun buildMasterySummarySignature(items: List<CardSummary>): String = items
-        .sortedBy { it.card.id }
         .joinToString(separator = "|") { summary ->
             "${summary.card.id}:${summary.questionCount}:${summary.dueQuestionCount}"
         }
