@@ -1,10 +1,8 @@
 package com.kariscode.yike.feature.sync
 
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.kariscode.yike.core.ui.viewmodel.launchResult
-import com.kariscode.yike.core.ui.viewmodel.typedViewModelFactory
 import com.kariscode.yike.domain.model.LanSyncConflictChoice
 import com.kariscode.yike.domain.model.LanSyncConflictResolution
 import com.kariscode.yike.domain.model.LanSyncLocalProfile
@@ -360,15 +358,5 @@ class LanSyncViewModel(
     private fun LanSyncUiState.clearTransientSyncState(): LanSyncUiState =
         clearPairingState().clearPreviewDecisionState()
 
-    companion object {
-        /**
-         * 工厂显式注入仓储，是为了让同步页在测试中可以替换为假实现而不依赖全局容器。
-         */
-        fun factory(
-            lanSyncRepository: LanSyncRepository
-        ): ViewModelProvider.Factory = typedViewModelFactory {
-            LanSyncViewModel(lanSyncRepository = lanSyncRepository)
-        }
-    }
 }
 

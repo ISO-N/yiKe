@@ -1,7 +1,6 @@
 package com.kariscode.yike.feature.analytics
 
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.kariscode.yike.core.domain.coroutine.parallel3
 import com.kariscode.yike.core.ui.message.ErrorMessages
@@ -10,7 +9,6 @@ import com.kariscode.yike.core.domain.time.TimeConstants
 import com.kariscode.yike.core.domain.time.TimeProvider
 import com.kariscode.yike.core.domain.time.calculateStudyStreakDays
 import com.kariscode.yike.core.ui.viewmodel.restartStateResult
-import com.kariscode.yike.core.ui.viewmodel.typedViewModelFactory
 import com.kariscode.yike.domain.model.StreakAchievementUnlock
 import com.kariscode.yike.domain.model.ReviewAnalyticsSnapshot
 import com.kariscode.yike.domain.model.StageAgainRatioSnapshot
@@ -377,21 +375,5 @@ class AnalyticsViewModel(
         AnalyticsRange.ALL_TIME -> null
     }
 
-    companion object {
-        /**
-         * 工厂显式注入洞察仓储和时间源，是为了让统计页在测试里能稳定复现不同时段结果。
-         */
-        fun factory(
-            studyInsightsRepository: StudyInsightsRepository,
-            appSettingsRepository: AppSettingsRepository,
-            timeProvider: TimeProvider
-        ): ViewModelProvider.Factory = typedViewModelFactory {
-            AnalyticsViewModel(
-                studyInsightsRepository = studyInsightsRepository,
-                appSettingsRepository = appSettingsRepository,
-                timeProvider = timeProvider
-            )
-        }
-    }
 }
 

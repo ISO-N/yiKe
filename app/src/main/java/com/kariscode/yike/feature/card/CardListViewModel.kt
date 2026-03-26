@@ -1,14 +1,12 @@
 package com.kariscode.yike.feature.card
 
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.kariscode.yike.core.ui.message.ErrorMessages
 import com.kariscode.yike.core.ui.message.SuccessMessages
 import com.kariscode.yike.core.ui.message.userMessageOr
 import com.kariscode.yike.core.domain.time.TimeProvider
 import com.kariscode.yike.core.ui.viewmodel.launchStateResult
-import com.kariscode.yike.core.ui.viewmodel.typedViewModelFactory
 import com.kariscode.yike.domain.model.CardSummary
 import com.kariscode.yike.domain.repository.CardRepository
 import com.kariscode.yike.domain.repository.DeckRepository
@@ -309,9 +307,11 @@ class CardListViewModel(
      */
     fun onConfirmDelete() {
         val pending = _uiState.value.pendingDelete ?: return
-        executeMutation(errorMessage = ErrorMessages.DELETE_FAILED) {
+        executeMutation(
+            errorMessage = ErrorMessages.DELETE_FAILED,
+            onSuccess = CardListStateReducer::deleteSucceeded
+        ) {
             deleteCardUseCase(pending.card.id)
-            _uiState.update(CardListStateReducer::deleteSucceeded)
         }
     }
 
@@ -330,15 +330,17 @@ class CardListViewModel(
     }
 
     /**
-     * 列表页写操作统一经由同一失败反馈出口，是为了避免归档、删除等分支再次遗漏异常收口。
+     * 列表页写操作统一经由同一成功/失败编排入口，是为了把仓储副作用与状态回写边界固定下来，
+     * 避免删除等分支继续把 `_uiState.update(...)` 混进实际业务 action。
      */
     private fun executeMutation(
         errorMessage: String,
+        onSuccess: (CardListUiState) -> CardListUiState = { state -> state },
         action: suspend () -> Unit
     ) {
         launchStateResult(state = _uiState) {
             action(action)
-            onSuccess { state, _ -> state }
+            onSuccess { state, _ -> onSuccess(state) }
             onFailure { state, _ ->
                 CardListStateReducer.mutationFailed(state, errorMessage)
             }
@@ -396,25 +398,5 @@ class CardListViewModel(
             masteredCount = masteredCount
         )
 
-    companion object {
-        /**
-         * 工厂将 deckId 与容器依赖注入 ViewModel，避免 ViewModel 直接依赖全局单例。
-         */
-        fun factory(
-            deckId: String,
-            deckRepository: DeckRepository,
-            cardRepository: CardRepository,
-            studyInsightsRepository: StudyInsightsRepository,
-            timeProvider: TimeProvider
-        ): ViewModelProvider.Factory = typedViewModelFactory {
-            CardListViewModel(
-                deckId = deckId,
-                deckRepository = deckRepository,
-                cardRepository = cardRepository,
-                studyInsightsRepository = studyInsightsRepository,
-                timeProvider = timeProvider
-            )
-        }
-    }
 }
 

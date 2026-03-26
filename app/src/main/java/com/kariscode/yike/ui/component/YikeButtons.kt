@@ -40,6 +40,9 @@ import com.kariscode.yike.ui.theme.YikeWarningContainer
 import com.kariscode.yike.ui.theme.rememberReduceMotionEnabled
 import com.kariscode.yike.ui.theme.YikeThemeTokens
 
+private val ActionButtonMinHeight = 48.dp
+private const val DisabledButtonContentAlpha = 0.72f
+
 /**
  * 主按钮承担页面最重要动作，统一封装后能让异步状态和层级关系在各页面保持一致。
  */
@@ -50,27 +53,14 @@ fun YikePrimaryButton(
     modifier: Modifier = Modifier,
     enabled: Boolean = true
 ) {
-    val disabledContainerColor = MaterialTheme.colorScheme.surfaceContainerHighest
-    val disabledContentColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.72f)
-    Button(
+    YikeFilledActionButton(
+        text = text,
         onClick = onClick,
-        modifier = modifier.heightIn(min = 48.dp),
+        modifier = modifier,
         enabled = enabled,
-        shape = MaterialTheme.shapes.medium,
-        colors = ButtonDefaults.buttonColors(
-            containerColor = MaterialTheme.colorScheme.primary,
-            contentColor = MaterialTheme.colorScheme.onPrimary,
-            disabledContainerColor = disabledContainerColor,
-            disabledContentColor = disabledContentColor
-        )
-    ) {
-        Text(
-            text = text,
-            style = MaterialTheme.typography.labelLarge,
-            textAlign = TextAlign.Center,
-            maxLines = 2
-        )
-    }
+        containerColor = MaterialTheme.colorScheme.primary,
+        contentColor = MaterialTheme.colorScheme.onPrimary
+    )
 }
 
 /**
@@ -83,23 +73,17 @@ fun YikeSecondaryButton(
     modifier: Modifier = Modifier,
     enabled: Boolean = true
 ) {
-    val disabledContentColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.72f)
     OutlinedButton(
         onClick = onClick,
-        modifier = modifier.heightIn(min = 48.dp),
+        modifier = modifier.heightIn(min = ActionButtonMinHeight),
         enabled = enabled,
         shape = MaterialTheme.shapes.medium,
         colors = ButtonDefaults.outlinedButtonColors(
             contentColor = MaterialTheme.colorScheme.onSurface,
-            disabledContentColor = disabledContentColor
+            disabledContentColor = yikeDisabledButtonContentColor()
         )
     ) {
-        Text(
-            text = text,
-            style = MaterialTheme.typography.labelLarge,
-            textAlign = TextAlign.Center,
-            maxLines = 2
-        )
+        YikeActionButtonLabel(text = text)
     }
 }
 
@@ -113,26 +97,42 @@ fun YikeDangerButton(
     modifier: Modifier = Modifier,
     enabled: Boolean = true
 ) {
-    val disabledContainerColor = MaterialTheme.colorScheme.surfaceContainerHighest
-    val disabledContentColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.72f)
+    YikeFilledActionButton(
+        text = text,
+        onClick = onClick,
+        modifier = modifier,
+        enabled = enabled,
+        containerColor = MaterialTheme.colorScheme.errorContainer,
+        contentColor = MaterialTheme.colorScheme.onErrorContainer
+    )
+}
+
+/**
+ * 实心按钮模板覆盖主按钮与危险按钮，是为了把高度、禁用态与文字样式锁成一份基线，
+ * 避免后续调整按钮视觉时需要在多个入口重复同步。
+ */
+@Composable
+private fun YikeFilledActionButton(
+    text: String,
+    onClick: () -> Unit,
+    containerColor: Color,
+    contentColor: Color,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true
+) {
     Button(
         onClick = onClick,
-        modifier = modifier.heightIn(min = 48.dp),
+        modifier = modifier.heightIn(min = ActionButtonMinHeight),
         enabled = enabled,
         shape = MaterialTheme.shapes.medium,
         colors = ButtonDefaults.buttonColors(
-            containerColor = MaterialTheme.colorScheme.errorContainer,
-            contentColor = MaterialTheme.colorScheme.onErrorContainer,
-            disabledContainerColor = disabledContainerColor,
-            disabledContentColor = disabledContentColor
+            containerColor = containerColor,
+            contentColor = contentColor,
+            disabledContainerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+            disabledContentColor = yikeDisabledButtonContentColor()
         )
     ) {
-        Text(
-            text = text,
-            style = MaterialTheme.typography.labelLarge,
-            textAlign = TextAlign.Center,
-            maxLines = 2
-        )
+        YikeActionButtonLabel(text = text)
     }
 }
 
@@ -181,6 +181,27 @@ fun YikeRatingButton(
     ) {
         Text(text = text, fontWeight = FontWeight.SemiBold)
     }
+}
+
+/**
+ * 操作按钮的禁用前景色统一从主题导出，是为了避免不同按钮在禁用态上出现轻微但持续累积的视觉漂移。
+ */
+@Composable
+private fun yikeDisabledButtonContentColor(): Color = MaterialTheme.colorScheme.onSurfaceVariant.copy(
+    alpha = DisabledButtonContentAlpha
+)
+
+/**
+ * 操作按钮文字样式集中收口，是为了让所有一二级按钮在换行和对齐策略上保持一致。
+ */
+@Composable
+private fun YikeActionButtonLabel(text: String) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.labelLarge,
+        textAlign = TextAlign.Center,
+        maxLines = 2
+    )
 }
 
 /**

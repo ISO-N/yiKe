@@ -2,10 +2,6 @@ package com.kariscode.yike.feature.practice
 
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.ViewModelProvider
-import androidx.lifecycle.createSavedStateHandle
-import androidx.lifecycle.viewmodel.initializer
-import androidx.lifecycle.viewmodel.viewModelFactory
 import com.kariscode.yike.core.ui.message.ErrorMessages
 import com.kariscode.yike.core.ui.message.userMessageOr
 import com.kariscode.yike.core.domain.time.TimeProvider
@@ -261,25 +257,6 @@ class PracticeSessionViewModel(
         private const val ANSWER_VISIBLE_KEY = "practice_answer_visible"
         private const val SESSION_SEED_KEY = "practice_session_seed"
         private const val STARTED_AT_KEY = "practice_started_at"
-
-        /**
-         * 会话页工厂需要显式拿到 SavedStateHandle，
-         * 是为了让随机 seed 和当前位置在系统回收后仍能恢复。
-         */
-        fun factory(
-            args: PracticeSessionArgs,
-            practiceRepository: PracticeRepository,
-            timeProvider: TimeProvider
-        ): ViewModelProvider.Factory = viewModelFactory {
-            initializer {
-                PracticeSessionViewModel(
-                    args = args,
-                    practiceRepository = practiceRepository,
-                    timeProvider = timeProvider,
-                    savedStateHandle = createSavedStateHandle()
-                )
-            }
-        }
     }
 }
 

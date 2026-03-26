@@ -1,11 +1,9 @@
 package com.kariscode.yike.feature.practice
 
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.ViewModelProvider
 import com.kariscode.yike.core.ui.message.ErrorMessages
 import com.kariscode.yike.core.ui.message.userMessageOr
 import com.kariscode.yike.core.ui.viewmodel.launchResult
-import com.kariscode.yike.core.ui.viewmodel.typedViewModelFactory
 import com.kariscode.yike.domain.model.PracticeOrderMode
 import com.kariscode.yike.domain.model.PracticeSessionArgs
 import com.kariscode.yike.domain.model.QuestionContext
@@ -169,62 +167,26 @@ class PracticeSetupViewModel(
         selectedQuestionIds: Set<String>?,
         orderMode: PracticeOrderMode
     ): PracticeSetupUiState {
-        val deckOptions = buildDeckOptions(
+        val projection = buildPracticeSelectionProjection(
             allQuestionContexts = allQuestionContexts,
-            selectedDeckIds = selectedDeckIds
+            selectedDeckIds = selectedDeckIds,
+            selectedCardIds = selectedCardIds,
+            selectedQuestionIds = selectedQuestionIds
         )
-        val deckScopedContexts = allQuestionContexts.filterBySelectedDecks(selectedDeckIds)
-        val cardOptions = buildCardOptions(
-            questionContexts = deckScopedContexts,
-            selectedCardIds = selectedCardIds
-        )
-        val validCardIds = cardOptions.map { option -> option.cardId }.toSet()
-        val normalizedCardIds = selectedCardIds.intersect(validCardIds)
-        val questionScopedContexts = deckScopedContexts.filterBySelectedCards(normalizedCardIds)
-        val availableQuestionIds = questionScopedContexts.map { context -> context.question.id }.toSet()
-        val normalizedQuestionIds = selectedQuestionIds
-            ?.intersect(availableQuestionIds)
-            ?.normalizeQuestionSelection(availableQuestionIds)
-        val questionOptions = questionScopedContexts.map { context ->
-            PracticeQuestionOptionUiModel(
-                questionId = context.question.id,
-                cardId = context.question.cardId,
-                deckName = context.deckName,
-                cardTitle = context.cardTitle,
-                prompt = context.question.prompt,
-                answerPreview = context.question.answer.ifBlank { "无答案" }.take(48),
-                isSelected = normalizedQuestionIds?.contains(context.question.id) ?: true
-            )
-        }
-        val effectiveQuestionCount = normalizedQuestionIds?.size ?: questionOptions.size
 
         return PracticeSetupUiState(
             isLoading = false,
-            deckOptions = deckOptions,
-            cardOptions = cardOptions,
-            questionOptions = questionOptions,
-            selectedDeckIds = selectedDeckIds.intersect(deckOptions.map { option -> option.deckId }.toSet()),
-            selectedCardIds = normalizedCardIds,
-            selectedQuestionIds = normalizedQuestionIds,
+            deckOptions = projection.deckOptions,
+            cardOptions = projection.cardOptions,
+            questionOptions = projection.questionOptions,
+            selectedDeckIds = projection.selectedDeckIds,
+            selectedCardIds = projection.selectedCardIds,
+            selectedQuestionIds = projection.selectedQuestionIds,
             orderMode = orderMode,
-            effectiveQuestionCount = effectiveQuestionCount,
+            effectiveQuestionCount = projection.effectiveQuestionCount,
             errorMessage = null
         )
     }
 
-    companion object {
-        /**
-         * 工厂显式接收初始练习参数，是为了让不同入口带入的局部上下文都能被测试和复用。
-         */
-        fun factory(
-            initialArgs: PracticeSessionArgs,
-            practiceRepository: PracticeRepository
-        ): ViewModelProvider.Factory = typedViewModelFactory {
-            PracticeSetupViewModel(
-                initialArgs = initialArgs,
-                practiceRepository = practiceRepository
-            )
-        }
-    }
 }
 

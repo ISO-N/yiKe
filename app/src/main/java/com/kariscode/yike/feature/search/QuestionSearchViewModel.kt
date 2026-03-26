@@ -1,7 +1,6 @@
 package com.kariscode.yike.feature.search
 
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.ViewModelProvider
 import com.kariscode.yike.core.domain.coroutine.parallel
 import com.kariscode.yike.core.ui.message.ErrorMessages
 import com.kariscode.yike.core.ui.message.userMessageOr
@@ -9,7 +8,6 @@ import com.kariscode.yike.core.domain.time.TimeProvider
 import com.kariscode.yike.core.ui.viewmodel.launchResult
 import com.kariscode.yike.core.ui.viewmodel.launchStateResult
 import com.kariscode.yike.core.ui.viewmodel.restartStateResult
-import com.kariscode.yike.core.ui.viewmodel.typedViewModelFactory
 import com.kariscode.yike.domain.model.QuestionMasteryLevel
 import com.kariscode.yike.domain.model.QuestionStatus
 import com.kariscode.yike.domain.repository.CardRepository
@@ -75,7 +73,7 @@ class QuestionSearchViewModel(
                     second = { searchQuestions(snapshot) }
                 )
             }
-            onStart { it.copy(isLoading = true, errorMessage = null) }
+            onStart(QuestionSearchStateFactory::withLoading)
             onSuccess { state, result ->
                 val metadata = result.first
                 val results = result.second
@@ -86,8 +84,8 @@ class QuestionSearchViewModel(
                 )
             }
             onFailure { state, throwable ->
-                state.copy(
-                    isLoading = false,
+                QuestionSearchStateFactory.withRefreshFailed(
+                    state = state,
                     errorMessage = throwable.userMessageOr(ErrorMessages.SEARCH_LOAD_FAILED)
                 )
             }
@@ -167,18 +165,7 @@ class QuestionSearchViewModel(
      * 一键清空保留“进行中”默认状态，是为了把搜索快速拉回最常用的题库工作流。
      */
     fun onClearFilters() {
-        updateSearchFilters {
-            it.copy(
-                keyword = "",
-                selectedTag = null,
-                selectedStatus = QuestionStatus.ACTIVE,
-                selectedDeckId = null,
-                selectedCardId = null,
-                selectedMasteryLevel = null,
-                cardOptions = emptyList(),
-                errorMessage = null
-            )
-        }
+        updateSearchFilters(QuestionSearchStateFactory::clearedFilters)
     }
 
     /**
@@ -190,18 +177,11 @@ class QuestionSearchViewModel(
             state = _uiState,
             previousJob = searchJob,
             action = { searchQuestions(snapshot) },
-            onStart = { it.copy(isLoading = true, errorMessage = null) },
-            onSuccess = { state, results ->
-                state.copy(
-                    isLoading = false,
-                    results = results,
-                    errorMessage = null
-                )
-            },
+            onStart = QuestionSearchStateFactory::withLoading,
+            onSuccess = QuestionSearchStateFactory::withSearchSucceeded,
             onFailure = { state, throwable ->
-                state.copy(
-                    isLoading = false,
-                    results = emptyList(),
+                QuestionSearchStateFactory.withSearchFailed(
+                    state = state,
                     errorMessage = throwable.userMessageOr(ErrorMessages.SEARCH_FAILED)
                 )
             }
@@ -255,34 +235,5 @@ class QuestionSearchViewModel(
         search()
     }
 
-    companion object {
-        /**
-         * 工厂显式接收初始筛选参数，是为了让首页和卡片页都能通过路由预置不同搜索上下文。
-         */
-        fun factory(
-            initialDeckId: String?,
-            initialCardId: String?,
-            initialTag: String?,
-            studyInsightsRepository: StudyInsightsRepository,
-            deckRepository: DeckRepository,
-            cardRepository: CardRepository,
-            timeProvider: TimeProvider
-        ): ViewModelProvider.Factory = typedViewModelFactory {
-            QuestionSearchViewModel(
-                initialDeckId = initialDeckId,
-                initialCardId = initialCardId,
-                initialTag = initialTag,
-                getQuestionSearchMetadataUseCase = GetQuestionSearchMetadataUseCase(
-                    studyInsightsRepository = studyInsightsRepository,
-                    deckRepository = deckRepository,
-                    cardRepository = cardRepository
-                ),
-                searchQuestionsUseCase = SearchQuestionsUseCase(
-                    studyInsightsRepository = studyInsightsRepository
-                ),
-                timeProvider = timeProvider
-            )
-        }
-    }
 }
 

@@ -75,6 +75,26 @@ class BackupRestoreViewModelTest {
     }
 
     /**
+     * 用户取消确认后必须清空待恢复文件，
+     * 这样后续重新打开文件选择器时不会误把旧 Uri 当成本次目标。
+     */
+    @Test
+    fun onDismissRestoreConfirmation_clearsPendingRestoreUri() = runTest {
+        Dispatchers.setMain(UnconfinedTestDispatcher(testScheduler))
+        try {
+            val viewModel = createViewModel()
+            val uri = Uri.parse("content://backup/sample.json")
+
+            viewModel.onImportUriSelected(uri)
+            viewModel.onDismissRestoreConfirmation()
+
+            assertNull(viewModel.uiState.value.pendingRestoreUri)
+        } finally {
+            Dispatchers.resetMain()
+        }
+    }
+
+    /**
      * 恢复成功后必须调用备份服务和提醒重建，
      * 否则数据虽然恢复了，但后台提醒会继续停留在旧状态。
      */
@@ -176,6 +196,28 @@ class BackupRestoreViewModelTest {
                 backupOperations.exportedUris
             )
             assertEquals("增量备份导出成功", viewModel.uiState.value.message)
+        } finally {
+            Dispatchers.resetMain()
+        }
+    }
+
+    /**
+     * 一次性消息消费后必须从状态里移除，
+     * 这样页面重建时不会把旧导出结果再次误展示给用户。
+     */
+    @Test
+    fun consumeMessage_clearsTransientSuccessFeedback() = runTest {
+        Dispatchers.setMain(UnconfinedTestDispatcher(testScheduler))
+        try {
+            val backupOperations = FakeBackupOperations()
+            val viewModel = createViewModel(backupOperations = backupOperations)
+            val uri = Uri.parse("content://backup/export.json")
+
+            viewModel.onExportUriSelected(uri)
+            advanceUntilIdle()
+            viewModel.consumeMessage()
+
+            assertNull(viewModel.uiState.value.message)
         } finally {
             Dispatchers.resetMain()
         }

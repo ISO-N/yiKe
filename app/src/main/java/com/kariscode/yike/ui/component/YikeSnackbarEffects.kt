@@ -17,32 +17,40 @@ fun YikeOperationSnackbarEffect(
     onErrorConsumed: (() -> Unit)? = null,
     onInfoConsumed: (() -> Unit)? = null
 ) {
+    OperationSnackbarMessageEffect(
+        message = successMessage,
+        tone = YikeSnackbarTone.SUCCESS,
+        onConsumed = onSuccessConsumed
+    )
+    OperationSnackbarMessageEffect(
+        message = infoMessage,
+        tone = YikeSnackbarTone.INFO,
+        onConsumed = onInfoConsumed
+    )
+    OperationSnackbarMessageEffect(
+        message = errorMessage,
+        tone = YikeSnackbarTone.ERROR,
+        onConsumed = onErrorConsumed
+    )
+}
+
+/**
+ * 单条消息的副作用统一收口，是为了固定“先消费状态，再展示 Snackbar”的顺序，
+ * 避免 success/info/error 三条分支后续继续复制同一份模板逻辑。
+ */
+@Composable
+private fun OperationSnackbarMessageEffect(
+    message: String?,
+    tone: YikeSnackbarTone,
+    onConsumed: (() -> Unit)? = null
+) {
     val snackbarState = LocalYikeSnackbarState.current
-
-    LaunchedEffect(successMessage) {
-        if (successMessage.isNullOrBlank()) return@LaunchedEffect
-        onSuccessConsumed?.invoke()
+    LaunchedEffect(message) {
+        if (message.isNullOrBlank()) return@LaunchedEffect
+        onConsumed?.invoke()
         snackbarState.show(
-            message = successMessage,
-            tone = YikeSnackbarTone.SUCCESS
-        )
-    }
-
-    LaunchedEffect(infoMessage) {
-        if (infoMessage.isNullOrBlank()) return@LaunchedEffect
-        onInfoConsumed?.invoke()
-        snackbarState.show(
-            message = infoMessage,
-            tone = YikeSnackbarTone.INFO
-        )
-    }
-
-    LaunchedEffect(errorMessage) {
-        if (errorMessage.isNullOrBlank()) return@LaunchedEffect
-        onErrorConsumed?.invoke()
-        snackbarState.show(
-            message = errorMessage,
-            tone = YikeSnackbarTone.ERROR
+            message = message,
+            tone = tone
         )
     }
 }

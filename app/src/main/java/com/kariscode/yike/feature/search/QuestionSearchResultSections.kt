@@ -133,15 +133,7 @@ private fun QuestionSearchResultCard(
         Row(horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
             YikeSecondaryButton(
                 text = "练习这题",
-                onClick = {
-                    onOpenPractice(
-                        PracticeSessionArgs(
-                            deckIds = listOf(item.context.deckId),
-                            cardIds = listOf(item.context.question.cardId),
-                            questionIds = listOf(item.context.question.id)
-                        )
-                    )
-                },
+                onClick = { onOpenPractice(QuestionSearchStateFactory.buildPracticeArgsForResult(item)) },
                 modifier = Modifier.weight(1f)
             )
             YikePrimaryButton(

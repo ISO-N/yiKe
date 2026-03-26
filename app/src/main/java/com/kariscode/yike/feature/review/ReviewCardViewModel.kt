@@ -1,12 +1,10 @@
 package com.kariscode.yike.feature.review
 
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.ViewModelProvider
+import com.kariscode.yike.core.domain.time.TimeProvider
 import com.kariscode.yike.core.ui.message.ErrorMessages
 import com.kariscode.yike.core.ui.message.userMessageOr
-import com.kariscode.yike.core.domain.time.TimeProvider
 import com.kariscode.yike.core.ui.viewmodel.launchResult
-import com.kariscode.yike.core.ui.viewmodel.typedViewModelFactory
 import com.kariscode.yike.domain.model.Question
 import com.kariscode.yike.domain.model.ReviewRating
 import com.kariscode.yike.domain.repository.CardRepository
@@ -309,29 +307,6 @@ class ReviewCardViewModel(
         _effects.tryEmit(ReviewCardEffect.NavigateHome)
     }
 
-    companion object {
-        /**
-         * 工厂显式注入 cardId 与依赖，是为了保持 ViewModel 可测试且不依赖全局单例。
-         */
-        fun factory(
-            cardId: String,
-            cardRepository: CardRepository,
-            reviewRepository: ReviewRepository,
-            timeProvider: TimeProvider
-        ): ViewModelProvider.Factory = typedViewModelFactory {
-            ReviewCardViewModel(
-                cardId = cardId,
-                loadReviewCardSessionUseCase = LoadReviewCardSessionUseCase(
-                    cardRepository = cardRepository,
-                    reviewRepository = reviewRepository
-                ),
-                submitReviewRatingUseCase = SubmitReviewRatingUseCase(
-                    reviewRepository = reviewRepository
-                ),
-                timeProvider = timeProvider
-            )
-        }
-    }
 }
 
 /**

@@ -20,6 +20,25 @@ private data class ResolvedDueQuestion(
 )
 
 /**
+ * 汇总统计先在 builder 内部形成快照，是为了让总题数、卡片数与最早到期时间共享同一轮遍历结果，
+ * 避免随着字段增加把顶层统计拆成越来越多分散扫描。
+ */
+private data class TodayPreviewBuildSummary(
+    val totalDueQuestions: Int,
+    val totalDueCards: Int,
+    val lowMasteryCount: Int,
+    val earliestDueAt: Long?
+)
+
+/**
+ * 卡组分组在排序前额外保留首个到期时间，是为了避免排序阶段再把卡片和题目重新摊平一遍。
+ */
+private data class DeckGroupBuildResult(
+    val uiModel: TodayPreviewDeckUiModel,
+    val earliestDueAt: Long?
+)
+
+/**
  * 今日预览状态组装器保持纯输入输出，是为了让任务规模、分组与估时逻辑脱离 ViewModel 生命周期独立演进。
  */
 internal object TodayPreviewUiStateBuilder {
@@ -34,24 +53,25 @@ internal object TodayPreviewUiStateBuilder {
             ?.coerceAtLeast(MIN_RESPONSE_TIME_MS)
             ?: DEFAULT_RESPONSE_TIME_MS
         val resolvedQuestions = dueQuestions.map(::resolveDueQuestion)
+        val summary = summarizeResolvedQuestions(resolvedQuestions)
         val deckGroups = resolvedQuestions
             .groupBy { it.context.deckId }
-            .map { (_, deckQuestions) -> buildDeckGroup(deckQuestions, resolvedResponseTimeMs) }
+            .values
+            .map { deckQuestions -> buildDeckGroup(deckQuestions, resolvedResponseTimeMs) }
             .sortedWith(
-                compareByDescending<TodayPreviewDeckUiModel> { it.dueQuestionCount }
-                    .thenBy { deck ->
-                        deck.cards.flatMap { card -> card.questions }.minOfOrNull(TodayPreviewQuestionUiModel::dueAt)
-                    }
+                compareByDescending<DeckGroupBuildResult> { it.uiModel.dueQuestionCount }
+                    .thenBy(DeckGroupBuildResult::earliestDueAt)
             )
+            .map(DeckGroupBuildResult::uiModel)
         return TodayPreviewUiState(
             isLoading = false,
-            totalDueQuestions = dueQuestions.size,
-            totalDueCards = dueQuestions.map { it.question.cardId }.distinct().size,
+            totalDueQuestions = summary.totalDueQuestions,
+            totalDueCards = summary.totalDueCards,
             totalDecks = deckGroups.size,
-            estimatedMinutes = estimateMinutes(dueQuestions.size, resolvedResponseTimeMs),
+            estimatedMinutes = estimateMinutes(summary.totalDueQuestions, resolvedResponseTimeMs),
             averageSecondsPerQuestion = ceil(resolvedResponseTimeMs / 1000.0).toInt(),
-            lowMasteryCount = resolvedQuestions.count(ResolvedDueQuestion::isLowMastery),
-            earliestDueAt = dueQuestions.minOfOrNull { it.question.dueAt },
+            lowMasteryCount = summary.lowMasteryCount,
+            earliestDueAt = summary.earliestDueAt,
             deckGroups = deckGroups,
             errorMessage = null
         )
@@ -63,11 +83,20 @@ internal object TodayPreviewUiStateBuilder {
     private fun buildDeckGroup(
         questions: List<ResolvedDueQuestion>,
         averageResponseTimeMs: Double
-    ): TodayPreviewDeckUiModel {
+    ): DeckGroupBuildResult {
+        val firstQuestion = questions.first()
+        val deckLowMasteryCount = questions.count(ResolvedDueQuestion::isLowMastery)
+        var earliestDueAt: Long? = null
         val cards = questions.groupBy { it.context.question.cardId }
             .map { (cardId, cardQuestions) ->
-                val previewQuestions = cardQuestions
+                val firstCardQuestion = cardQuestions.first()
+                val sortedCardQuestions = cardQuestions
                     .sortedBy { it.context.question.dueAt }
+                val cardEarliestDueAt = sortedCardQuestions.firstOrNull()?.context?.question?.dueAt
+                if (cardEarliestDueAt != null && (earliestDueAt == null || cardEarliestDueAt < earliestDueAt)) {
+                    earliestDueAt = cardEarliestDueAt
+                }
+                val previewQuestions = sortedCardQuestions
                     .take(3)
                     .map { question ->
                         TodayPreviewQuestionUiModel(
@@ -79,7 +108,7 @@ internal object TodayPreviewUiStateBuilder {
                     }
                 TodayPreviewCardUiModel(
                     cardId = cardId,
-                    cardTitle = cardQuestions.first().context.cardTitle,
+                    cardTitle = firstCardQuestion.context.cardTitle,
                     dueQuestionCount = cardQuestions.size,
                     estimatedMinutes = estimateMinutes(cardQuestions.size, averageResponseTimeMs),
                     lowMasteryCount = cardQuestions.count(ResolvedDueQuestion::isLowMastery),
@@ -87,13 +116,16 @@ internal object TodayPreviewUiStateBuilder {
                 )
             }
             .sortedByDescending(TodayPreviewCardUiModel::dueQuestionCount)
-        return TodayPreviewDeckUiModel(
-            deckId = questions.first().context.deckId,
-            deckName = questions.first().context.deckName,
-            dueQuestionCount = questions.size,
-            estimatedMinutes = estimateMinutes(questions.size, averageResponseTimeMs),
-            lowMasteryCount = questions.count(ResolvedDueQuestion::isLowMastery),
-            cards = cards
+        return DeckGroupBuildResult(
+            uiModel = TodayPreviewDeckUiModel(
+                deckId = firstQuestion.context.deckId,
+                deckName = firstQuestion.context.deckName,
+                dueQuestionCount = questions.size,
+                estimatedMinutes = estimateMinutes(questions.size, averageResponseTimeMs),
+                lowMasteryCount = deckLowMasteryCount,
+                cards = cards
+            ),
+            earliestDueAt = earliestDueAt
         )
     }
 
@@ -114,6 +146,33 @@ internal object TodayPreviewUiStateBuilder {
             context = context,
             mastery = mastery,
             isLowMastery = mastery.level == QuestionMasteryLevel.NEW || mastery.level == QuestionMasteryLevel.LEARNING
+        )
+    }
+
+    /**
+     * 顶层汇总单独收口，是为了让“总卡片数/低熟练度数/最早到期”这组统计随字段增长时仍维持单次扫描。
+     */
+    private fun summarizeResolvedQuestions(
+        questions: List<ResolvedDueQuestion>
+    ): TodayPreviewBuildSummary {
+        val cardIds = LinkedHashSet<String>(questions.size)
+        var lowMasteryCount = 0
+        var earliestDueAt: Long? = null
+        questions.forEach { question ->
+            cardIds += question.context.question.cardId
+            if (question.isLowMastery) {
+                lowMasteryCount += 1
+            }
+            val dueAt = question.context.question.dueAt
+            if (earliestDueAt == null || dueAt < earliestDueAt) {
+                earliestDueAt = dueAt
+            }
+        }
+        return TodayPreviewBuildSummary(
+            totalDueQuestions = questions.size,
+            totalDueCards = cardIds.size,
+            lowMasteryCount = lowMasteryCount,
+            earliestDueAt = earliestDueAt
         )
     }
 }

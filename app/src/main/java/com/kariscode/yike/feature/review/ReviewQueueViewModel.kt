@@ -1,12 +1,10 @@
 package com.kariscode.yike.feature.review
 
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.ViewModelProvider
 import com.kariscode.yike.core.ui.message.ErrorMessages
 import com.kariscode.yike.core.ui.message.userMessageOr
 import com.kariscode.yike.core.domain.time.TimeProvider
 import com.kariscode.yike.core.ui.viewmodel.launchResult
-import com.kariscode.yike.core.ui.viewmodel.typedViewModelFactory
 import com.kariscode.yike.domain.repository.QuestionRepository
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -88,17 +86,6 @@ class ReviewQueueViewModel(
         )
     }
 
-    companion object {
-        /**
-         * 工厂注入依赖，避免 ViewModel 直接访问全局单例以保持可测试性。
-         */
-        fun factory(
-            questionRepository: QuestionRepository,
-            timeProvider: TimeProvider
-        ): ViewModelProvider.Factory = typedViewModelFactory {
-            ReviewQueueViewModel(questionRepository, timeProvider)
-        }
-    }
 }
 
 

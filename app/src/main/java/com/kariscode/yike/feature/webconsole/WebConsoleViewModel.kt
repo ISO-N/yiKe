@@ -1,9 +1,7 @@
 package com.kariscode.yike.feature.webconsole
 
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
-import com.kariscode.yike.core.ui.viewmodel.typedViewModelFactory
 import com.kariscode.yike.domain.model.WebConsoleState
 import com.kariscode.yike.domain.repository.WebConsoleRepository
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -57,15 +55,5 @@ class WebConsoleViewModel(
         }
     }
 
-    companion object {
-        /**
-         * 工厂显式注入仓储，是为了保持 ViewModel 可测试且不依赖全局静态对象。
-         */
-        fun factory(
-            webConsoleRepository: WebConsoleRepository
-        ): ViewModelProvider.Factory = typedViewModelFactory {
-            WebConsoleViewModel(webConsoleRepository = webConsoleRepository)
-        }
-    }
 }
 

@@ -188,23 +188,13 @@ private fun QuestionSearchPracticeEntry(
     uiState: QuestionSearchUiState,
     onOpenPractice: (PracticeSessionArgs) -> Unit
 ) {
-    val questionIds = uiState.results.map { item -> item.context.question.id }
-    val cardIds = uiState.results.map { item -> item.context.question.cardId }.distinct()
     YikeStateBanner(
         title = "把当前结果带去练习",
         description = "当前筛选已经命中 ${uiState.results.size} 题，可以继续调整范围，也可以直接进入只读练习。"
     ) {
         YikeSecondaryButton(
             text = "练习当前结果",
-            onClick = {
-                onOpenPractice(
-                    PracticeSessionArgs(
-                        deckIds = uiState.selectedDeckId?.let(::listOf).orEmpty(),
-                        cardIds = cardIds,
-                        questionIds = questionIds
-                    )
-                )
-            },
+            onClick = { onOpenPractice(QuestionSearchStateFactory.buildPracticeArgsForResults(uiState)) },
             modifier = Modifier.fillMaxWidth()
         )
     }

@@ -6,12 +6,11 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 
 /**
- * ViewModel 工厂统一走同一个 helper，是为了把样板化的强转与匿名对象收敛到单点，
- * 这样后续新增页面时更容易保持注入方式一致，也能减少重复代码带来的维护噪音。
+ * 调试源集仍有少量页面需要在不接入 Koin 的前提下创建 ViewModel，
+ * 保留这个 helper 能把那部分样板压缩在单点，而不把主业务层重新拉回双注入体系。
  */
 inline fun <reified T : ViewModel> typedViewModelFactory(
     crossinline creator: () -> T
 ): ViewModelProvider.Factory = viewModelFactory {
     initializer { creator() }
 }
-

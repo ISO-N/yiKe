@@ -1,13 +1,11 @@
 package com.kariscode.yike.feature.editor
 
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.kariscode.yike.core.domain.id.EntityIds
 import com.kariscode.yike.core.ui.message.ErrorMessages
 import com.kariscode.yike.core.ui.message.SuccessMessages
 import com.kariscode.yike.core.ui.viewmodel.launchResult
-import com.kariscode.yike.core.ui.viewmodel.typedViewModelFactory
 import com.kariscode.yike.core.domain.time.TimeProvider
 import com.kariscode.yike.domain.model.Card
 import com.kariscode.yike.domain.model.Question
@@ -590,37 +588,6 @@ class QuestionEditorViewModel(
 
     companion object {
         private const val AUTO_SAVE_DELAY_MILLIS = 1_500L
-
-        /**
-         * 工厂通过路由参数注入 cardId/deckId，并注入仓储与时间依赖，
-         * 以保持 ViewModel 与 Android framework 解耦。
-         */
-        fun factory(
-            cardId: String,
-            deckId: String?,
-            cardRepository: CardRepository,
-            questionRepository: QuestionRepository,
-            questionEditorDraftRepository: QuestionEditorDraftRepository,
-            timeProvider: TimeProvider
-        ): ViewModelProvider.Factory = typedViewModelFactory {
-            QuestionEditorViewModel(
-                cardId = cardId,
-                deckId = deckId,
-                questionEditorDraftRepository = questionEditorDraftRepository,
-                loadQuestionEditorContentUseCase = LoadQuestionEditorContentUseCase(
-                    cardRepository = cardRepository,
-                    questionRepository = questionRepository,
-                    questionEditorDraftRepository = questionEditorDraftRepository
-                ),
-                saveQuestionEditorChangesUseCase = SaveQuestionEditorChangesUseCase(
-                    cardRepository = cardRepository,
-                    questionRepository = questionRepository,
-                    questionEditorDraftRepository = questionEditorDraftRepository,
-                    timeProvider = timeProvider
-                ),
-                timeProvider = timeProvider
-            )
-        }
     }
 }
 
