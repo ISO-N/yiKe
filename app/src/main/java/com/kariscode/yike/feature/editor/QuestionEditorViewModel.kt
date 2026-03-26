@@ -429,7 +429,7 @@ class QuestionEditorViewModel(
         }
         draftSaveJob?.cancel()
         draftSaveJob = viewModelScope.launch {
-            delay(AUTO_SAVE_DELAY_MILLIS)
+            delay(QuestionEditorConstants.AUTO_SAVE_DELAY_MILLIS)
             persistCurrentDraft(showSuccessMessage = false, navigateAfterSaving = false)
         }
     }
@@ -579,8 +579,5 @@ class QuestionEditorViewModel(
         validationMessage = null
     )
 
-    companion object {
-        private const val AUTO_SAVE_DELAY_MILLIS = 1_500L
-    }
 }
 

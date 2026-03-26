@@ -2,6 +2,7 @@ package com.kariscode.yike.feature.card
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.compose.runtime.Immutable
 import com.kariscode.yike.core.ui.message.ErrorMessages
 import com.kariscode.yike.core.ui.message.userMessageOr
 import com.kariscode.yike.core.domain.time.TimeProvider
@@ -29,6 +30,7 @@ import kotlinx.coroutines.launch
 /**
  * 熟练度摘要集中在卡片页状态里，是为了让卡组层先暴露“整体薄弱分布”，再让用户进入具体卡片。
  */
+@Immutable
 data class DeckMasterySummary(
     val totalQuestions: Int,
     val newCount: Int,
