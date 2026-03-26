@@ -9,7 +9,7 @@ data class TextMetadataDraft(
     val primaryValue: String,
     val secondaryValue: String,
     val validationMessage: String? = null
-) {
+) : ValidationMessageDraft<TextMetadataDraft> {
     /**
      * 主字段修改时统一清空旧校验提示，是为了让用户修正输入后立即回到干净的编辑状态。
      */
@@ -25,6 +25,6 @@ data class TextMetadataDraft(
     /**
      * 校验消息由单点覆盖，是为了让不同管理页在“保存失败后如何回填提示”上保持一致口径。
      */
-    fun withValidationMessage(message: String?): TextMetadataDraft =
+    override fun withValidationMessage(message: String?): TextMetadataDraft =
         copy(validationMessage = message)
 }

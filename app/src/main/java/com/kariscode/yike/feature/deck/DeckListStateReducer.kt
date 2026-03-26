@@ -2,6 +2,7 @@ package com.kariscode.yike.feature.deck
 
 import com.kariscode.yike.core.ui.message.SuccessMessages
 import com.kariscode.yike.domain.model.DeckSummary
+import com.kariscode.yike.feature.common.FeedbackReducerTemplate
 
 /**
  * 卡组列表页的状态回写集中到 reducer，是为了把异步编排和纯状态转换拆开，
@@ -95,10 +96,7 @@ internal object DeckListStateReducer {
     fun mutationFailed(
         state: DeckListUiState,
         errorMessage: String
-    ): DeckListUiState = state.copy(
-        message = null,
-        errorMessage = errorMessage
-    )
+    ): DeckListUiState = FeedbackReducerTemplate.withError(state, errorMessage)
 
     /**
      * 归档提示由 reducer 统一回写，是为了把文案选择和其他状态清理绑定在一处。

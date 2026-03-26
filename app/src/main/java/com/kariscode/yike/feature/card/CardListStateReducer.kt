@@ -3,6 +3,7 @@ package com.kariscode.yike.feature.card
 import com.kariscode.yike.core.ui.message.SuccessMessages
 import com.kariscode.yike.feature.common.TextMetadataDraft
 import com.kariscode.yike.domain.model.CardSummary
+import com.kariscode.yike.feature.common.FeedbackReducerTemplate
 
 /**
  * 卡片列表页的状态变更集中在 reducer 中，是为了把“状态如何变化”从协程编排中拆出来，
@@ -125,10 +126,7 @@ internal object CardListStateReducer {
     fun mutationFailed(
         state: CardListUiState,
         errorMessage: String
-    ): CardListUiState = state.copy(
-        message = null,
-        errorMessage = errorMessage
-    )
+    ): CardListUiState = FeedbackReducerTemplate.withError(state, errorMessage)
 
     /**
      * 熟练度摘要成功回写单独收口，是为了让列表刷新和统计刷新保持解耦。

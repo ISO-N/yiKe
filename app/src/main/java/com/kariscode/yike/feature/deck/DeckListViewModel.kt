@@ -19,6 +19,7 @@ import com.kariscode.yike.domain.usecase.GetDeckAvailableTagsUseCase
 import com.kariscode.yike.domain.usecase.ObserveDeckSummariesUseCase
 import com.kariscode.yike.domain.usecase.SaveDeckUseCase
 import com.kariscode.yike.domain.usecase.ToggleDeckArchiveUseCase
+import com.kariscode.yike.feature.common.FeedbackState
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -39,9 +40,15 @@ data class DeckListUiState(
     val availableTags: List<String>,
     val editor: DeckMetadataDraft?,
     val pendingDelete: DeckSummary?,
-    val message: String?,
-    val errorMessage: String?
-)
+    override val message: String?,
+    override val errorMessage: String?
+) : FeedbackState<DeckListUiState> {
+    /**
+     * 反馈字段通过单一入口回写，是为了让成功提示与错误提示的互斥约束不在多个 reducer 分支里重复维护。
+     */
+    override fun withFeedback(message: String?, errorMessage: String?): DeckListUiState =
+        copy(message = message, errorMessage = errorMessage)
+}
 
 /**
  * ViewModel 持有列表页的交互状态，避免把校验、ID 生成与时间戳策略散落在 UI 层，

@@ -19,6 +19,7 @@ import com.kariscode.yike.domain.usecase.LoadDeckCardContextUseCase
 import com.kariscode.yike.domain.usecase.ObserveCardSummariesUseCase
 import com.kariscode.yike.domain.usecase.SaveCardUseCase
 import com.kariscode.yike.domain.usecase.ToggleCardArchiveUseCase
+import com.kariscode.yike.feature.common.FeedbackState
 import com.kariscode.yike.feature.common.TextMetadataDraft
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -52,9 +53,15 @@ data class CardListUiState(
     val masterySummary: DeckMasterySummary?,
     val editor: TextMetadataDraft?,
     val pendingDelete: CardSummary?,
-    val message: String?,
-    val errorMessage: String?
-)
+    override val message: String?,
+    override val errorMessage: String?
+) : FeedbackState<CardListUiState> {
+    /**
+     * 反馈字段通过单一入口回写，是为了让成功提示与错误提示的互斥约束不在多个 reducer 分支里重复维护。
+     */
+    override fun withFeedback(message: String?, errorMessage: String?): CardListUiState =
+        copy(message = message, errorMessage = errorMessage)
+}
 
 /**
  * 卡片列表 ViewModel 负责协调 deck 信息加载与列表聚合流订阅，

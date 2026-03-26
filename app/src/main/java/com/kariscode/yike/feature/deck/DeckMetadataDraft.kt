@@ -1,6 +1,7 @@
 package com.kariscode.yike.feature.deck
 
 import com.kariscode.yike.domain.scheduler.ReviewSchedulerV1
+import com.kariscode.yike.feature.common.ValidationMessageDraft
 
 /**
  * 卡组编辑草稿单独承载间隔次数，是为了把“卡组元信息”和“卡片元信息”从现在开始区分开，
@@ -13,7 +14,7 @@ data class DeckMetadataDraft(
     val tags: List<String> = emptyList(),
     val intervalStepCountText: String = ReviewSchedulerV1.DEFAULT_INTERVAL_STEP_COUNT.toString(),
     val validationMessage: String? = null
-) {
+) : ValidationMessageDraft<DeckMetadataDraft> {
     /**
      * 名称变更时同步清空旧校验提示，是为了让用户修正后能立即看到“当前输入重新有效”的反馈。
      */
@@ -41,6 +42,6 @@ data class DeckMetadataDraft(
     /**
      * 校验消息由草稿单点回填，可保证创建与编辑两条路径使用完全一致的提示口径。
      */
-    fun withValidationMessage(message: String?): DeckMetadataDraft =
+    override fun withValidationMessage(message: String?): DeckMetadataDraft =
         copy(validationMessage = message)
 }
