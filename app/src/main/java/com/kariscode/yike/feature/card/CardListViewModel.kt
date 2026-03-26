@@ -18,6 +18,7 @@ import com.kariscode.yike.domain.usecase.ObserveCardSummariesUseCase
 import com.kariscode.yike.domain.usecase.SaveCardUseCase
 import com.kariscode.yike.domain.usecase.ToggleCardArchiveUseCase
 import com.kariscode.yike.feature.common.FeedbackState
+import com.kariscode.yike.feature.common.TextMetadataDraft
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow

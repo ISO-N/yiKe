@@ -13,10 +13,9 @@ import com.kariscode.yike.domain.model.SyncChangeOperation
 import com.kariscode.yike.domain.model.SyncEntityType
 import com.kariscode.yike.domain.model.ThemeMode
 import com.kariscode.yike.domain.repository.AppSettingsRepository
-import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.encodeToString
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -31,7 +30,6 @@ import org.robolectric.RobolectricTestRunner
  * 变更应用器集成测试覆盖“远端 upsert/delete + 设置合并 + 提醒重建”链路，
  * 是为了在同步流程继续演进时守住“落库结果与副作用编排”这条高风险主路径。
  */
-@OptIn(ExperimentalCoroutinesApi::class)
 @RunWith(RobolectricTestRunner::class)
 class LanSyncChangeApplierIntegrationTest {
     private lateinit var database: YikeDatabase
@@ -76,7 +74,7 @@ class LanSyncChangeApplierIntegrationTest {
      * 否则跨设备同步会出现“数据对齐了但设置没对齐/提醒没更新”的割裂体验。
      */
     @Test
-    fun applyIncomingChanges_appliesDataAndSettingsAndSchedulesReminder() = runTest {
+    fun applyIncomingChanges_appliesDataAndSettingsAndSchedulesReminder() = runBlocking {
         database.deckDao().upsertAll(listOf(deckEntity(id = "deck_1", name = "旧卡组")))
         database.cardDao().upsertAll(listOf(cardEntity(id = "card_1", deckId = "deck_1")))
         database.questionDao().upsertAll(listOf(questionEntity(id = "q_1", cardId = "card_1")))
@@ -126,7 +124,7 @@ class LanSyncChangeApplierIntegrationTest {
                         dailyReminderEnabled = true,
                         dailyReminderHour = 21,
                         dailyReminderMinute = 15,
-                        themeMode = ThemeMode.DARK.name,
+                        themeMode = ThemeMode.DARK.storageValue,
                         streakAchievementUnlocks = emptyList()
                     )
                 ),
@@ -249,7 +247,7 @@ class LanSyncChangeApplierIntegrationTest {
         id = id,
         name = name,
         description = "",
-        tags = emptyList(),
+        tagsJson = "[]",
         intervalStepCount = 6,
         archived = false,
         sortOrder = 0,
@@ -280,7 +278,7 @@ class LanSyncChangeApplierIntegrationTest {
         cardId = cardId,
         prompt = "题面",
         answer = "答案",
-        tags = emptyList(),
+        tagsJson = "[]",
         status = QuestionEntity.STATUS_ACTIVE,
         stageIndex = 0,
         dueAt = 1_000L,
@@ -291,4 +289,3 @@ class LanSyncChangeApplierIntegrationTest {
         updatedAt = 1_000L
     )
 }
-
