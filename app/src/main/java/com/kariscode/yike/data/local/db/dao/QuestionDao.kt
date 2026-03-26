@@ -64,6 +64,15 @@ data class DeckMasterySummaryRow(
 )
 
 /**
+ * 标签聚合行把“标签去重 + 使用次数”下推到 SQL，是为了避免应用层把所有 tagsJson 全量加载进内存后再解析聚合，
+ * 从而在题库规模变大时仍能保持稳定的内存占用与查询延迟。
+ */
+data class TagUsageRow(
+    val tag: String,
+    val usageCount: Int
+)
+
+/**
  * QuestionDao 的查询需要显式包含 status 与 due 条件，
  * 这是为了保证“归档不出现”和“今日到期口径”在全应用范围内一致。
  */
@@ -191,11 +200,24 @@ interface QuestionDao {
     suspend fun listCsvExportRows(activeStatus: String): List<CsvQuestionExportRow>
 
     /**
-     * 标签候选直接读取原始 JSON 字段，是为了让仓储层统一负责解析与去重策略，
-     * 避免 SQL 为了拆 JSON 引入超出当前需求的复杂度。
+     * 标签候选由数据库层直接聚合，是为了让“常用标签”只读取需要的前 N 项，
+     * 避免应用层先把所有 tagsJson 拉到内存后再解码、去重、计数。
      */
-    @Query("SELECT tagsJson FROM question WHERE status = :activeStatus")
-    suspend fun listTagsJson(activeStatus: String): List<String>
+    @Query(
+        """
+        SELECT
+            je.value AS tag,
+            COUNT(*) AS usageCount
+        FROM question q
+        JOIN json_each(q.tagsJson) je
+        WHERE q.status = :activeStatus
+          AND TRIM(je.value) <> ''
+        GROUP BY je.value
+        ORDER BY usageCount DESC, LOWER(je.value) ASC
+        LIMIT :limit
+        """
+    )
+    suspend fun listTagUsages(activeStatus: String, limit: Int): List<TagUsageRow>
 
     /**
      * 练习模式必须忽略 due，只按未归档层级、active 状态与用户选择范围读取，

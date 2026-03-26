@@ -84,39 +84,49 @@ class QuestionSearchIndexer(
  */
 object QuestionSearchTokenizer {
     private const val CACHE_MAX_SIZE: Int = 128
-    private val tokenizeCache = object : LinkedHashMap<String, List<String>>(CACHE_MAX_SIZE, 0.75f, true) {
-        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, List<String>>): Boolean =
-            size > CACHE_MAX_SIZE
-    }
+    /**
+     * tokenize 缓存使用并发容器，是为了避免在高频搜索输入与批量索引重建时被全局锁串行化。
+     *
+     * 容量控制采用 best-effort 策略：达到阈值时清空缓存。
+     * 相比严格 LRU，这个策略更简单、无全局锁，对 128 级别的小缓存命中率影响可接受。
+     */
+    private val tokenizeCache: java.util.concurrent.ConcurrentHashMap<String, List<String>> =
+        java.util.concurrent.ConcurrentHashMap(CACHE_MAX_SIZE)
 
     /**
      * 将字符串拆成连续的双字符 token，是为了兼顾中文词串和英文子串搜索，又不改动最终 LIKE 匹配语义。
      */
-    @Synchronized
     fun tokenize(text: String): List<String> {
-        tokenizeCache[text]?.let { cachedTokens ->
-            return cachedTokens
+        tokenizeCache[text]?.let { cachedTokens -> return cachedTokens }
+
+        val tokens = buildTokens(text)
+        if (tokenizeCache.size >= CACHE_MAX_SIZE) {
+            tokenizeCache.clear()
         }
-        val normalized = text.lowercase()
-            .mapNotNull { char ->
+        tokenizeCache.putIfAbsent(text, tokens)
+        return tokenizeCache[text] ?: tokens
+    }
+
+    /**
+     * 分词实现拆出来，是为了让缓存逻辑更薄，同时减少 windowed/distinct 带来的临时对象分配。
+     */
+    private fun buildTokens(text: String): List<String> {
+        val normalized = buildString(capacity = text.length) {
+            text.lowercase().forEach { char ->
                 when {
-                    char.isLetterOrDigit() -> char
-                    Character.UnicodeScript.of(char.code) == Character.UnicodeScript.HAN -> char
-                    else -> null
+                    char.isLetterOrDigit() -> append(char)
+                    Character.UnicodeScript.of(char.code) == Character.UnicodeScript.HAN -> append(char)
+                    else -> Unit
                 }
             }
-            .joinToString(separator = "")
+        }
         if (normalized.length < 2) {
-            return emptyList<String>().also { tokens ->
-                tokenizeCache[text] = tokens
-            }
+            return emptyList()
         }
-        return buildList {
-            normalized.windowed(size = 2, step = 1, partialWindows = false).forEach { token ->
-                add(token)
-            }
-        }.distinct().also { tokens ->
-            tokenizeCache[text] = tokens
+        val uniqueTokens = LinkedHashSet<String>(normalized.length)
+        for (index in 0 until normalized.length - 1) {
+            uniqueTokens.add(normalized.substring(index, index + 2))
         }
+        return uniqueTokens.toList()
     }
 }

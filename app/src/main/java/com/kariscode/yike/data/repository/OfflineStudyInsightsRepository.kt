@@ -5,7 +5,6 @@ import com.kariscode.yike.data.local.db.dao.QuestionDao
 import com.kariscode.yike.data.local.db.dao.QuestionContextRow
 import com.kariscode.yike.data.local.db.dao.QuestionSearchTokenDao
 import com.kariscode.yike.data.local.db.dao.ReviewRecordDao
-import com.kariscode.yike.data.mapper.decodeTags
 import com.kariscode.yike.data.mapper.toDomain
 import com.kariscode.yike.data.search.QuestionSearchTokenizer
 import com.kariscode.yike.domain.model.DeckMasterySummarySnapshot
@@ -77,16 +76,10 @@ class OfflineStudyInsightsRepository(
      * 标签建议在仓储层完成解析与去重，是为了让不同页面共享同一套“常用标签”排序方式。
      */
     override suspend fun listAvailableTags(limit: Int): List<String> = dispatchers.onIo {
-        questionDao.listTagsJson(activeStatus = QuestionStatus.ACTIVE.storageValue)
-            .flatMap(::decodeTags)
-            .map(String::trim)
-            .filter(String::isNotBlank)
-            .groupingBy { it }
-            .eachCount()
-            .entries
-            .sortedWith(compareByDescending<Map.Entry<String, Int>> { it.value }.thenBy { it.key })
-            .take(limit)
-            .map { it.key }
+        questionDao.listTagUsages(
+            activeStatus = QuestionStatus.ACTIVE.storageValue,
+            limit = limit
+        ).map { row -> row.tag }
     }
 
     /**

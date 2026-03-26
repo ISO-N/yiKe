@@ -1,6 +1,7 @@
 package com.kariscode.yike.feature.search
 
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import com.kariscode.yike.core.domain.coroutine.parallel
 import com.kariscode.yike.core.ui.message.ErrorMessages
 import com.kariscode.yike.core.ui.message.userMessageOr
@@ -17,6 +18,7 @@ import com.kariscode.yike.domain.usecase.GetQuestionSearchMetadataUseCase
 import com.kariscode.yike.domain.usecase.QuestionSearchMetadataSnapshot
 import com.kariscode.yike.domain.usecase.SearchQuestionsUseCase
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -53,6 +55,7 @@ class QuestionSearchViewModel(
     val uiState: StateFlow<QuestionSearchUiState> = _uiState.asStateFlow()
 
     private var searchJob: Job? = null
+    private var debounceJob: Job? = null
 
     init {
         /**
@@ -172,11 +175,21 @@ class QuestionSearchViewModel(
      * 搜索任务使用可取消作业包装，是为了避免快速连续输入时旧结果反向覆盖新状态。
      */
     private fun search() {
-        val snapshot = _uiState.value
+        debounceJob?.cancel()
+        debounceJob = viewModelScope.launch {
+            delay(SEARCH_DEBOUNCE_MILLIS)
+            searchNow()
+        }
+    }
+
+    /**
+     * 防抖结束后再真正发起查询，是为了让快速连续输入只触发最后一次搜索，减少无意义的数据库扫描与状态回写抖动。
+     */
+    private fun searchNow() {
         searchJob = restartStateResult(
             state = _uiState,
             previousJob = searchJob,
-            action = { searchQuestions(snapshot) },
+            action = { searchQuestions(_uiState.value) },
             onStart = QuestionSearchStateFactory::withLoading,
             onSuccess = QuestionSearchStateFactory::withSearchSucceeded,
             onFailure = { state, throwable ->
@@ -233,6 +246,10 @@ class QuestionSearchViewModel(
     ) {
         _uiState.update(transform)
         search()
+    }
+
+    private companion object {
+        private const val SEARCH_DEBOUNCE_MILLIS: Long = 300L
     }
 
 }
