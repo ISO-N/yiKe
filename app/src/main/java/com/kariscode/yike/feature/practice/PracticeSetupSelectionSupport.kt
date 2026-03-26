@@ -1,21 +1,21 @@
 package com.kariscode.yike.feature.practice
 
 import com.kariscode.yike.domain.model.QuestionContext
+import com.kariscode.yike.domain.practice.PracticeSelectionProjection as DomainSelectionProjection
+import com.kariscode.yike.domain.practice.applyToggle as applyToggleDomain
+import com.kariscode.yike.domain.practice.buildCardOptions as buildCardOptionsDomain
+import com.kariscode.yike.domain.practice.buildDeckOptions as buildDeckOptionsDomain
+import com.kariscode.yike.domain.practice.buildPracticeSelectionProjection as buildSelectionProjectionDomain
+import com.kariscode.yike.domain.practice.normalizeQuestionSelection as normalizeQuestionSelectionDomain
 
 /**
- * deck 选项聚合快照把展示字段和唯一卡片数先收口，是为了让 deck 选项构建保持纯聚合逻辑，
- * 避免 `buildDeckOptions` 随着统计字段增加继续堆叠更多临时集合操作。
+ * feature 层只保留 UI 模型映射，是为了把 deck -> card -> question 的范围裁剪与归一化规则收口到 domain，
+ * 同时避免 UI 预览文案（例如答案截断）反向污染领域层。
  */
-private data class DeckOptionSnapshot(
-    val deckId: String,
-    val deckName: String,
-    val cardCount: Int,
-    val questionCount: Int
-)
 
 /**
- * 练习范围投影把 deck/card/question 三层候选与归一化后的选择集中打包，
- * 是为了让 ViewModel 只消费“一轮范围计算的结果”，而不再手动拼接多份中间集合。
+ * 练习范围投影把 deck/card/question 三层候选与归一化后的选择结果打包给 ViewModel，
+ * 但真正的业务裁剪逻辑委托给 domain 侧的纯函数实现。
  */
 internal data class PracticeSelectionProjection(
     val deckOptions: List<PracticeDeckOptionUiModel>,
@@ -28,89 +28,59 @@ internal data class PracticeSelectionProjection(
 )
 
 /**
- * deck 过滤先于 card 与 question 生效，是为了让“选择若干卡组”天然成为下层候选的父范围。
- */
-fun List<QuestionContext>.filterBySelectedDecks(selectedDeckIds: Set<String>): List<QuestionContext> {
-    if (selectedDeckIds.isEmpty()) {
-        return this
-    }
-    return filter { context -> context.deckId in selectedDeckIds }
-}
-
-/**
- * card 过滤在未显式选择卡片时保留当前 deck 范围全部题目，是为了让第一版仍支持“整组过一遍”。
- */
-fun List<QuestionContext>.filterBySelectedCards(selectedCardIds: Set<String>): List<QuestionContext> {
-    if (selectedCardIds.isEmpty()) {
-        return this
-    }
-    return filter { context -> context.question.cardId in selectedCardIds }
-}
-
-/**
- * deck 选项统一按题目上下文聚合，是为了复用同一份只读查询结果而不再额外请求列表接口。
+ * deck 选项的构建保留在 feature 层的唯一目的，是把 domain 输出映射到 UI 模型，
+ * 让组合组件只消费展示友好的字段。
  */
 fun buildDeckOptions(
     allQuestionContexts: List<QuestionContext>,
     selectedDeckIds: Set<String>
-): List<PracticeDeckOptionUiModel> = allQuestionContexts
-    .groupBy(QuestionContext::deckId)
-    .values
-    .map(::buildDeckOptionSnapshot)
-    .map { snapshot ->
-        PracticeDeckOptionUiModel(
-            deckId = snapshot.deckId,
-            deckName = snapshot.deckName,
-            cardCount = snapshot.cardCount,
-            questionCount = snapshot.questionCount,
-            isSelected = snapshot.deckId in selectedDeckIds
-        )
-    }
+): List<PracticeDeckOptionUiModel> = buildDeckOptionsDomain(
+    allQuestionContexts = allQuestionContexts,
+    selectedDeckIds = selectedDeckIds
+).map { option ->
+    PracticeDeckOptionUiModel(
+        deckId = option.deckId,
+        deckName = option.deckName,
+        cardCount = option.cardCount,
+        questionCount = option.questionCount,
+        isSelected = option.isSelected
+    )
+}
 
 /**
- * 卡片选项基于 deck 过滤后的题目集合重建，是为了让卡片多选始终只暴露当前父范围内可用的内容。
+ * card 选项同样只做模型转换，是为了让候选口径继续由 domain 层负责。
  */
 fun buildCardOptions(
     questionContexts: List<QuestionContext>,
     selectedCardIds: Set<String>
-): List<PracticeCardOptionUiModel> = questionContexts
-    .groupBy { context -> context.question.cardId }
-    .values
-    .map { cardContexts ->
-        val first = cardContexts.first()
-        PracticeCardOptionUiModel(
-            cardId = first.question.cardId,
-            deckId = first.deckId,
-            deckName = first.deckName,
-            cardTitle = first.cardTitle,
-            questionCount = cardContexts.size,
-            isSelected = first.question.cardId in selectedCardIds
-        )
-    }
+): List<PracticeCardOptionUiModel> = buildCardOptionsDomain(
+    questionContexts = questionContexts,
+    selectedCardIds = selectedCardIds
+).map { option ->
+    PracticeCardOptionUiModel(
+        cardId = option.cardId,
+        deckId = option.deckId,
+        deckName = option.deckName,
+        cardTitle = option.cardTitle,
+        questionCount = option.questionCount,
+        isSelected = option.isSelected
+    )
+}
 
 /**
- * 题目手选若恰好等于全集则回退成 `null`，是为了让状态明确区分“全选当前范围”和“显式裁剪过”。
+ * 题目手选若恰好覆盖当前全集则回退成 null，是为了让状态明确区分“全选当前范围”和“显式裁剪过”。
  */
 fun Set<String>.normalizeQuestionSelection(
     availableQuestionIds: Set<String>
-): Set<String>? = when {
-    isEmpty() -> emptySet()
-    size == availableQuestionIds.size -> null
-    else -> this
-}
+): Set<String>? = normalizeQuestionSelectionDomain(this, availableQuestionIds)
 
 /**
- * 多选集合统一用同一个切换 helper，是为了让 deck/card/question 三层都共享一致的交互语义。
+ * 多选集合统一用可逆 toggle，是为了让 deck/card/question 三层都共享同一套点击语义。
  */
-fun MutableSet<String>.applyToggle(id: String): Set<String> {
-    if (!add(id)) {
-        remove(id)
-    }
-    return toSet()
-}
+fun MutableSet<String>.applyToggle(id: String): Set<String> = applyToggleDomain(this, id)
 
 /**
- * deck/card/question 三层范围统一在纯函数里投影，是为了把合法性校验、全选回退和候选重建固定成单一口径。
+ * practice 设置页的范围投影依赖 domain 纯函数，然后把输出映射到 UI 需要的预览字段。
  */
 internal fun buildPracticeSelectionProjection(
     allQuestionContexts: List<QuestionContext>,
@@ -118,57 +88,47 @@ internal fun buildPracticeSelectionProjection(
     selectedCardIds: Set<String>,
     selectedQuestionIds: Set<String>?
 ): PracticeSelectionProjection {
-    val deckOptions = buildDeckOptions(
+    val projection: DomainSelectionProjection = buildSelectionProjectionDomain(
         allQuestionContexts = allQuestionContexts,
-        selectedDeckIds = selectedDeckIds
+        selectedDeckIds = selectedDeckIds,
+        selectedCardIds = selectedCardIds,
+        selectedQuestionIds = selectedQuestionIds
     )
-    val normalizedDeckIds = selectedDeckIds.intersect(deckOptions.mapTo(LinkedHashSet()) { it.deckId })
-    val deckScopedContexts = allQuestionContexts.filterBySelectedDecks(normalizedDeckIds)
-    val cardOptions = buildCardOptions(
-        questionContexts = deckScopedContexts,
-        selectedCardIds = selectedCardIds
-    )
-    val normalizedCardIds = selectedCardIds.intersect(cardOptions.mapTo(LinkedHashSet()) { it.cardId })
-    val questionScopedContexts = deckScopedContexts.filterBySelectedCards(normalizedCardIds)
-    val availableQuestionIds = questionScopedContexts.mapTo(LinkedHashSet()) { it.question.id }
-    val normalizedQuestionIds = selectedQuestionIds
-        ?.intersect(availableQuestionIds)
-        ?.normalizeQuestionSelection(availableQuestionIds)
-    val questionOptions = questionScopedContexts.map { context ->
-        PracticeQuestionOptionUiModel(
-            questionId = context.question.id,
-            cardId = context.question.cardId,
-            deckName = context.deckName,
-            cardTitle = context.cardTitle,
-            prompt = context.question.prompt,
-            answerPreview = context.question.answer.ifBlank { "无答案" }.take(48),
-            isSelected = normalizedQuestionIds?.contains(context.question.id) ?: true
-        )
-    }
     return PracticeSelectionProjection(
-        deckOptions = deckOptions,
-        cardOptions = cardOptions,
-        questionOptions = questionOptions,
-        selectedDeckIds = normalizedDeckIds,
-        selectedCardIds = normalizedCardIds,
-        selectedQuestionIds = normalizedQuestionIds,
-        effectiveQuestionCount = normalizedQuestionIds?.size ?: questionOptions.size
+        deckOptions = projection.deckOptions.map { option ->
+            PracticeDeckOptionUiModel(
+                deckId = option.deckId,
+                deckName = option.deckName,
+                cardCount = option.cardCount,
+                questionCount = option.questionCount,
+                isSelected = option.isSelected
+            )
+        },
+        cardOptions = projection.cardOptions.map { option ->
+            PracticeCardOptionUiModel(
+                cardId = option.cardId,
+                deckId = option.deckId,
+                deckName = option.deckName,
+                cardTitle = option.cardTitle,
+                questionCount = option.questionCount,
+                isSelected = option.isSelected
+            )
+        },
+        questionOptions = projection.questionOptions.map { option ->
+            PracticeQuestionOptionUiModel(
+                questionId = option.questionId,
+                cardId = option.cardId,
+                deckName = option.deckName,
+                cardTitle = option.cardTitle,
+                prompt = option.prompt,
+                answerPreview = option.answer.ifBlank { "无答案" }.take(48),
+                isSelected = option.isSelected
+            )
+        },
+        selectedDeckIds = projection.selectedDeckIds,
+        selectedCardIds = projection.selectedCardIds,
+        selectedQuestionIds = projection.selectedQuestionIds,
+        effectiveQuestionCount = projection.effectiveQuestionCount
     )
 }
 
-/**
- * 每个 deck 分组只扫描一次来汇总唯一卡片数，是为了避免题目规模变大后仍为同一组选项重复做 `map + distinct`。
- */
-private fun buildDeckOptionSnapshot(deckContexts: List<QuestionContext>): DeckOptionSnapshot {
-    val first = deckContexts.first()
-    val cardIds = LinkedHashSet<String>(deckContexts.size)
-    deckContexts.forEach { context ->
-        cardIds += context.question.cardId
-    }
-    return DeckOptionSnapshot(
-        deckId = first.deckId,
-        deckName = first.deckName,
-        cardCount = cardIds.size,
-        questionCount = deckContexts.size
-    )
-}
